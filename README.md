@@ -23,3 +23,23 @@ Deployment: VPS
 DevOps: Docker, GitHub Actions, CI/CD
 Testing: Jest, Postman
 Monitoring & Logging: PM2
+
+## Frontend Setup
+
+We have set up the initial frontend React application inside the `frontend` directory. It features a sidebar layout and a custom theme switcher using specific HSL values for both Dark and Light modes.
+
+### Getting Started with the Frontend
+
+1. Open your terminal and navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install the necessary dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm start
+   ```
+The application will open in your default browser at `http://localhost:3000`.

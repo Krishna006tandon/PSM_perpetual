@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
+import PHAStartMenu from './pages/PHAStartMenu';
+import StudyOverview from './pages/StudyOverview';
+
+import Auth from './components/Auth';
 
 function App() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light');
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [activeStudy, setActiveStudy] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -12,11 +20,70 @@ function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  return (
-    <div className="app-container">
-      <Sidebar />
+  const handleStudyOpened = (study) => {
+    setActiveStudy(study);
+    setCurrentView('studyOverview');
+  };
 
-      {/* Main Content */}
+  const handlePhaClick = () => {
+    if (isAuthenticated) {
+      setCurrentView('pha');
+    } else {
+      setShowAuth(true);
+    }
+  };
+
+  const handleAuthSuccess = (token) => {
+    setIsAuthenticated(true);
+    setShowAuth(false);
+    setCurrentView('pha');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    setCurrentView('dashboard');
+  };
+
+  const renderContent = () => {
+    if (showAuth) {
+      return <Auth onAuthSuccess={handleAuthSuccess} onCancel={() => setShowAuth(false)} />;
+    }
+
+    if (currentView === 'studyOverview') {
+      return (
+        <StudyOverview 
+          study={activeStudy} 
+          onBack={() => setCurrentView('pha')} 
+          theme={theme}
+          toggleTheme={toggleTheme}
+        />
+      );
+    }
+
+    if (currentView === 'pha') {
+      return (
+        <div style={{ padding: '20px', width: '100%', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <button 
+              onClick={() => setCurrentView('dashboard')}
+              style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--divider)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}
+            >
+              &larr; Back to Dashboard
+            </button>
+            <button 
+              onClick={handleLogout}
+              style={{ padding: '8px 16px', backgroundColor: 'var(--error)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+            >
+              Logout
+            </button>
+          </div>
+          <PHAStartMenu onStudyCreated={handleStudyOpened} />
+        </div>
+      );
+    }
+
+    return (
       <main className="main-content">
         <header className="header">
           <div>
@@ -29,7 +96,22 @@ function App() {
             Toggle to {theme === 'dark' ? 'Light' : 'Dark'} Mode
           </button>
         </header>
+
+        <div className="card-container">
+          <div className="card" onClick={handlePhaClick} style={{ cursor: 'pointer' }}>
+            <h3>PHA</h3>
+            <p>Process Hazard Analysis</p>
+            <span className="status-badge status-info">View Details</span>
+          </div>
+        </div>
       </main>
+    );
+  };
+
+  return (
+    <div className="app-container">
+      {currentView !== 'studyOverview' && <Sidebar />}
+      {renderContent()}
     </div>
   );
 }

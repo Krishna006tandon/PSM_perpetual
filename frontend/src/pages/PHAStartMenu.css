@@ -1,0 +1,359 @@
+.pha-container {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Inter', sans-serif;
+  color: #1a2b3c;
+}
+
+.pha-header {
+  margin-bottom: 40px;
+  display: inline-block;
+}
+
+.pha-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  color: #152b3c;
+}
+
+.pha-title-separator {
+  margin: 0 8px;
+  font-weight: 400;
+}
+
+.pha-title-underline {
+  height: 4px;
+  width: 60px;
+  background-color: #00a896;
+  margin-top: 8px;
+}
+
+.pha-content {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.pha-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 320px;
+  flex-shrink: 0;
+}
+
+.pha-action-card {
+  background: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: left;
+  width: 100%;
+}
+
+.pha-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+}
+
+.pha-action-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f7f9fc;
+}
+
+.create-icon {
+  /* optional specific styling */
+}
+
+.open-icon {
+  /* optional specific styling */
+}
+
+.pha-action-text h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  color: #152b3c;
+  letter-spacing: 0.5px;
+}
+
+.pha-action-text p {
+  font-size: 12px;
+  margin: 0;
+  color: #8898aa;
+}
+
+.pha-recent-studies {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px;
+  flex-grow: 1;
+  min-height: 400px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.pha-recent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8898aa;
+  letter-spacing: 1px;
+}
+
+.pha-recent-empty {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #c3cdd6;
+}
+
+.pha-recent-empty p {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+/* Recent Studies List */
+.pha-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.recent-study-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.recent-study-item:last-child {
+  border-bottom: none;
+}
+
+.recent-study-info h4 {
+  margin: 0 0 4px 0;
+  color: #152b3c;
+}
+
+.recent-study-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #8898aa;
+}
+
+.open-study-btn {
+  background: transparent;
+  border: 1px solid #00a896;
+  color: #00a896;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.open-study-btn:hover {
+  background: #00a896;
+  color: white;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(100, 110, 125, 0.7); /* Match the greyish-blue overlay from image */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 6px;
+  width: 600px;
+  max-width: 95%;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  border-bottom: 1px solid #f0f2f5;
+  background-color: #f7f9fc;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+  color: #1a2b3c;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #1a2b3c;
+  font-weight: bold;
+}
+
+.modal-body {
+  padding: 32px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+}
+
+.form-group label {
+  width: 140px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  text-align: right;
+  margin-right: 24px;
+}
+
+.form-group input, .form-group select {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a2b3c;
+  background-color: #ffffff;
+}
+
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: #004c7a;
+}
+
+.modal-footer {
+  padding: 24px 48px 32px 48px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  background: white;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.btn-cancel {
+  padding: 12px 32px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  border-radius: 4px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.btn-create {
+  padding: 12px 32px;
+  background: #064e89; /* The specific dark blue from the image */
+  border: none;
+  color: white;
+  border-radius: 4px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.btn-create:hover {
+  background: #053b68;
+}
+
+/* Dark Theme Overrides */
+[data-theme='dark'] .pha-container {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .pha-title {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .pha-action-card,
+[data-theme='dark'] .pha-recent-studies,
+[data-theme='dark'] .modal-content,
+[data-theme='dark'] .modal-footer,
+[data-theme='dark'] .form-group input,
+[data-theme='dark'] .form-group select,
+[data-theme='dark'] .btn-cancel {
+  background-color: var(--bg-paper);
+  color: var(--text-primary);
+  border-color: var(--divider);
+}
+
+[data-theme='dark'] .modal-header {
+  background-color: var(--bg-default);
+  border-color: var(--divider);
+}
+
+[data-theme='dark'] .pha-action-icon-wrapper {
+  background-color: rgba(255,255,255,0.05);
+}
+
+[data-theme='dark'] .pha-action-text h2,
+[data-theme='dark'] .modal-header h2,
+[data-theme='dark'] .recent-study-info h4 {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .pha-action-text p,
+[data-theme='dark'] .pha-recent-header,
+[data-theme='dark'] .form-group label,
+[data-theme='dark'] .modal-close {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .recent-study-item {
+  border-color: var(--divider);
+}

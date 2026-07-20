@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import PHAStartMenu from './pages/PHAStartMenu';
 import StudyOverview from './pages/StudyOverview';
+import TeamMembers from './pages/TeamMembers';
 
 import Auth from './components/Auth';
 
@@ -9,6 +10,7 @@ function App() {
   const [theme, setTheme] = useState('light');
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeStudy, setActiveStudy] = useState(null);
+  const [studyTab, setStudyTab] = useState('overview'); // New state for study tabs
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [showAuth, setShowAuth] = useState(false);
 
@@ -22,7 +24,8 @@ function App() {
 
   const handleStudyOpened = (study) => {
     setActiveStudy(study);
-    setCurrentView('studyOverview');
+    setStudyTab('overview');
+    setCurrentView('study');
   };
 
   const handlePhaClick = () => {
@@ -50,15 +53,38 @@ function App() {
       return <Auth onAuthSuccess={handleAuthSuccess} onCancel={() => setShowAuth(false)} />;
     }
 
-    if (currentView === 'studyOverview') {
-      return (
-        <StudyOverview 
-          study={activeStudy} 
-          onBack={() => setCurrentView('pha')} 
-          theme={theme}
-          toggleTheme={toggleTheme}
-        />
-      );
+    if (currentView === 'study') {
+      const handleStudyNav = (tab) => {
+        if (tab === 'pha') {
+          setCurrentView('pha');
+        } else {
+          setStudyTab(tab);
+        }
+      };
+
+      if (studyTab === 'overview') {
+        return (
+          <StudyOverview 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'team') {
+        return (
+          <TeamMembers 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
     }
 
     if (currentView === 'pha') {

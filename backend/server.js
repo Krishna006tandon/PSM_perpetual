@@ -19,8 +19,10 @@ mongoose.connect(MONGODB_URI)
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
+const teamRoutes = require('./routes/teamRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/studies', studyRoutes);
+app.use('/api/teams', teamRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

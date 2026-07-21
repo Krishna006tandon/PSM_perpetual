@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import PHAStartMenu from './pages/PHAStartMenu';
 import StudyOverview from './pages/StudyOverview';
 import TeamMembers from './pages/TeamMembers';
+import StudyDocuments from './pages/StudyDocuments';
 
 import Auth from './components/Auth';
 
@@ -85,6 +86,18 @@ function App() {
           />
         );
       }
+
+      if (studyTab === 'documents') {
+        return (
+          <StudyDocuments 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
     }
 
     if (currentView === 'pha') {
@@ -104,7 +117,7 @@ function App() {
               Logout
             </button>
           </div>
-          <PHAStartMenu onStudyCreated={handleStudyOpened} />
+          <PHAStartMenu onStudyCreated={handleStudyOpened} onLogout={handleLogout} />
         </div>
       );
     }
@@ -136,7 +149,7 @@ function App() {
 
   return (
     <div className="app-container">
-      {currentView !== 'studyOverview' && <Sidebar />}
+      {currentView === 'dashboard' && <Sidebar />}
       {renderContent()}
     </div>
   );

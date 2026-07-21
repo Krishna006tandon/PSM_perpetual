@@ -32,7 +32,7 @@ const FileIcon = () => (
   </svg>
 );
 
-const PHAStartMenu = ({ onStudyCreated }) => {
+const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [recentStudies, setRecentStudies] = useState([]);
   const [formData, setFormData] = useState({
@@ -61,6 +61,8 @@ const PHAStartMenu = ({ onStudyCreated }) => {
       if (response.ok) {
         const data = await response.json();
         setRecentStudies(data);
+      } else if (response.status === 401) {
+        if (onLogout) onLogout();
       }
     } catch (error) {
       console.error('Failed to fetch recent studies:', error);
@@ -89,6 +91,9 @@ const PHAStartMenu = ({ onStudyCreated }) => {
         if (onStudyCreated) {
           onStudyCreated(newStudy);
         }
+      } else if (response.status === 401) {
+        console.error('Unauthorized: Token expired or invalid');
+        if (onLogout) onLogout();
       } else {
         console.error('Failed to create study');
       }

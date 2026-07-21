@@ -36,7 +36,10 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
           >
             <span className="icon">👥</span> Team Members
           </div>
-          <div className="sidebar-item">
+          <div 
+            className={`sidebar-item ${activeTab === 'documents' ? 'active' : ''}`}
+            onClick={() => onNavigate('documents')}
+          >
             <span className="icon">📁</span> Documents
           </div>
         </div>

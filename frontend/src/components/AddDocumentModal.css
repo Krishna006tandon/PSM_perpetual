@@ -1,0 +1,64 @@
+/* Re-uses some of the modal-overlay from AddMemberModal implicitly if imported, but we define it here for completeness */
+.document-modal {
+  background-color: var(--bg-paper, white);
+  border-radius: 16px;
+  width: 550px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.document-modal-header {
+  background-color: #004d80;
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.document-modal-title {
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 1px;
+}
+
+.document-modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.document-modal-close:hover {
+  opacity: 1;
+}
+
+.document-modal-body {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.required {
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+.document-modal-footer {
+  padding: 0 32px 32px 32px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}

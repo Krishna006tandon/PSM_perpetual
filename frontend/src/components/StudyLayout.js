@@ -18,7 +18,12 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
         >
           NODES
         </div>
-        <div className="nav-item">DEVIATIONS</div>
+        <div 
+          className={`nav-item ${activeTab === 'deviations' || activeTab === 'deviations-registry' ? 'active' : ''}`}
+          onClick={() => onNavigate('deviations-registry')}
+        >
+          DEVIATIONS
+        </div>
         <div className="nav-item">CAUSES WORKSHEET</div>
         <div className="nav-item">PHA WORKSHEETS</div>
         <div className="nav-item">SAFEGUARDS</div>
@@ -32,7 +37,11 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
         {/* Sidebar */}
         <div className="study-sidebar">
           <div className="sidebar-header" onClick={onBack} style={{cursor: 'pointer'}}>
-            <span>&lt;</span> {activeTab === 'nodes' || activeTab === 'nodes-registry' ? 'NODES' : 'STUDY DATA'}
+            <span>&lt;</span> {
+              activeTab === 'nodes' || activeTab === 'nodes-registry' ? 'NODES' :
+              activeTab === 'deviations' || activeTab === 'deviations-registry' ? 'DEVIATIONS' :
+              'STUDY DATA'
+            }
           </div>
           
           {(activeTab === 'study-data' || activeTab === 'overview' || activeTab === 'team' || activeTab === 'documents') && (
@@ -65,6 +74,17 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
                 onClick={() => onNavigate('nodes-registry')}
               >
                 <span className="icon">🏢</span> Node Registry
+              </div>
+            </>
+          )}
+
+          {(activeTab === 'deviations' || activeTab === 'deviations-registry') && (
+            <>
+              <div 
+                className={`sidebar-item ${activeTab === 'deviations-registry' ? 'active' : ''}`}
+                onClick={() => onNavigate('deviations-registry')}
+              >
+                <span className="icon">⛙</span> Deviations Registry
               </div>
             </>
           )}

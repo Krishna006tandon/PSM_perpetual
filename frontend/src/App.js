@@ -5,6 +5,7 @@ import StudyOverview from './pages/StudyOverview';
 import TeamMembers from './pages/TeamMembers';
 import StudyDocuments from './pages/StudyDocuments';
 import NodeRegistry from './pages/NodeRegistry';
+import DeviationRegistry from './pages/DeviationRegistry';
 
 import Auth from './components/Auth';
 
@@ -103,6 +104,18 @@ function App() {
       if (studyTab === 'nodes-registry') {
         return (
           <NodeRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'deviations-registry') {
+        return (
+          <DeviationRegistry 
             study={activeStudy} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}

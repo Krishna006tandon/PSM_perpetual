@@ -1,0 +1,503 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import StudyLayout from '../components/StudyLayout';
+import AddScenarioModal from '../components/AddScenarioModal';
+import './PHAWorksheet.css';
+
+const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+  const [nodes, setNodes] = useState([]);
+  const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [scenarios, setScenarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalInitialData, setModalInitialData] = useState({ deviationId: '', causeId: '' });
+  const [selectedRowId, setSelectedRowId] = useState(null);
+
+  // Group scenarios visually by Deviation and Cause
+  const processedScenarios = useMemo(() => {
+    if (!scenarios || scenarios.length === 0) return [];
+    
+    const result = [];
+    let devNum = 0;
+    let causeNum = 0;
+    let consNum = 0;
+    
+    for (let i = 0; i < scenarios.length; i++) {
+      const sc = scenarios[i];
+      const prevSc = i > 0 ? scenarios[i - 1] : null;
+      
+      const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+      const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+      
+      if (isNewDev) {
+        devNum++;
+        causeNum = 0;
+      }
+      if (isNewCause) {
+        causeNum++;
+        consNum = 0;
+      }
+      consNum++;
+      
+      let devSpanCount = 0;
+      let causeSpanCount = 0;
+      
+      if (isNewDev) {
+        for (let j = i; j < scenarios.length; j++) {
+          if (scenarios[j].deviationId?._id === sc.deviationId?._id) devSpanCount++;
+          else break;
+        }
+      }
+      
+      if (isNewCause) {
+        for (let j = i; j < scenarios.length; j++) {
+          if (scenarios[j].deviationId?._id === sc.deviationId?._id && scenarios[j].causeId?._id === sc.causeId?._id) causeSpanCount++;
+          else break;
+        }
+      }
+      
+      result.push({
+        ...sc,
+        isNewDev,
+        devSpanCount,
+        isNewCause,
+        causeSpanCount,
+        badgeDev: `${devNum}`,
+        badgeCause: `${devNum}.${causeNum}`,
+        badgeCons: `${devNum}.${causeNum}.${consNum}`,
+        badgeSafe: `${devNum}.${causeNum}.${consNum}.1`
+      });
+    }
+    
+    return result;
+  }, [scenarios]);
+
+  useEffect(() => {
+    fetchNodes();
+  }, [study._id]);
+
+  useEffect(() => {
+    if (selectedNodeId) {
+      fetchScenarios(selectedNodeId);
+    } else {
+      setScenarios([]);
+      setLoading(false);
+    }
+  }, [selectedNodeId]);
+
+  const fetchNodes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setNodes(data);
+        if (data.length > 0) {
+          setSelectedNodeId(data[0]._id);
+        } else {
+          setLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch nodes:', error);
+      setLoading(false);
+    }
+  };
+
+  const fetchScenarios = async (nodeId) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}?nodeId=${nodeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setScenarios(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch scenarios:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCellChange = (id, field, value) => {
+    setScenarios(prev => prev.map(sc => {
+      if (sc._id === id) {
+        const updatedSc = { ...sc, [field]: value };
+        
+        // Auto calculate RR if S or L changes
+        if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+          const s = parseInt(updatedSc.inherentRiskS) || 0;
+          const l = parseInt(updatedSc.inherentRiskL) || 0;
+          updatedSc.inherentRiskRR = s && l ? s * l : '';
+        }
+        if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+          const s = parseInt(updatedSc.mitigatedRiskS) || 0;
+          const l = parseInt(updatedSc.mitigatedRiskL) || 0;
+          updatedSc.mitigatedRiskRR = s && l ? s * l : '';
+        }
+        if (field === 'residualRiskS' || field === 'residualRiskL') {
+          const s = parseInt(updatedSc.residualRiskS) || 0;
+          const l = parseInt(updatedSc.residualRiskL) || 0;
+          updatedSc.residualRiskRR = s && l ? s * l : '';
+        }
+        
+        return updatedSc;
+      }
+      return sc;
+    }));
+  };
+
+  const handleBlur = async (id, field, value) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      let payload = { [field]: value };
+      const sc = scenarios.find(s => s._id === id);
+      
+      if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+        const s = field === 'inherentRiskS' ? parseInt(value) : parseInt(sc.inherentRiskS);
+        const l = field === 'inherentRiskL' ? parseInt(value) : parseInt(sc.inherentRiskL);
+        payload.inherentRiskRR = s && l ? s * l : '';
+      }
+      if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+        const s = field === 'mitigatedRiskS' ? parseInt(value) : parseInt(sc.mitigatedRiskS);
+        const l = field === 'mitigatedRiskL' ? parseInt(value) : parseInt(sc.mitigatedRiskL);
+        payload.mitigatedRiskRR = s && l ? s * l : '';
+      }
+      if (field === 'residualRiskS' || field === 'residualRiskL') {
+        const s = field === 'residualRiskS' ? parseInt(value) : parseInt(sc.residualRiskS);
+        const l = field === 'residualRiskL' ? parseInt(value) : parseInt(sc.residualRiskL);
+        payload.residualRiskRR = s && l ? s * l : '';
+      }
+
+      await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      console.error('Failed to save scenario:', error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setScenarios(prev => prev.filter(sc => sc._id !== id));
+        if (selectedRowId === id) setSelectedRowId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete scenario:', error);
+    }
+  };
+
+  const handleAddScenarioSuccess = (newScenario) => {
+    setScenarios(prev => [...prev, newScenario]);
+    setIsModalOpen(false);
+  };
+
+  const selectedNode = nodes.find(n => n._id === selectedNodeId);
+  const currentDate = new Date().toLocaleDateString('en-GB');
+
+  if (!study) return null;
+
+  return (
+    <StudyLayout activeTab="pha-worksheets" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
+      <div className="pha-container-flush">
+        
+        {/* Metadata Header */}
+        <div className="pha-metadata-flush">
+          <div className="pha-metadata-header">
+            <h2>HAZOP WORK SHEET</h2>
+            <div className="pha-metadata-header-right">
+              <div>DOC NO: <span style={{color: '#004d80', fontWeight: 'bold'}}>HAZOP-{study.projectNumber}</span></div>
+              <div>DATE: <span style={{color: '#004d80', fontWeight: 'bold'}}>{currentDate}</span></div>
+              <div>REV: <span style={{color: '#004d80', fontWeight: 'bold'}}>0</span></div>
+            </div>
+          </div>
+          
+          <div className="pha-metadata-row">
+            <div className="pha-metadata-cell" style={{flex: 2}}>
+              <span className="pha-metadata-label">SITE / LOCATION</span>
+              <span className="pha-metadata-value">{study.facilityName || 'N/A'}</span>
+            </div>
+            <div className="pha-metadata-cell">
+              <span className="pha-metadata-label">PLANT/UNIT</span>
+              <span className="pha-metadata-value">PAGE 1 OF 1</span>
+            </div>
+          </div>
+          
+          <div className="pha-metadata-row">
+            <div className="pha-metadata-cell">
+              <span className="pha-metadata-label">NODE</span>
+              <span className="pha-metadata-value">
+                {selectedNode ? selectedNode.description : 'No node selected'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="pha-metadata-row">
+            <div className="pha-metadata-cell">
+              <span className="pha-metadata-label">INTENTION</span>
+              <span className="pha-metadata-value">
+                {selectedNode ? selectedNode.intention : 'Design Intention...'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="pha-toolbar-flush">
+          <button className="toolbar-btn add-btn" onClick={() => { setModalInitialData({ deviationId: '', causeId: '' }); setIsModalOpen(true); }} disabled={!selectedNodeId}>
+            <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
+          </button>
+          
+          <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
+          <button className="toolbar-btn icon-only" title="Export">📥</button>
+          
+          <div className="pha-node-selector">
+            NODE: 
+            <select value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
+              {nodes.length === 0 && <option value="">No nodes</option>}
+              {nodes.map((n, i) => (
+                <option key={n._id} value={n._id}>{i + 1}. {n.description}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="pha-row-count">
+            {scenarios.length} rows
+          </div>
+          
+          <div className="pha-shortcuts">
+            <span>e Enter = add nested row</span> | 
+            <span>Shift+e = new first lvl cell</span> | 
+            <span>Labels: Deviation, Cause, Consequence, Safeguard</span>
+          </div>
+        </div>
+
+        {/* Data Grid */}
+        <div className="pha-table-wrapper-flush">
+          <table className="pha-table">
+            <thead>
+              <tr>
+                <th className="th-primary w-sr" rowSpan={2}>SR.</th>
+                
+                {/* Decomposition of Deviation */}
+                <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>
+                
+                <th className="th-primary w-deviation" rowSpan={2}>DEVIATION</th>
+                <th className="th-primary w-cause" rowSpan={2}>CAUSE</th>
+                
+                <th className="th-primary" colSpan={2} style={{borderBottom: 'none'}}>CONSEQUENCES</th>
+                
+                <th className="th-primary th-risk-inherent" colSpan={3} style={{borderBottom: 'none'}}>INHERENT RISK</th>
+                
+                <th className="th-primary w-protection" rowSpan={2}>PRESENT / PLANNED PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Safeguards / IPLs)</span></th>
+                
+                <th className="th-primary th-risk-mitigated" colSpan={3} style={{borderBottom: 'none'}}>MITIGATED RISK</th>
+                <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
+                
+                <th className="th-primary w-additional" rowSpan={2}>ADDITIONAL PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Recommendations)</span></th>
+                <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
+                <th className="th-primary w-status" rowSpan={2}>STATUS</th>
+              </tr>
+              <tr>
+                {/* Sub headers */}
+                <th className="th-sub w-guideword">GUIDE WORD<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Auto)</span></th>
+                <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
+                <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
+                <th className="th-sub w-from">FROM<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(From)</span></th>
+                <th className="th-sub w-to">TO<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(To)</span></th>
+                
+                <th className="th-sub w-cons-imm">Immediate</th>
+                <th className="th-sub w-cons-ult">Ultimate</th>
+                
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-s">S</th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-l">L</th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-rr">IR</th>
+                
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-s">S</th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-l">L</th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-rr">MR</th>
+                
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-s">S</th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-l">L</th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-rr">RR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!loading && scenarios.length === 0 && (
+                <tr>
+                  <td colSpan={24}>
+                    <div className="pha-empty-state">
+                      NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
+                      <button className="btn-add-scenario-large" onClick={() => setIsModalOpen(true)} disabled={!selectedNodeId}>
+                        <span style={{fontSize:'16px'}}>⊕</span> ADD DEVIATION / NEW ANALYSIS SCENARIO FOR CURRENT NODE
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              
+              {!loading && processedScenarios.map((sc, index) => (
+                <tr 
+                  key={sc._id}
+                  className={selectedRowId === sc._id ? 'selected-row' : ''}
+                  onClick={() => setSelectedRowId(sc._id)}
+                >
+                  {sc.isNewDev && (
+                    <>
+                      <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
+                      
+                      <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-guideword" value={sc.deviationId?.guidewords || ''} readOnly title="Edit in Deviations Registry"/></td>
+                      <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-parameter" value={sc.deviationId?.parameter || ''} readOnly /></td>
+                      <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-material" value={sc.deviationId?.processFlowMaterial || ''} readOnly /></td>
+                      <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-from" value={sc.deviationId?.locationFrom || ''} readOnly /></td>
+                      <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-to" value={sc.deviationId?.locationTo || ''} readOnly /></td>
+                      
+                      <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
+                        <span className="badge-dev">{sc.badgeDev}</span>
+                        <textarea value={sc.deviationId?.deviationAuto || ''} readOnly style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}/>
+                        <span className="action-link" onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: '' }); setIsModalOpen(true); }}>+ ADD CAUSE</span>
+                      </td>
+                    </>
+                  )}
+                  
+                  {sc.isNewCause && (
+                    <td className="w-cause bg-cause" rowSpan={sc.causeSpanCount}>
+                      <span className="badge-cause">{sc.badgeCause}</span>
+                      <textarea value={sc.causeId?.description || ''} readOnly title="Edit in Causes Registry" style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top'}}/>
+                      <span className="action-link" style={{color: '#d97706'}} onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: sc.causeId?._id }); setIsModalOpen(true); }}>+ ADD CONSEQUENCE</span>
+                    </td>
+                  )}
+                  
+                  {/* Editable Cells */}
+                  <td className="w-cons-imm bg-consequence">
+                    <span className="badge-cons">{sc.badgeCons}</span>
+                    <textarea 
+                      style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
+                      value={sc.consequencesImmediate} 
+                      onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
+                    />
+                  </td>
+                  <td className="w-cons-ult bg-consequence">
+                    <textarea 
+                      value={sc.consequencesUltimate} 
+                      onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
+                    />
+                    <span className="action-link" style={{color: '#059669'}} onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: sc.causeId?._id }); setIsModalOpen(true); }}>+ ADD SAFEGUARD</span>
+                  </td>
+                  
+                  <td className="w-risk-s">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-l">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  
+                  <td className="w-protection bg-protection">
+                    <span className="badge-safe">{sc.badgeSafe}</span>
+                    <textarea 
+                      style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
+                      value={sc.presentProtection} 
+                      onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
+                    />
+                  </td>
+                  
+                  <td className="w-risk-s">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-l">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  
+                  <td className="w-risk-s">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-l">
+                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    </select>
+                  </td>
+                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  
+                  <td className="w-additional">
+                    <textarea 
+                      value={sc.additionalProtection} 
+                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                    />
+                  </td>
+                  <td className="w-remarks">
+                    <textarea 
+                      value={sc.remarks} 
+                      onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
+                    />
+                  </td>
+                  <td className="w-status">
+                    <select 
+                      className="cell-select"
+                      style={{width:'100%', border:'none', background:'transparent', padding:'8px'}}
+                      value={sc.status || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'status', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'status', e.target.value)}
+                    >
+                      <option value=""></option>
+                      <option value="Proposed">Proposed</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Implemented">Implemented</option>
+                      <option value="Closed">Closed</option>
+                      <option value="N/A">N/A</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {isModalOpen && selectedNodeId && (
+        <AddScenarioModal 
+          studyId={study._id} 
+          nodeId={selectedNodeId}
+          initialDeviationId={modalInitialData.deviationId}
+          initialCauseId={modalInitialData.causeId}
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={handleAddScenarioSuccess} 
+        />
+      )}
+    </StudyLayout>
+  );
+};
+
+export default PHAWorksheet;

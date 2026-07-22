@@ -24,8 +24,18 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
         >
           DEVIATIONS
         </div>
-        <div className="nav-item">CAUSES WORKSHEET</div>
-        <div className="nav-item">PHA WORKSHEETS</div>
+        <div 
+          className={`nav-item ${activeTab === 'causes' || activeTab === 'causes-registry' ? 'active' : ''}`}
+          onClick={() => onNavigate('causes-registry')}
+        >
+          CAUSES WORKSHEET
+        </div>
+        <div 
+          className={`nav-item ${activeTab === 'pha-worksheets' ? 'active' : ''}`}
+          onClick={() => onNavigate('pha-worksheets')}
+        >
+          PHA WORKSHEETS
+        </div>
         <div className="nav-item">SAFEGUARDS</div>
         <div className="nav-item">RECOMMENDATIONS</div>
         <div className="nav-item">CHECK LISTS</div>
@@ -40,6 +50,8 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
             <span>&lt;</span> {
               activeTab === 'nodes' || activeTab === 'nodes-registry' ? 'NODES' :
               activeTab === 'deviations' || activeTab === 'deviations-registry' ? 'DEVIATIONS' :
+              activeTab === 'causes-registry' ? 'CAUSES WORKSHEET' :
+              activeTab === 'pha-worksheets' ? 'PHA WORKSHEETS' :
               'STUDY DATA'
             }
           </div>
@@ -85,6 +97,31 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
                 onClick={() => onNavigate('deviations-registry')}
               >
                 <span className="icon">⛙</span> Deviations Registry
+              </div>
+            </>
+          )}
+
+          {(activeTab === 'causes' || activeTab === 'causes-registry') && (
+            <>
+              <div 
+                className={`sidebar-item ${activeTab === 'causes-registry' ? 'active' : ''}`}
+                onClick={() => onNavigate('causes-registry')}
+              >
+                <span className="icon">🔗</span> Causes Worksheet
+              </div>
+            </>
+          )}
+
+          {(activeTab === 'pha-worksheets') && (
+            <>
+              <div 
+                className="sidebar-item active"
+                onClick={() => onNavigate('pha-worksheets')}
+              >
+                <span className="icon">📋</span> Analysis Sheet
+              </div>
+              <div className="sidebar-item">
+                <span className="icon">📉</span> Risk Summary
               </div>
             </>
           )}

@@ -1,0 +1,31 @@
+const mongoose = require('mongoose');
+
+const causeSchema = new mongoose.Schema({
+  studyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Study',
+    required: true
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  categoryType: {
+    type: String,
+    default: ''
+  },
+  sourceReference: {
+    type: String,
+    default: ''
+  },
+  comments: {
+    type: String,
+    default: ''
+  },
+  order: {
+    type: Number,
+    default: 0
+  }
+}, { timestamps: true });
+
+module.exports = mongoose.model('Cause', causeSchema);

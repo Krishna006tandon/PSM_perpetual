@@ -16,14 +16,30 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const processedScenarios = useMemo(() => {
     if (!scenarios || scenarios.length === 0) return [];
     
+    // Sort scenarios by deviation ID then cause ID so they ALWAYS group correctly,
+    // Add stable tie-breaker (_id) to prevent rows from swapping order during typing (which causes focus loss)
+    const sortedScenarios = [...scenarios].sort((a, b) => {
+      const devA = a.deviationId?._id || '';
+      const devB = b.deviationId?._id || '';
+      if (devA !== devB) return devA.localeCompare(devB);
+      
+      const causeA = a.causeId?._id || '';
+      const causeB = b.causeId?._id || '';
+      if (causeA !== causeB) return causeA.localeCompare(causeB);
+      
+      const idA = a._id || '';
+      const idB = b._id || '';
+      return idA.localeCompare(idB);
+    });
+    
     const result = [];
     let devNum = 0;
     let causeNum = 0;
     let consNum = 0;
     
-    for (let i = 0; i < scenarios.length; i++) {
-      const sc = scenarios[i];
-      const prevSc = i > 0 ? scenarios[i - 1] : null;
+    for (let i = 0; i < sortedScenarios.length; i++) {
+      const sc = sortedScenarios[i];
+      const prevSc = i > 0 ? sortedScenarios[i - 1] : null;
       
       const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
       const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
@@ -42,15 +58,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       let causeSpanCount = 0;
       
       if (isNewDev) {
-        for (let j = i; j < scenarios.length; j++) {
-          if (scenarios[j].deviationId?._id === sc.deviationId?._id) devSpanCount++;
+        for (let j = i; j < sortedScenarios.length; j++) {
+          if (sortedScenarios[j].deviationId?._id === sc.deviationId?._id) devSpanCount++;
           else break;
         }
       }
       
       if (isNewCause) {
-        for (let j = i; j < scenarios.length; j++) {
-          if (scenarios[j].deviationId?._id === sc.deviationId?._id && scenarios[j].causeId?._id === sc.causeId?._id) causeSpanCount++;
+        for (let j = i; j < sortedScenarios.length; j++) {
+          if (sortedScenarios[j].deviationId?._id === sc.deviationId?._id && sortedScenarios[j].causeId?._id === sc.causeId?._id) causeSpanCount++;
           else break;
         }
       }
@@ -208,6 +224,142 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     setIsModalOpen(false);
   };
 
+  const handleQuickAddConsequence = async (deviationId, causeId) => {
+    if (!deviationId || !causeId) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ nodeId: selectedNodeId, deviationId, causeId })
+      });
+      if (response.ok) {
+        const newScenario = await response.json();
+        setScenarios(prev => [...prev, newScenario]);
+      }
+    } catch (error) {
+      console.error('Error adding quick consequence:', error);
+    }
+  };
+
+  const handleQuickAddCause = async (deviationId) => {
+    if (!deviationId) return;
+    try {
+      const token = localStorage.getItem('token');
+      // 1. Create a blank cause
+      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: '' })
+      });
+      const newCause = await causeRes.json();
+      
+      // 2. Create scenario with existing deviation and new cause
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ nodeId: selectedNodeId, deviationId, causeId: newCause._id })
+      });
+      if (response.ok) {
+        const newScenario = await response.json();
+        setScenarios(prev => [...prev, newScenario]);
+      }
+    } catch (error) {
+      console.error('Error adding quick cause:', error);
+    }
+  };
+
+  const handleQuickAddDeviation = async () => {
+    if (!selectedNodeId) return;
+    try {
+      const token = localStorage.getItem('token');
+      // 1. Create a blank deviation
+      const devRes = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ deviationAuto: '', guidewords: '', parameter: '' })
+      });
+      const newDev = await devRes.json();
+      
+      // 2. Create a blank cause
+      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: '' })
+      });
+      const newCause = await causeRes.json();
+      
+      // 3. Create scenario
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ nodeId: selectedNodeId, deviationId: newDev._id, causeId: newCause._id })
+      });
+      if (response.ok) {
+        const newScenario = await response.json();
+        setScenarios(prev => [...prev, newScenario]);
+      }
+    } catch (error) {
+      console.error('Error adding quick deviation:', error);
+    }
+  };
+
+  const handleDeviationFieldChange = (deviationId, field, value) => {
+    if (!deviationId) return;
+    setScenarios(prev => prev.map(sc => {
+      if (sc.deviationId?._id === deviationId) {
+        return { ...sc, deviationId: { ...sc.deviationId, [field]: value } };
+      }
+      return sc;
+    }));
+  };
+
+  const handleDeviationFieldBlur = async (deviationId, field, value) => {
+    if (!deviationId) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/deviations/${deviationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ [field]: value })
+      });
+    } catch (error) {
+      console.error(`Failed to save deviation ${field}:`, error);
+    }
+  };
+
+  const handleDeviationTextChange = (deviationId, value) => {
+    handleDeviationFieldChange(deviationId, 'deviationAuto', value);
+  };
+
+  const handleDeviationTextBlur = async (deviationId, value) => {
+    handleDeviationFieldBlur(deviationId, 'deviationAuto', value);
+  };
+
+  const handleCauseTextChange = (causeId, value) => {
+    if (!causeId) return;
+    setScenarios(prev => prev.map(sc => {
+      if (sc.causeId?._id === causeId) {
+        return { ...sc, causeId: { ...sc.causeId, description: value } };
+      }
+      return sc;
+    }));
+  };
+
+  const handleCauseTextBlur = async (causeId, value) => {
+    if (!causeId) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/causes/${causeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: value })
+      });
+    } catch (error) {
+      console.error('Failed to save cause description:', error);
+    }
+  };
+
   const selectedNode = nodes.find(n => n._id === selectedNodeId);
   const currentDate = new Date().toLocaleDateString('en-GB');
 
@@ -260,7 +412,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
 
         {/* Toolbar */}
         <div className="pha-toolbar-flush">
-          <button className="toolbar-btn add-btn" onClick={() => { setModalInitialData({ deviationId: '', causeId: '' }); setIsModalOpen(true); }} disabled={!selectedNodeId}>
+          <button className="toolbar-btn add-btn" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
             <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
           </button>
           
@@ -344,7 +496,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   <td colSpan={24}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
-                      <button className="btn-add-scenario-large" onClick={() => setIsModalOpen(true)} disabled={!selectedNodeId}>
+                      <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
                         <span style={{fontSize:'16px'}}>⊕</span> ADD DEVIATION / NEW ANALYSIS SCENARIO FOR CURRENT NODE
                       </button>
                     </div>
@@ -362,16 +514,31 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <>
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
                       
-                      <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-guideword" value={sc.deviationId?.guidewords || ''} readOnly title="Edit in Deviations Registry"/></td>
-                      <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-parameter" value={sc.deviationId?.parameter || ''} readOnly /></td>
-                      <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-material" value={sc.deviationId?.processFlowMaterial || ''} readOnly /></td>
-                      <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-from" value={sc.deviationId?.locationFrom || ''} readOnly /></td>
-                      <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}><input className="cell-to" value={sc.deviationId?.locationTo || ''} readOnly /></td>
+                      <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
+                        <input className="cell-guideword" value={sc.deviationId?.guidewords || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'guidewords', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'guidewords', e.target.value)} />
+                      </td>
+                      <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}>
+                        <input className="cell-parameter" value={sc.deviationId?.parameter || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'parameter', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'parameter', e.target.value)} />
+                      </td>
+                      <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}>
+                        <input className="cell-material" value={sc.deviationId?.processFlowMaterial || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} />
+                      </td>
+                      <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}>
+                        <input className="cell-from" value={sc.deviationId?.locationFrom || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationFrom', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationFrom', e.target.value)} />
+                      </td>
+                      <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}>
+                        <input className="cell-to" value={sc.deviationId?.locationTo || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationTo', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationTo', e.target.value)} />
+                      </td>
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
-                        <textarea value={sc.deviationId?.deviationAuto || ''} readOnly style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}/>
-                        <span className="action-link" onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: '' }); setIsModalOpen(true); }}>+ ADD CAUSE</span>
+                        <textarea 
+                          value={sc.deviationId?.deviationAuto || ''} 
+                          onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
+                          onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
+                          style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
+                        />
+                        <span className="action-link" onClick={() => handleQuickAddCause(sc.deviationId?._id)}>+ ADD CAUSE</span>
                       </td>
                     </>
                   )}
@@ -379,8 +546,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   {sc.isNewCause && (
                     <td className="w-cause bg-cause" rowSpan={sc.causeSpanCount}>
                       <span className="badge-cause">{sc.badgeCause}</span>
-                      <textarea value={sc.causeId?.description || ''} readOnly title="Edit in Causes Registry" style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top'}}/>
-                      <span className="action-link" style={{color: '#d97706'}} onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: sc.causeId?._id }); setIsModalOpen(true); }}>+ ADD CONSEQUENCE</span>
+                      <textarea 
+                        value={sc.causeId?.description || ''} 
+                        onChange={(e) => handleCauseTextChange(sc.causeId?._id, e.target.value)}
+                        onBlur={(e) => handleCauseTextBlur(sc.causeId?._id, e.target.value)}
+                        style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top'}}
+                      />
+                      <span className="action-link" style={{color: '#d97706'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
                     </td>
                   )}
                   
@@ -389,18 +561,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <span className="badge-cons">{sc.badgeCons}</span>
                     <textarea 
                       style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
-                      value={sc.consequencesImmediate} 
+                      value={sc.consequencesImmediate || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
                     />
                   </td>
                   <td className="w-cons-ult bg-consequence">
                     <textarea 
-                      value={sc.consequencesUltimate} 
+                      value={sc.consequencesUltimate || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
                     />
-                    <span className="action-link" style={{color: '#059669'}} onClick={() => { setModalInitialData({ deviationId: sc.deviationId?._id, causeId: sc.causeId?._id }); setIsModalOpen(true); }}>+ ADD SAFEGUARD</span>
                   </td>
                   
                   <td className="w-risk-s">
@@ -419,7 +590,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <span className="badge-safe">{sc.badgeSafe}</span>
                     <textarea 
                       style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
-                      value={sc.presentProtection} 
+                      value={sc.presentProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
                     />
@@ -451,33 +622,46 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   
                   <td className="w-additional">
                     <textarea 
-                      value={sc.additionalProtection} 
+                      value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                     />
                   </td>
                   <td className="w-remarks">
                     <textarea 
-                      value={sc.remarks} 
+                      value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
                     />
                   </td>
                   <td className="w-status">
-                    <select 
-                      className="cell-select"
-                      style={{width:'100%', border:'none', background:'transparent', padding:'8px'}}
-                      value={sc.status || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'status', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'status', e.target.value)}
-                    >
-                      <option value=""></option>
-                      <option value="Proposed">Proposed</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Implemented">Implemented</option>
-                      <option value="Closed">Closed</option>
-                      <option value="N/A">N/A</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <select 
+                        className="cell-select"
+                        style={{width:'100%', border:'none', background:'transparent', padding:'8px'}}
+                        value={sc.status || ''} 
+                        onChange={(e) => handleCellChange(sc._id, 'status', e.target.value)}
+                        onBlur={(e) => handleBlur(sc._id, 'status', e.target.value)}
+                      >
+                        <option value=""></option>
+                        <option value="Proposed">Proposed</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Implemented">Implemented</option>
+                        <option value="Closed">Closed</option>
+                        <option value="N/A">N/A</option>
+                      </select>
+                      <button 
+                        onClick={() => {
+                          if(window.confirm('Are you sure you want to delete this scenario row?')) {
+                            handleDelete(sc._id);
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 8px', fontSize: '14px' }}
+                        title="Delete Scenario"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

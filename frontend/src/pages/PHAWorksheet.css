@@ -454,11 +454,14 @@
 [data-theme='dark'] .cell-from { color: #f87171 !important; }
 [data-theme='dark'] .cell-to { color: #a78bfa !important; }
 
-/* Proper Dark Theme Cell Backgrounds */
-[data-theme='dark'] .bg-deviation { background-color: rgba(30, 58, 138, 0.15) !important; }
-[data-theme='dark'] .bg-cause { background-color: rgba(146, 64, 14, 0.15) !important; }
-[data-theme='dark'] .bg-consequence { background-color: rgba(6, 78, 59, 0.15) !important; }
-[data-theme='dark'] .bg-protection { background-color: transparent !important; }
+/* Proper Dark Theme Cell Backgrounds (Using solid colors to prevent light bleed-through) */
+[data-theme='dark'] .bg-deviation { background-color: #1e293b !important; }
+[data-theme='dark'] .bg-cause { background-color: #422006 !important; }
+[data-theme='dark'] .bg-consequence { background-color: #064e3b !important; }
+[data-theme='dark'] .bg-protection { background-color: #0f172a !important; }
 
+/* Dark Theme Header overrides */
+[data-theme='dark'] .th-primary { background-color: #0f172a !important; border-color: #334155; }
+[data-theme='dark'] .th-sub { background-color: #1e293b !important; color: #94a3b8; border-color: #334155; }
 [data-theme='dark'] .pha-table th { border-color: #334155; }
-[data-theme='dark'] .action-link { color: #60a5fa; }
+[data-theme='dark'] .action-link { color: #38bdf8; }

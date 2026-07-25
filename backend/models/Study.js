@@ -23,6 +23,11 @@ const studySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  projectName: { type: String },
+  clientName: { type: String },
+  facilitator: { type: String },
+  siteLocation: { type: String },
+  businessUnit: { type: String },
   phaType: {
     type: String,
     default: 'HAZOP',

@@ -49,4 +49,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT update study
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedStudy = await Study.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body, lastAccessed: new Date() },
+      { returnDocument: 'after', runValidators: true }
+    );
+    
+    if (!updatedStudy) {
+      return res.status(404).json({ message: 'Study not found' });
+    }
+    
+    res.json(updatedStudy);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 module.exports = router;

@@ -75,6 +75,7 @@ function App() {
             onNavigate={handleStudyNav}
             theme={theme}
             toggleTheme={toggleTheme}
+            onUpdate={setActiveStudy}
           />
         );
       }
@@ -201,7 +202,8 @@ function App() {
 
   return (
     <div className="app-container">
-      {currentView === 'dashboard' && <Sidebar />}
+      {/* Formal Sidebar with new Navigation logic */}
+      <Sidebar activeView={currentView} onNavigate={setCurrentView} />
       {renderContent()}
     </div>
   );

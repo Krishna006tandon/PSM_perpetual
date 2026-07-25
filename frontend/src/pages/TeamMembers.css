@@ -28,7 +28,7 @@
 
 .team-count-badge {
   background-color: var(--primary-main, #004d80);
-  color: white;
+  color: var(--bg-paper);
   font-size: 11px;
   font-weight: 700;
   border-radius: 50%;
@@ -41,10 +41,10 @@
 
 .btn-add-member {
   background-color: var(--primary-main, #004d80);
-  color: white;
+  color: var(--bg-paper);
   border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 6px 12px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
@@ -84,7 +84,7 @@
 
 .empty-icon-wrapper {
   margin-bottom: 16px;
-  color: #cbd5e1;
+  color: var(--divider);
 }
 
 .empty-icon {
@@ -95,17 +95,17 @@
 .team-empty-state h3 {
   font-size: 14px;
   font-weight: 800;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-bottom: 24px;
   letter-spacing: 1px;
 }
 
 .btn-add-first {
   background-color: var(--primary-main, #004d80);
-  color: white;
+  color: var(--bg-paper);
   border: none;
-  padding: 10px 24px;
-  border-radius: 24px;
+  padding: 8px 16px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
@@ -114,7 +114,7 @@
 
 .team-list {
   background-color: var(--bg-paper, white);
-  border-radius: 8px;
+  border-radius: 4px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   overflow: hidden;
 }
@@ -153,17 +153,7 @@
   background-color: rgba(0, 168, 150, 0.1);
   color: #00a896;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 700;
-}
-
-/* Dark Theme Overrides */
-[data-theme='dark'] .team-warning-banner {
-  background-color: rgba(0, 168, 150, 0.15);
-}
-
-[data-theme='dark'] .team-empty-state h3,
-[data-theme='dark'] .empty-icon-wrapper {
-  color: var(--text-secondary);
 }

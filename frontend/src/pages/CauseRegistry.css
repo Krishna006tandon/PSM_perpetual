@@ -25,8 +25,8 @@
 
 .causes-table-wrapper {
   flex: 1;
-  border: 1px solid #cbd5e1;
-  background-color: white;
+  border: 1px solid var(--divider);
+  background-color: var(--bg-paper);
   overflow-y: auto;
 }
 
@@ -36,19 +36,19 @@
 }
 
 .causes-table th {
-  background-color: #004d80;
-  color: white;
+  background-color: var(--primary-main);
+  color: var(--bg-paper);
   font-size: 10px;
   font-weight: 800;
   text-align: center;
   padding: 12px 8px;
-  border: 1px solid #003a61;
+  border: 1px solid var(--primary-main);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 .causes-table td {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--divider);
   padding: 0;
   height: 40px;
   vertical-align: middle;
@@ -66,14 +66,14 @@
   font-size: 12px;
   background: transparent;
   box-sizing: border-box;
-  color: #004d80;
+  color: var(--primary-main);
   font-weight: 500;
 }
 
 .causes-table td input:focus {
-  outline: 2px solid #004d80;
+  outline: 2px solid var(--primary-main);
   outline-offset: -2px;
-  background-color: #f0f9ff;
+  background-color: var(--bg-default);
 }
 
 .col-cause-num { width: 40px; text-align: center; }
@@ -81,24 +81,6 @@
 .col-cause-cat { width: 20%; }
 .col-cause-source { width: 20%; }
 .col-cause-comments { width: 20%; }
-
-/* Dark Theme Overrides */
-[data-theme='dark'] .causes-table-wrapper {
-  background-color: var(--bg-paper);
-  border-color: var(--divider);
-}
-[data-theme='dark'] .causes-table td {
-  border-color: var(--divider);
-}
-[data-theme='dark'] .causes-table td input {
-  color: #38bdf8;
-}
-[data-theme='dark'] .causes-table td input:focus {
-  background-color: rgba(0, 168, 150, 0.1);
-}
-[data-theme='dark'] .causes-table tr.selected-row td {
-  background-color: rgba(0, 77, 128, 0.6);
-}
 
 /* Print Styles */
 @media print {
@@ -113,13 +95,13 @@
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
-    background-color: white !important;
+    background-color: var(--bg-paper) !important;
   }
   .causes-table { width: 100% !important; page-break-inside: auto; }
   .causes-table tr { page-break-inside: avoid; page-break-after: auto; }
   .causes-table td input {
-    border: none !important; background: transparent !important; color: black !important;
+    border: none !important; background: transparent !important; color: var(--text-primary) !important;
   }
-  .causes-table th { background-color: #f1f5f9 !important; color: black !important; border: 1px solid #cbd5e1 !important; }
-  .causes-table td { background-color: white !important; border: 1px solid #cbd5e1 !important; }
+  .causes-table th { background-color: var(--bg-default) !important; color: var(--text-primary) !important; border: 1px solid var(--divider) !important; }
+  .causes-table td { background-color: var(--bg-paper) !important; border: 1px solid var(--divider) !important; }
 }

@@ -38,8 +38,8 @@
 .docs-toolbar {
   display: flex;
   align-items: center;
-  background-color: #f8fafc;
-  border: 1px solid #cbd5e1;
+  background-color: var(--bg-default);
+  border: 1px solid var(--divider);
   border-bottom: none;
   padding: 8px 16px;
   gap: 16px;
@@ -48,7 +48,7 @@
 .toolbar-btn {
   background: none;
   border: none;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -58,11 +58,11 @@
 }
 
 .toolbar-btn:hover {
-  color: #004d80;
+  color: var(--primary-main);
 }
 
 .icon-plus {
-  color: #004d80;
+  color: var(--primary-main);
   font-weight: bold;
   font-size: 18px;
 }
@@ -74,13 +74,13 @@
 .toolbar-divider {
   width: 1px;
   height: 20px;
-  background-color: #cbd5e1;
+  background-color: var(--divider);
 }
 
 .docs-table-wrapper {
   flex: 1;
-  border: 1px solid #cbd5e1;
-  background-color: white;
+  border: 1px solid var(--divider);
+  background-color: var(--bg-paper);
   overflow-y: auto;
 }
 
@@ -90,18 +90,18 @@
 }
 
 .docs-table th {
-  background-color: #004d80;
-  color: white;
+  background-color: var(--primary-main);
+  color: var(--bg-paper);
   font-size: 10px;
   font-weight: 800;
   text-align: center;
   padding: 12px 8px;
-  border: 1px solid #003a61;
+  border: 1px solid var(--primary-main);
   letter-spacing: 0.5px;
 }
 
 .docs-table td {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--divider);
   padding: 0;
   height: 40px;
   vertical-align: middle;
@@ -117,21 +117,21 @@
   border: none;
   padding: 8px;
   font-size: 12px;
-  color: #1a2b3c;
+  color: var(--text-primary);
   background: transparent;
   box-sizing: border-box;
 }
 
 .docs-table td input:focus {
-  outline: 2px solid #004d80;
+  outline: 2px solid var(--primary-main);
   outline-offset: -2px;
-  background-color: #f0f9ff;
+  background-color: var(--bg-default);
 }
 
 .col-num {
   width: 40px;
-  background-color: #f8fafc;
-  color: #64748b;
+  background-color: var(--bg-default);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
   text-align: center !important;
@@ -150,18 +150,18 @@
   align-items: center;
   gap: 8px;
   padding-left: 12px !important;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 11px;
   font-style: italic;
 }
 
 .attach-icon {
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .action-cell {
   text-align: center;
-  background-color: #fcfcfc;
+  background-color: var(--bg-paper);
 }
 
 .btn-delete-row {
@@ -175,45 +175,6 @@
 
 .btn-delete-row:hover {
   opacity: 1;
-}
-
-/* Dark Theme Overrides */
-[data-theme='dark'] .docs-toolbar {
-  background-color: var(--bg-paper);
-  border-color: var(--divider);
-}
-
-[data-theme='dark'] .toolbar-divider {
-  background-color: var(--divider);
-}
-
-[data-theme='dark'] .docs-table-wrapper {
-  background-color: var(--bg-paper);
-  border-color: var(--divider);
-}
-
-[data-theme='dark'] .docs-table td {
-  border-color: var(--divider);
-}
-
-[data-theme='dark'] .docs-table td input {
-  color: var(--text-primary);
-}
-
-[data-theme='dark'] .docs-table td input:focus {
-  background-color: rgba(0, 168, 150, 0.1);
-}
-
-[data-theme='dark'] .col-num {
-  background-color: var(--bg-default);
-}
-
-[data-theme='dark'] .action-cell {
-  background-color: var(--bg-default);
-}
-
-[data-theme='dark'] .docs-table tr.selected-row td {
-  background-color: rgba(0, 77, 128, 0.6);
 }
 
 /* ================= PRINT STYLES ================= */
@@ -240,7 +201,7 @@
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
-    background-color: white !important;
+    background-color: var(--bg-paper) !important;
   }
 
   /* Make sure table expands full width */
@@ -260,21 +221,21 @@
   .docs-table td select {
     border: none !important;
     background: transparent !important;
-    color: black !important;
+    color: var(--text-primary) !important;
     appearance: none !important;
     -webkit-appearance: none !important;
   }
   
   /* Reset colors to save ink and look clean */
   .docs-table th {
-    background-color: #f1f5f9 !important;
-    color: black !important;
-    border: 1px solid #cbd5e1 !important;
+    background-color: var(--bg-default) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--divider) !important;
   }
   
   .docs-table td, .col-num {
-    background-color: white !important;
-    color: black !important;
-    border: 1px solid #cbd5e1 !important;
+    background-color: var(--bg-paper) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--divider) !important;
   }
 }

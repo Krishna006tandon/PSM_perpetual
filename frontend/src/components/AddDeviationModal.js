@@ -100,24 +100,24 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
             </div>
 
             <div className="form-group">
-              <label>Location From</label>
+              <label>Equipment</label>
               <input 
                 type="text" 
                 name="locationFrom" 
                 value={formData.locationFrom} 
                 onChange={handleChange} 
-                placeholder="Enter from location..."
+                placeholder="Enter equipment..."
               />
             </div>
             
             <div className="form-group">
-              <label>Location To</label>
+              <label>Instrument</label>
               <input 
                 type="text" 
                 name="locationTo" 
                 value={formData.locationTo} 
                 onChange={handleChange} 
-                placeholder="Enter to location..."
+                placeholder="Enter instrument..."
               />
             </div>
 

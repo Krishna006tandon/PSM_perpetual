@@ -471,8 +471,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 <th className="th-sub w-guideword">GUIDE WORD<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Auto)</span></th>
                 <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
                 <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
-                <th className="th-sub w-from">FROM<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(From)</span></th>
-                <th className="th-sub w-to">TO<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(To)</span></th>
+                <th className="th-sub w-from">EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span></th>
+                <th className="th-sub w-to">INSTRUMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Instrument)</span></th>
                 
                 <th className="th-sub w-cons-imm">Immediate</th>
                 <th className="th-sub w-cons-ult">Ultimate</th>

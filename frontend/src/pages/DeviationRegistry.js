@@ -166,7 +166,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   };
 
   const handleExport = () => {
-    const headers = ['GUIDEWORDS', 'PARAMETER', 'PROCESS FLOW / MATERIAL', 'LOCATION FROM', 'LOCATION TO', 'DEVIATION (AUTO)'];
+    const headers = ['GUIDEWORDS', 'PARAMETER', 'PROCESS FLOW / MATERIAL', 'EQUIPMENT', 'INSTRUMENT', 'DEVIATION (AUTO)'];
     const csvRows = [headers.join(',')];
     
     deviations.forEach(dev => {
@@ -241,8 +241,8 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 <th className="col-dev-guidewords">GUIDEWORDS</th>
                 <th className="col-dev-parameter">PARAMETER</th>
                 <th className="col-dev-process">PROCESS FLOW / MATERIAL</th>
-                <th className="col-dev-loc-from">LOCATION FROM</th>
-                <th className="col-dev-loc-to">LOCATION TO</th>
+                <th className="col-dev-loc-from">EQUIPMENT</th>
+                <th className="col-dev-loc-to">INSTRUMENT</th>
                 <th className="col-dev-auto">DEVIATION (AUTO)</th>
               </tr>
             </thead>

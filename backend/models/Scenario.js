@@ -9,6 +9,7 @@ const scenarioSchema = new mongoose.Schema({
   deviationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Deviation' },
   causeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cause' },
   
+  consequenceGroupId: { type: String },
   consequencesImmediate: { type: String, default: '' },
   consequencesUltimate: { type: String, default: '' },
   

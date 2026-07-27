@@ -10,7 +10,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInitialData, setModalInitialData] = useState({ deviationId: '', causeId: '' });
-  const [selectedRowId, setSelectedRowId] = useState(null);
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
 
   // Group scenarios visually by Deviation and Cause
   const processedScenarios = useMemo(() => {
@@ -27,6 +27,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const causeB = b.causeId?._id || '';
       if (causeA !== causeB) return causeA.localeCompare(causeB);
       
+      const consA = a.consequenceGroupId || '';
+      const consB = b.consequenceGroupId || '';
+      if (consA !== consB) return consA.localeCompare(consB);
+      
       const idA = a._id || '';
       const idB = b._id || '';
       return idA.localeCompare(idB);
@@ -37,12 +41,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     let causeNum = 0;
     let consNum = 0;
     
+    const getConsKey = (s) => s.consequenceGroupId || s._id;
+
     for (let i = 0; i < sortedScenarios.length; i++) {
       const sc = sortedScenarios[i];
       const prevSc = i > 0 ? sortedScenarios[i - 1] : null;
       
       const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
       const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+      const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
       
       if (isNewDev) {
         devNum++;
@@ -52,10 +59,22 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
         causeNum++;
         consNum = 0;
       }
-      consNum++;
+      if (isNewCons) {
+        consNum++;
+      }
+      
+      let safeNum = 0;
+      for(let j=0; j<=i; j++){
+        if(sortedScenarios[j].deviationId?._id === sc.deviationId?._id &&
+           sortedScenarios[j].causeId?._id === sc.causeId?._id &&
+           getConsKey(sortedScenarios[j]) === getConsKey(sc)) {
+             safeNum++;
+        }
+      }
       
       let devSpanCount = 0;
       let causeSpanCount = 0;
+      let consSpanCount = 0;
       
       if (isNewDev) {
         for (let j = i; j < sortedScenarios.length; j++) {
@@ -70,6 +89,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           else break;
         }
       }
+
+      if (isNewCons) {
+        for (let j = i; j < sortedScenarios.length; j++) {
+          if (sortedScenarios[j].deviationId?._id === sc.deviationId?._id && 
+              sortedScenarios[j].causeId?._id === sc.causeId?._id &&
+              getConsKey(sortedScenarios[j]) === getConsKey(sc)) consSpanCount++;
+          else break;
+        }
+      }
       
       result.push({
         ...sc,
@@ -77,10 +105,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
         devSpanCount,
         isNewCause,
         causeSpanCount,
+        isNewCons,
+        consSpanCount,
         badgeDev: `${devNum}`,
         badgeCause: `${devNum}.${causeNum}`,
         badgeCons: `${devNum}.${causeNum}.${consNum}`,
-        badgeSafe: `${devNum}.${causeNum}.${consNum}.1`
+        badgeSafe: `${devNum}.${causeNum}.${consNum}.${safeNum}`
       });
     }
     
@@ -140,31 +170,36 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   };
 
   const handleCellChange = (id, field, value) => {
-    setScenarios(prev => prev.map(sc => {
-      if (sc._id === id) {
-        const updatedSc = { ...sc, [field]: value };
-        
-        // Auto calculate RR if S or L changes
-        if (field === 'inherentRiskS' || field === 'inherentRiskL') {
-          const s = parseInt(updatedSc.inherentRiskS) || 0;
-          const l = parseInt(updatedSc.inherentRiskL) || 0;
-          updatedSc.inherentRiskRR = s && l ? s * l : '';
+    setScenarios(prev => {
+      const targetSc = prev.find(s => s._id === id);
+      const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
+      const targetGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+
+      return prev.map(sc => {
+        if (sc._id === id || (targetGroupId && sc.consequenceGroupId === targetGroupId)) {
+          const updatedSc = { ...sc, [field]: value };
+          
+          if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+            const s = parseInt(updatedSc.inherentRiskS) || 0;
+            const l = parseInt(updatedSc.inherentRiskL) || 0;
+            updatedSc.inherentRiskRR = s && l ? s * l : '';
+          }
+          if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+            const s = parseInt(updatedSc.mitigatedRiskS) || 0;
+            const l = parseInt(updatedSc.mitigatedRiskL) || 0;
+            updatedSc.mitigatedRiskRR = s && l ? s * l : '';
+          }
+          if (field === 'residualRiskS' || field === 'residualRiskL') {
+            const s = parseInt(updatedSc.residualRiskS) || 0;
+            const l = parseInt(updatedSc.residualRiskL) || 0;
+            updatedSc.residualRiskRR = s && l ? s * l : '';
+          }
+          
+          return updatedSc;
         }
-        if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-          const s = parseInt(updatedSc.mitigatedRiskS) || 0;
-          const l = parseInt(updatedSc.mitigatedRiskL) || 0;
-          updatedSc.mitigatedRiskRR = s && l ? s * l : '';
-        }
-        if (field === 'residualRiskS' || field === 'residualRiskL') {
-          const s = parseInt(updatedSc.residualRiskS) || 0;
-          const l = parseInt(updatedSc.residualRiskL) || 0;
-          updatedSc.residualRiskRR = s && l ? s * l : '';
-        }
-        
-        return updatedSc;
-      }
-      return sc;
-    }));
+        return sc;
+      });
+    });
   };
 
   const handleBlur = async (id, field, value) => {
@@ -172,32 +207,39 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       
       let payload = { [field]: value };
-      const sc = scenarios.find(s => s._id === id);
+      const targetSc = scenarios.find(s => s._id === id);
       
       if (field === 'inherentRiskS' || field === 'inherentRiskL') {
-        const s = field === 'inherentRiskS' ? parseInt(value) : parseInt(sc.inherentRiskS);
-        const l = field === 'inherentRiskL' ? parseInt(value) : parseInt(sc.inherentRiskL);
+        const s = field === 'inherentRiskS' ? parseInt(value) : parseInt(targetSc.inherentRiskS);
+        const l = field === 'inherentRiskL' ? parseInt(value) : parseInt(targetSc.inherentRiskL);
         payload.inherentRiskRR = s && l ? s * l : '';
       }
       if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-        const s = field === 'mitigatedRiskS' ? parseInt(value) : parseInt(sc.mitigatedRiskS);
-        const l = field === 'mitigatedRiskL' ? parseInt(value) : parseInt(sc.mitigatedRiskL);
+        const s = field === 'mitigatedRiskS' ? parseInt(value) : parseInt(targetSc.mitigatedRiskS);
+        const l = field === 'mitigatedRiskL' ? parseInt(value) : parseInt(targetSc.mitigatedRiskL);
         payload.mitigatedRiskRR = s && l ? s * l : '';
       }
       if (field === 'residualRiskS' || field === 'residualRiskL') {
-        const s = field === 'residualRiskS' ? parseInt(value) : parseInt(sc.residualRiskS);
-        const l = field === 'residualRiskL' ? parseInt(value) : parseInt(sc.residualRiskL);
+        const s = field === 'residualRiskS' ? parseInt(value) : parseInt(targetSc.residualRiskS);
+        const l = field === 'residualRiskL' ? parseInt(value) : parseInt(targetSc.residualRiskL);
         payload.residualRiskRR = s && l ? s * l : '';
       }
 
-      await fetch(`http://localhost:5000/api/scenarios/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
+      const targetGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+
+      const scenariosToUpdate = targetGroupId ? scenarios.filter(s => s.consequenceGroupId === targetGroupId) : [targetSc];
+
+      await Promise.all(scenariosToUpdate.map(sc => 
+        fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        })
+      ));
     } catch (error) {
       console.error('Failed to save scenario:', error);
     }
@@ -212,10 +254,38 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       });
       if (response.ok) {
         setScenarios(prev => prev.filter(sc => sc._id !== id));
-        if (selectedRowId === id) setSelectedRowId(null);
+        setSelectedRowIds(prev => prev.filter(rowId => rowId !== id));
       }
     } catch (error) {
       console.error('Failed to delete scenario:', error);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedRowIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedRowIds.length} selected row(s)?`)) return;
+    
+    for (const id of selectedRowIds) {
+      await handleDelete(id);
+    }
+    setSelectedRowIds([]);
+  };
+
+  const handleSelectRow = (id, isSelected) => {
+    setSelectedRowIds(prev => {
+      if (isSelected) {
+        return [...prev, id];
+      } else {
+        return prev.filter(rowId => rowId !== id);
+      }
+    });
+  };
+
+  const handleSelectAll = (isSelected) => {
+    if (isSelected) {
+      setSelectedRowIds(scenarios.map(sc => sc._id));
+    } else {
+      setSelectedRowIds([]);
     }
   };
 
@@ -231,7 +301,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ nodeId: selectedNodeId, deviationId, causeId })
+        body: JSON.stringify({ 
+          nodeId: selectedNodeId, 
+          deviationId, 
+          causeId,
+          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+        })
       });
       if (response.ok) {
         const newScenario = await response.json();
@@ -258,7 +333,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ nodeId: selectedNodeId, deviationId, causeId: newCause._id })
+        body: JSON.stringify({ 
+          nodeId: selectedNodeId, 
+          deviationId, 
+          causeId: newCause._id,
+          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+        })
       });
       if (response.ok) {
         const newScenario = await response.json();
@@ -293,7 +373,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ nodeId: selectedNodeId, deviationId: newDev._id, causeId: newCause._id })
+        body: JSON.stringify({ 
+          nodeId: selectedNodeId, 
+          deviationId: newDev._id, 
+          causeId: newCause._id,
+          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+        })
       });
       if (response.ok) {
         const newScenario = await response.json();
@@ -301,6 +386,52 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       }
     } catch (error) {
       console.error('Error adding quick deviation:', error);
+    }
+  };
+
+  const handleQuickAddSafeguard = async (sc) => {
+    if (!sc.deviationId || !sc.causeId) return;
+    try {
+      const token = localStorage.getItem('token');
+      
+      let groupId = sc.consequenceGroupId;
+      
+      // If the current scenario doesn't have a group ID (created before the feature), generate one and update it first
+      if (!groupId) {
+        groupId = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        
+        // Update the current scenario in the backend
+        await fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ consequenceGroupId: groupId })
+        });
+      }
+
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ 
+          nodeId: selectedNodeId, 
+          deviationId: sc.deviationId._id, 
+          causeId: sc.causeId._id,
+          consequenceGroupId: groupId,
+          consequencesImmediate: sc.consequencesImmediate,
+          consequencesUltimate: sc.consequencesUltimate,
+          inherentRiskS: sc.inherentRiskS,
+          inherentRiskL: sc.inherentRiskL
+        })
+      });
+      if (response.ok) {
+        const newScenario = await response.json();
+        setScenarios(prev => {
+          // Ensure the original scenario in state also gets the new groupId if it was just generated
+          const updatedPrev = prev.map(s => s._id === sc._id ? { ...s, consequenceGroupId: groupId } : s);
+          return [...updatedPrev, newScenario];
+        });
+      }
+    } catch (error) {
+      console.error('Error adding quick safeguard:', error);
     }
   };
 
@@ -416,6 +547,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
           </button>
           
+          <button 
+            className="toolbar-btn" 
+            onClick={handleDeleteSelected} 
+            disabled={selectedRowIds.length === 0}
+            style={{ color: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', borderColor: selectedRowIds.length > 0 ? '#ef4444' : 'inherit' }}
+          >
+            🗑️ Delete Selected ({selectedRowIds.length})
+          </button>
+          
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
           <button className="toolbar-btn icon-only" title="Export">📥</button>
           
@@ -445,6 +585,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           <table className="pha-table">
             <thead>
               <tr>
+                <th className="th-primary" rowSpan={2} style={{width: '40px', textAlign: 'center'}}>
+                  <input 
+                    type="checkbox" 
+                    checked={scenarios.length > 0 && selectedRowIds.length === scenarios.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </th>
                 <th className="th-primary w-sr" rowSpan={2}>SR.</th>
                 
                 {/* Decomposition of Deviation */}
@@ -507,9 +655,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
               {!loading && processedScenarios.map((sc, index) => (
                 <tr 
                   key={sc._id}
-                  className={selectedRowId === sc._id ? 'selected-row' : ''}
-                  onClick={() => setSelectedRowId(sc._id)}
+                  className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
+                  <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedRowIds.includes(sc._id)}
+                      onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </td>
                   {sc.isNewDev && (
                     <>
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
@@ -557,34 +712,39 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   )}
                   
                   {/* Editable Cells */}
-                  <td className="w-cons-imm bg-consequence">
-                    <span className="badge-cons">{sc.badgeCons}</span>
-                    <textarea 
-                      style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
-                      value={sc.consequencesImmediate || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
-                    />
-                  </td>
-                  <td className="w-cons-ult bg-consequence">
-                    <textarea 
-                      value={sc.consequencesUltimate || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
-                    />
-                  </td>
-                  
-                  <td className="w-risk-s">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                    </select>
-                  </td>
-                  <td className="w-risk-l">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                    </select>
-                  </td>
-                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  {sc.isNewCons && (
+                    <>
+                      <td className="w-cons-imm bg-consequence" rowSpan={sc.consSpanCount}>
+                        <span className="badge-cons">{sc.badgeCons}</span>
+                        <textarea 
+                          style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
+                          value={sc.consequencesImmediate || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
+                          onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
+                        />
+                        <span className="action-link" style={{color: '#10b981'}} onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
+                      </td>
+                      <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
+                        <textarea 
+                          value={sc.consequencesUltimate || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
+                          onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
+                        />
+                      </td>
+                      
+                      <td className="w-risk-s" rowSpan={sc.consSpanCount}>
+                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
+                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                      </td>
+                      <td className="w-risk-l" rowSpan={sc.consSpanCount}>
+                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
+                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount}><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                    </>
+                  )}
                   
                   <td className="w-protection bg-protection">
                     <span className="badge-safe">{sc.badgeSafe}</span>

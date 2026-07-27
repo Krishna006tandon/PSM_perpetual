@@ -13,6 +13,7 @@ import RecommendationRegistry from './pages/RecommendationRegistry';
 import RiskRegistry from './pages/RiskRegistry';
 import ChecklistRegistry from './pages/ChecklistRegistry';
 import ActionTrackingRegistry from './pages/ActionTrackingRegistry';
+import LOPAWorksheet from './pages/LOPAWorksheet';
 
 import Auth from './components/Auth';
 
@@ -172,6 +173,18 @@ function App() {
       if (studyTab === 'recommendations') {
         return (
           <RecommendationRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'lopa') {
+        return (
+          <LOPAWorksheet 
             study={activeStudy} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}

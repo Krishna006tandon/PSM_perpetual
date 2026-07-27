@@ -38,6 +38,27 @@ const scenarioSchema = new mongoose.Schema({
   checklistData: { type: Map, of: String, default: {} },
   actionTrackingData: { type: Map, of: String, default: {} },
   
+  // LOPA specific fields
+  lopaData: {
+    freqOfInitiatingEvent: { type: Number },
+    severity: { type: Number }, // Editable, as requested
+    cmPfd: { type: Number, default: 1 },
+    cmTimeAtRisk: { type: Number, default: 1 },
+    cmOccupancy: { type: Number, default: 1 },
+    tolerance: { type: Number }, // Editable, as requested
+    requiredSil: { type: Number }, // Editable, as requested
+    recommendationRequiredSil: { type: Number }, // Editable, as requested
+    ipls: [{
+      no: String,
+      description: String,
+      credit: Number
+    }],
+    recommendations: [{
+      description: String,
+      credit: Number
+    }]
+  },
+  
   order: { type: Number, default: 0 }
 }, { timestamps: true });
 

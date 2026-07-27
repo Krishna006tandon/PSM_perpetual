@@ -608,9 +608,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 <th className="th-primary w-protection" rowSpan={2}>PRESENT / PLANNED PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Safeguards / IPLs)</span></th>
                 
                 <th className="th-primary th-risk-mitigated" colSpan={3} style={{borderBottom: 'none'}}>MITIGATED RISK</th>
-                <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
                 
                 <th className="th-primary w-additional" rowSpan={2}>ADDITIONAL PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Recommendations)</span></th>
+                
+                <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
                 <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
                 <th className="th-primary w-status" rowSpan={2}>STATUS</th>
               </tr>
@@ -627,15 +628,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 
                 <th className="th-sub th-risk-inherent th-sub-risk w-risk-s">S</th>
                 <th className="th-sub th-risk-inherent th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-inherent th-sub-risk w-risk-rr">IR</th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-rr">S×L=IR</th>
                 
                 <th className="th-sub th-risk-mitigated th-sub-risk w-risk-s">S</th>
                 <th className="th-sub th-risk-mitigated th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-rr">MR</th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-rr">S×L=MR</th>
                 
                 <th className="th-sub th-risk-residual th-sub-risk w-risk-s">S</th>
                 <th className="th-sub th-risk-residual th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-residual th-sub-risk w-risk-rr">RR</th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-rr">S×L=RR</th>
               </tr>
             </thead>
             <tbody>
@@ -768,6 +769,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   </td>
                   <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
                   
+                  <td className="w-additional">
+                    <textarea 
+                      value={sc.additionalProtection || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                    />
+                  </td>
+
                   <td className="w-risk-s">
                     <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
                       <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
@@ -779,14 +788,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     </select>
                   </td>
                   <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
-                  
-                  <td className="w-additional">
-                    <textarea 
-                      value={sc.additionalProtection || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
-                    />
-                  </td>
                   <td className="w-remarks">
                     <textarea 
                       value={sc.remarks || ''} 

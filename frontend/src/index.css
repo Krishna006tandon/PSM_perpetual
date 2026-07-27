@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Default Theme (Dark as specified) */
+  --bg-default: hsl(220, 35%, 3%);
+  --bg-paper: hsl(220, 30%, 7%);
+  
+  --text-primary: hsl(0, 0%, 100%);
+  --text-secondary: hsl(220, 20%, 65%);
+  
+  --primary-main: hsl(210, 98%, 48%);
+  --primary-light: hsl(210, 100%, 65%);
+  --primary-dark: hsl(210, 100%, 35%);
+  --primary-contrast: hsl(210, 100%, 95%);
+  
+  --success: hsl(120, 59%, 30%);
+  --warning: hsl(45, 90%, 35%);
+  --error: hsl(0, 90%, 30%);
+  --info: hsl(210, 100%, 35%);
+  
+  --divider: hsla(220, 20%, 25%, 0.6);
+}
+
+[data-theme='light'] {
+  /* Light Theme (Alternative) */
+  --bg-default: hsl(220, 10%, 95%);
+  --bg-paper: hsl(0, 0%, 100%);
+  
+  --text-primary: hsl(220, 35%, 10%);
+  --text-secondary: hsl(220, 20%, 35%);
+  
+  --primary-main: hsl(210, 80%, 45%);
+  --primary-light: hsl(210, 90%, 60%);
+  --primary-dark: hsl(210, 100%, 30%);
+  --primary-contrast: hsl(0, 0%, 100%);
+  
+  --success: hsl(120, 60%, 40%);
+  --warning: hsl(45, 95%, 45%);
+  --error: hsl(0, 85%, 45%);
+  --info: hsl(210, 90%, 45%);
+  
+  --divider: hsla(220, 20%, 75%, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-paper);
+  border-right: 1px solid var(--divider);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.sidebar h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-light);
+  margin-bottom: 12px;
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sidebar li:hover, .sidebar li.active {
+  background-color: hsla(210, 98%, 48%, 0.1);
+  color: var(--primary-main);
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background-color: var(--primary-main);
+  color: var(--primary-contrast);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.theme-toggle:hover {
+  background-color: var(--primary-light);
+}
+
+.theme-toggle:active {
+  transform: scale(0.96);
+}
+
+/* Cards */
+.card-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  background-color: var(--bg-paper);
+  border: 1px solid var(--divider);
+  padding: 24px;
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+[data-theme='light'] .card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+}
+
+.card h3 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.status-success { background-color: hsla(120, 59%, 30%, 0.2); color: var(--success); }
+.status-warning { background-color: hsla(45, 90%, 35%, 0.2); color: var(--warning); }
+.status-error { background-color: hsla(0, 90%, 30%, 0.2); color: var(--error); }
+.status-info { background-color: hsla(210, 100%, 35%, 0.2); color: var(--info); }

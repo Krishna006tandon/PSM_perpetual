@@ -8,6 +8,9 @@ import NodeRegistry from './pages/NodeRegistry';
 import DeviationRegistry from './pages/DeviationRegistry';
 import CauseRegistry from './pages/CauseRegistry';
 import PHAWorksheet from './pages/PHAWorksheet';
+import SafeguardRegistry from './pages/SafeguardRegistry';
+import RecommendationRegistry from './pages/RecommendationRegistry';
+import RiskRegistry from './pages/RiskRegistry';
 
 import Auth from './components/Auth';
 
@@ -143,6 +146,42 @@ function App() {
       if (studyTab === 'pha-worksheets') {
         return (
           <PHAWorksheet 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'safeguards') {
+        return (
+          <SafeguardRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'recommendations') {
+        return (
+          <RecommendationRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'risk-criteria') {
+        return (
+          <RiskRegistry 
             study={activeStudy} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}

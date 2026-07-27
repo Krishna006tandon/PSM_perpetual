@@ -1,0 +1,125 @@
+/* Shared styling for Safeguards, Recommendations, and Risk Registries */
+.dynamic-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-default);
+}
+
+.dynamic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--bg-paper);
+  border-bottom: 1px solid var(--divider);
+}
+
+.dynamic-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--primary-main);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.dynamic-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--bg-paper);
+  border-bottom: 1px solid var(--divider);
+}
+
+.dynamic-toolbar .btn-manage-columns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dynamic-toolbar .btn-manage-columns:hover {
+  background: var(--bg-default);
+  border-color: var(--text-secondary);
+}
+
+.dynamic-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-paper);
+}
+
+.dynamic-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.dynamic-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--primary-main);
+  color: var(--bg-paper);
+  padding: 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid var(--text-secondary);
+  z-index: 10;
+}
+
+.dynamic-table td {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  vertical-align: top;
+}
+
+.dynamic-table tbody tr:hover td {
+  background-color: rgba(0,0,0,0.02);
+}
+
+.dynamic-table input,
+.dynamic-table textarea,
+.dynamic-table select {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  resize: vertical;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.dynamic-table input:focus,
+.dynamic-table textarea:focus,
+.dynamic-table select:focus {
+  background: var(--bg-paper);
+  border-color: #7dd3fc;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.col-node { width: 150px; min-width: 150px; }
+.col-dev { width: 250px; min-width: 250px; }
+.col-cause { width: 250px; min-width: 250px; }
+.col-cons { width: 250px; min-width: 250px; }
+.col-custom { width: 250px; min-width: 250px; }

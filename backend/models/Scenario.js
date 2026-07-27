@@ -30,6 +30,11 @@ const scenarioSchema = new mongoose.Schema({
   additionalProtection: { type: String, default: '' },
   remarks: { type: String, default: '' },
   status: { type: String, default: '' },
+
+  // Dynamic custom data maps for new tabs
+  safeguardData: { type: Map, of: String, default: {} },
+  recommendationData: { type: Map, of: String, default: {} },
+  riskData: { type: Map, of: String, default: {} },
   
   order: { type: Number, default: 0 }
 }, { timestamps: true });

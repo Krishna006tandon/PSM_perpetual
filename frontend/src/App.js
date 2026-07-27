@@ -11,6 +11,8 @@ import PHAWorksheet from './pages/PHAWorksheet';
 import SafeguardRegistry from './pages/SafeguardRegistry';
 import RecommendationRegistry from './pages/RecommendationRegistry';
 import RiskRegistry from './pages/RiskRegistry';
+import ChecklistRegistry from './pages/ChecklistRegistry';
+import ActionTrackingRegistry from './pages/ActionTrackingRegistry';
 
 import Auth from './components/Auth';
 
@@ -182,6 +184,30 @@ function App() {
       if (studyTab === 'risk-criteria') {
         return (
           <RiskRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'check-lists') {
+        return (
+          <ChecklistRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'action-tracking') {
+        return (
+          <ActionTrackingRegistry 
             study={activeStudy} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}

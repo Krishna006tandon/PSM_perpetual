@@ -140,6 +140,23 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const renderCustomCell = (sc, col) => {
     const value = (sc.riskData && sc.riskData[col.id]) || '';
     
+    if (col.type === 'checkbox') {
+      const isChecked = value === 'true' || value === true;
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '30px' }}>
+          <input 
+            type="checkbox" 
+            checked={isChecked}
+            onChange={(e) => {
+              const checkedVal = e.target.checked.toString();
+              handleCellChange(sc._id, col.id, checkedVal, true);
+              handleBlur(sc._id, col.id, checkedVal, true);
+            }}
+          />
+        </div>
+      );
+    }
+
     if (col.type === 'dropdown') {
       return (
         <select 

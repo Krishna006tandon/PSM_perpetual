@@ -3,7 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
 
-const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [scenarios, setScenarios] = useState([]);
   const [columns, setColumns] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -25,7 +25,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       const token = localStorage.getItem('token');
       
       // Fetch Custom Columns
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/safeguards`, {
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/actions`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -95,9 +95,9 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
     setScenarios(prev => prev.map(sc => {
       if (sc._id === id) {
         if (isCustom) {
-          const newData = { ...(sc.safeguardData || {}) };
+          const newData = { ...(sc.actionTrackingData || {}) };
           newData[field] = value;
-          return { ...sc, safeguardData: newData };
+          return { ...sc, actionTrackingData: newData };
         }
         return { ...sc, [field]: value };
       }
@@ -113,8 +113,8 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
 
       let payload = {};
       if (isCustom) {
-        payload.safeguardData = { ...(sc.safeguardData || {}) };
-        payload.safeguardData[field] = value;
+        payload.actionTrackingData = { ...(sc.actionTrackingData || {}) };
+        payload.actionTrackingData[field] = value;
       } else {
         payload[field] = value;
       }
@@ -138,7 +138,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   };
 
   const renderCustomCell = (sc, col) => {
-    const value = (sc.safeguardData && sc.safeguardData[col.id]) || '';
+    const value = (sc.actionTrackingData && sc.actionTrackingData[col.id]) || '';
     
     if (col.type === 'checkbox') {
       const isChecked = value === 'true' || value === true;
@@ -228,10 +228,10 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   if (!study) return null;
 
   return (
-    <StudyLayout activeTab="safeguards" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
+    <StudyLayout activeTab="action-tracking" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="dynamic-container">
         <div className="dynamic-header">
-          <h2>SAFEGUARDS REGISTRY</h2>
+          <h2>ACTION TRACKING REGISTRY</h2>
         </div>
 
         <div className="dynamic-toolbar">
@@ -249,7 +249,8 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 <th className="col-dev">DEVIATION</th>
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
-                <th className="col-custom">PRESENT PROTECTION (SAFEGUARDS)</th>
+                <th className="col-custom">STATUS</th>
+                <th className="col-custom">REMARKS</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
@@ -264,10 +265,25 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
                   <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
+                    <select
+                      value={sc.status || ''} 
+                      onChange={(e) => {
+                        handleCellChange(sc._id, 'status', e.target.value);
+                        handleBlur(sc._id, 'status', e.target.value);
+                      }}
+                    >
+                      <option value=""></option>
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </td>
+                  <td className="col-custom">
                     <textarea 
-                      value={sc.presentProtection || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
+                      value={sc.remarks || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
                     />
                   </td>
                   {columns.map(col => (
@@ -285,7 +301,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       {isManageColumnsOpen && (
         <ManageColumnsModal 
           studyId={study._id}
-          registryType="safeguards"
+          registryType="actions"
           onClose={() => setIsManageColumnsOpen(false)}
           onSave={handleColumnsSaved}
         />
@@ -294,4 +310,4 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   );
 };
 
-export default SafeguardRegistry;
+export default ActionTrackingRegistry;

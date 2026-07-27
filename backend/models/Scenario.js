@@ -35,6 +35,8 @@ const scenarioSchema = new mongoose.Schema({
   safeguardData: { type: Map, of: String, default: {} },
   recommendationData: { type: Map, of: String, default: {} },
   riskData: { type: Map, of: String, default: {} },
+  checklistData: { type: Map, of: String, default: {} },
+  actionTrackingData: { type: Map, of: String, default: {} },
   
   order: { type: Number, default: 0 }
 }, { timestamps: true });

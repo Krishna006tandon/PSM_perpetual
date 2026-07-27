@@ -112,6 +112,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
                       <option value="text">Text Area</option>
                       <option value="dropdown">Custom Dropdown</option>
                       <option value="fetch">Fetch Data</option>
+                      <option value="checkbox">Checkbox</option>
                     </select>
 
                     <button 

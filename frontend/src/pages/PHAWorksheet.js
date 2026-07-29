@@ -1,7 +1,35 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import './PHAWorksheet.css';
+
+// A custom Select component that allows adding new options
+const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder }) => {
+  return (
+    <select 
+      className={className} 
+      style={{ ...style, cursor: 'pointer', appearance: 'auto' }} 
+      value={value || ''} 
+      onChange={(e) => {
+        if (e.target.value === '__ADD_NEW__') {
+          const newVal = window.prompt(`Enter new ${placeholder || 'value'}:`);
+          if (newVal) {
+            onChange({ target: { value: newVal } });
+            if (onBlur) onBlur({ target: { value: newVal } });
+          }
+        } else {
+          onChange(e);
+        }
+      }}
+      onBlur={onBlur}
+    >
+      <option value="">{placeholder || ''}</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      <option value="__ADD_NEW__" style={{fontStyle: 'italic', color: '#2563eb'}}>+ Add New...</option>
+    </select>
+  );
+};
 
 const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [nodes, setNodes] = useState([]);
@@ -115,6 +143,36 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     }
     
     return result;
+  }, [scenarios]);
+
+  const uniqueDropdownOptions = useMemo(() => {
+    const guidewords = new Set();
+    const parameters = new Set();
+    const materials = new Set();
+    const equipments = new Set();
+    const instruments = new Set();
+
+    scenarios.forEach(sc => {
+      if (sc.deviationId) {
+        if (sc.deviationId.guidewords) guidewords.add(sc.deviationId.guidewords);
+        if (sc.deviationId.parameter) parameters.add(sc.deviationId.parameter);
+        if (sc.deviationId.processFlowMaterial) materials.add(sc.deviationId.processFlowMaterial);
+        if (sc.deviationId.locationFrom) equipments.add(sc.deviationId.locationFrom);
+        if (sc.deviationId.locationTo) instruments.add(sc.deviationId.locationTo);
+      }
+      if (sc.causeId) {
+        if (sc.causeId.equipment) equipments.add(sc.causeId.equipment);
+        if (sc.causeId.instrument) instruments.add(sc.causeId.instrument);
+      }
+    });
+
+    return {
+      guidewords: Array.from(guidewords).sort(),
+      parameters: Array.from(parameters).sort(),
+      materials: Array.from(materials).sort(),
+      equipments: Array.from(equipments).sort(),
+      instruments: Array.from(instruments).sort()
+    };
   }, [scenarios]);
 
   useEffect(() => {
@@ -467,28 +525,36 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     handleDeviationFieldBlur(deviationId, 'deviationAuto', value);
   };
 
-  const handleCauseTextChange = (causeId, value) => {
+  const handleCauseFieldChange = (causeId, field, value) => {
     if (!causeId) return;
     setScenarios(prev => prev.map(sc => {
       if (sc.causeId?._id === causeId) {
-        return { ...sc, causeId: { ...sc.causeId, description: value } };
+        return { ...sc, causeId: { ...sc.causeId, [field]: value } };
       }
       return sc;
     }));
   };
 
-  const handleCauseTextBlur = async (causeId, value) => {
+  const handleCauseFieldBlur = async (causeId, field, value) => {
     if (!causeId) return;
     try {
       const token = localStorage.getItem('token');
       await fetch(`http://localhost:5000/api/causes/${causeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ description: value })
+        body: JSON.stringify({ [field]: value })
       });
     } catch (error) {
-      console.error('Failed to save cause description:', error);
+      console.error(`Failed to save cause ${field}:`, error);
     }
+  };
+
+  const handleCauseTextChange = (causeId, value) => {
+    handleCauseFieldChange(causeId, 'description', value);
+  };
+
+  const handleCauseTextBlur = (causeId, value) => {
+    handleCauseFieldBlur(causeId, 'description', value);
   };
 
   const selectedNode = nodes.find(n => n._id === selectedNodeId);
@@ -671,19 +737,59 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
                       
                       <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
-                        <input className="cell-guideword" value={sc.deviationId?.guidewords || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'guidewords', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'guidewords', e.target.value)} />
+                        <EditableSelect 
+                          className="cell-guideword cell-select" 
+                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                          options={uniqueDropdownOptions.guidewords} 
+                          value={sc.deviationId?.guidewords} 
+                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'guidewords', e.target.value)} 
+                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'guidewords', e.target.value)} 
+                          placeholder="Guideword"
+                        />
                       </td>
                       <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}>
-                        <input className="cell-parameter" value={sc.deviationId?.parameter || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'parameter', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'parameter', e.target.value)} />
+                        <EditableSelect 
+                          className="cell-parameter cell-select" 
+                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                          options={uniqueDropdownOptions.parameters} 
+                          value={sc.deviationId?.parameter} 
+                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'parameter', e.target.value)} 
+                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'parameter', e.target.value)} 
+                          placeholder="Parameter"
+                        />
                       </td>
                       <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}>
-                        <input className="cell-material" value={sc.deviationId?.processFlowMaterial || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} />
+                        <EditableSelect 
+                          className="cell-material cell-select" 
+                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                          options={uniqueDropdownOptions.materials} 
+                          value={sc.deviationId?.processFlowMaterial} 
+                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
+                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
+                          placeholder="Material"
+                        />
                       </td>
                       <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}>
-                        <input className="cell-from" value={sc.deviationId?.locationFrom || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationFrom', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationFrom', e.target.value)} />
+                        <EditableSelect 
+                          className="cell-from cell-select" 
+                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                          options={uniqueDropdownOptions.equipments} 
+                          value={sc.deviationId?.locationFrom} 
+                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationFrom', e.target.value)} 
+                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationFrom', e.target.value)} 
+                          placeholder="From (Eq.)"
+                        />
                       </td>
                       <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}>
-                        <input className="cell-to" value={sc.deviationId?.locationTo || ''} onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationTo', e.target.value)} onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationTo', e.target.value)} />
+                        <EditableSelect 
+                          className="cell-to cell-select" 
+                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                          options={uniqueDropdownOptions.instruments} 
+                          value={sc.deviationId?.locationTo} 
+                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationTo', e.target.value)} 
+                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationTo', e.target.value)} 
+                          placeholder="To (Inst.)"
+                        />
                       </td>
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
@@ -706,9 +812,28 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         value={sc.causeId?.description || ''} 
                         onChange={(e) => handleCauseTextChange(sc.causeId?._id, e.target.value)}
                         onBlur={(e) => handleCauseTextBlur(sc.causeId?._id, e.target.value)}
-                        style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top'}}
+                        style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top', marginBottom: '4px'}}
+                        placeholder="Description..."
                       />
-                      <span className="action-link" style={{color: '#d97706'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
+                      <div style={{display: 'flex', gap: '4px', width: '100%', paddingLeft: '35px', boxSizing: 'border-box', marginBottom: '4px'}}>
+                        <EditableSelect 
+                          options={uniqueDropdownOptions.equipments} 
+                          placeholder="Eq..." 
+                          style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
+                          value={sc.causeId?.equipment}
+                          onChange={(e) => handleCauseFieldChange(sc.causeId?._id, 'equipment', e.target.value)}
+                          onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'equipment', e.target.value)}
+                        />
+                        <EditableSelect 
+                          options={uniqueDropdownOptions.instruments} 
+                          placeholder="Inst..." 
+                          style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
+                          value={sc.causeId?.instrument}
+                          onChange={(e) => handleCauseFieldChange(sc.causeId?._id, 'instrument', e.target.value)}
+                          onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'instrument', e.target.value)}
+                        />
+                      </div>
+                      <span className="action-link" style={{color: '#d97706', paddingLeft: '35px', display: 'block'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
                     </td>
                   )}
                   
@@ -841,6 +966,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           onSuccess={handleAddScenarioSuccess} 
         />
       )}
+        
+      {/* Datalists for dropdown autocompletes */}
+      <datalist id="list-guidewords">
+        {uniqueDropdownOptions.guidewords.map(g => <option key={g} value={g} />)}
+      </datalist>
+      <datalist id="list-parameters">
+        {uniqueDropdownOptions.parameters.map(p => <option key={p} value={p} />)}
+      </datalist>
+      <datalist id="list-materials">
+        {uniqueDropdownOptions.materials.map(m => <option key={m} value={m} />)}
+      </datalist>
+      <datalist id="list-equipments">
+        {uniqueDropdownOptions.equipments.map(e => <option key={e} value={e} />)}
+      </datalist>
+      <datalist id="list-instruments">
+        {uniqueDropdownOptions.instruments.map(i => <option key={i} value={i} />)}
+      </datalist>
     </StudyLayout>
   );
 };

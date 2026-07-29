@@ -14,6 +14,14 @@ const causeSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  equipment: {
+    type: String,
+    default: ''
+  },
+  instrument: {
+    type: String,
+    default: ''
+  },
   sourceReference: {
     type: String,
     default: ''

@@ -5,6 +5,8 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     description: '',
     categoryType: '',
+    equipment: '',
+    instrument: '',
     sourceReference: '',
     comments: ''
   });
@@ -79,6 +81,28 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
               value={formData.categoryType} 
               onChange={handleChange} 
               placeholder="Enter category or type..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Equipment</label>
+            <input 
+              type="text" 
+              name="equipment" 
+              value={formData.equipment} 
+              onChange={handleChange} 
+              placeholder="Enter equipment..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Instrument</label>
+            <input 
+              type="text" 
+              name="instrument" 
+              value={formData.instrument} 
+              onChange={handleChange} 
+              placeholder="Enter instrument..."
             />
           </div>
           

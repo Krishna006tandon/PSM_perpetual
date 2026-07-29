@@ -29,6 +29,7 @@ const deviationRoutes = require('./routes/deviationRoutes');
 const causeRoutes = require('./routes/causeRoutes');
 const scenarioRoutes = require('./routes/scenarioRoutes');
 const columnRoutes = require('./routes/columnRoutes');
+const riskCriteriaRoutes = require('./routes/riskCriteriaRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/studies', studyRoutes);
@@ -39,6 +40,7 @@ app.use('/api/deviations', deviationRoutes);
 app.use('/api/causes', causeRoutes);
 app.use('/api/scenarios', scenarioRoutes);
 app.use('/api/columns', columnRoutes);
+app.use('/api/risk-criteria', riskCriteriaRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -35,6 +35,14 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
               mappedCols.unshift(sysCol);
             }
           });
+        } else if (registryType === 'checklists' && mappedCols.length === 0) {
+          // Default AT fields for Check List
+          mappedCols = [
+            { id: 'at_responsibility', label: 'Responsibility', type: 'fetch', dataSource: 'team', optionsString: '' },
+            { id: 'at_target_date', label: 'Target Date', type: 'date', optionsString: '' },
+            { id: 'at_status', label: 'Status', type: 'dropdown', optionsString: 'Open, In Progress, Closed' },
+            { id: 'at_remarks', label: 'Closure Remarks', type: 'text', optionsString: '' }
+          ];
         }
         setColumns(mappedCols);
       }
@@ -117,7 +125,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
               {columns.map((col, index) => (
                 <div key={col.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', padding: '12px', border: '1px solid var(--divider)', borderRadius: '6px', backgroundColor: 'var(--bg-default)' }}>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={col.label} 
                       onChange={(e) => updateColumn(index, 'label', e.target.value)} 
@@ -151,7 +159,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
                   {/* Conditional inputs based on type */}
                   {col.type === 'dropdown' && (
                     <div style={{ marginTop: '4px' }}>
-                      <input 
+                      <input data-gramm="false" spellcheck="false" 
                         type="text"
                         value={col.optionsString || ''}
                         onChange={(e) => updateColumn(index, 'optionsString', e.target.value)}
@@ -187,7 +195,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
                         Formula Equation {col.isSystem && '(Optional: Leave blank to use default)'} (e.g. <code>[Freq of Initiating Event] * [Severity] / 100</code>)
                         {col.isSystem && col.id === 'sys_total_ipl' && <div>Hint: use <code>[ALL_IPL_CREDITS]</code> to multiply all sub-row IPLs together.</div>}
                       </label>
-                      <input 
+                      <input data-gramm="false" spellcheck="false" 
                         type="text" 
                         placeholder={col.isSystem ? "Leave blank for default behavior" : "Enter math formula referencing other column labels..."}
                         value={col.formulaString || ''}

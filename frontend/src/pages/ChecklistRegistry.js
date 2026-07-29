@@ -30,7 +30,26 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       });
       if (colRes.ok) {
         const colData = await colRes.json();
-        setColumns(colData.columns || []);
+        let fetchedCols = colData.columns || [];
+        if (fetchedCols.length === 0) {
+          fetchedCols = [
+            { id: 'at_responsibility', label: 'Responsibility', type: 'fetch', dataSource: 'team' },
+            { id: 'at_target_date', label: 'Target Date', type: 'date' },
+            { id: 'at_status', label: 'Status', type: 'dropdown', options: ['Open', 'In Progress', 'Closed'] },
+            { id: 'at_remarks', label: 'Closure Remarks', type: 'text' }
+          ];
+          // Auto-save these defaults to the backend so they persist
+          const token = localStorage.getItem('token');
+          fetch(`http://localhost:5000/api/columns/${study._id}/checklists`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ columns: fetchedCols })
+          }).catch(err => console.error("Failed to auto-save default checklist columns", err));
+        }
+        setColumns(fetchedCols);
       }
 
       // Fetch Scenarios
@@ -144,7 +163,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       const isChecked = value === 'true' || value === true;
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '30px' }}>
-          <input 
+          <input data-gramm="false" spellcheck="false" 
             type="checkbox" 
             checked={isChecked}
             onChange={(e) => {
@@ -215,9 +234,23 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       );
     }
 
+    if (col.type === 'date') {
+      return (
+        <input data-gramm="false" spellcheck="false" 
+          type="date"
+          value={value} 
+          onChange={(e) => {
+            handleCellChange(sc._id, col.id, e.target.value, true);
+            handleBlur(sc._id, col.id, e.target.value, true);
+          }}
+          style={{ width: '100%', padding: '5px' }}
+        />
+      );
+    }
+
     // Default to text
     return (
-      <textarea 
+      <textarea data-gramm="false" spellcheck="false" 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
@@ -249,6 +282,8 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 <th className="col-dev">DEVIATION</th>
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
+                <th className="col-safe">SAFEGUARDS</th>
+                <th className="col-rec">RECOMMENDATION</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
@@ -262,6 +297,8 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                   <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
                   <td className="col-cons">{sc.consequencesImmediate || ''}</td>
+                  <td className="col-safe" style={{whiteSpace: 'pre-wrap'}}>{sc.presentProtection || ''}</td>
+                  <td className="col-rec" style={{whiteSpace: 'pre-wrap'}}>{sc.additionalProtection || ''}</td>
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">
                       {renderCustomCell(sc, col)}

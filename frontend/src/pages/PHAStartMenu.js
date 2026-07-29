@@ -173,27 +173,27 @@ const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
             <div className="modal-body">
               <div className="form-group">
                 <label>Study Name</label>
-                <input type="text" name="studyName" value={formData.studyName} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="studyName" value={formData.studyName} onChange={handleInputChange} />
               </div>
               <div className="form-group">
                 <label>Study Coordinator</label>
-                <input type="text" name="studyCoordinator" value={formData.studyCoordinator} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="studyCoordinator" value={formData.studyCoordinator} onChange={handleInputChange} />
               </div>
               <div className="form-group">
                 <label>Contact Info</label>
-                <input type="text" name="contactInfo" value={formData.contactInfo} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="contactInfo" value={formData.contactInfo} onChange={handleInputChange} />
               </div>
               <div className="form-group">
                 <label>Facility</label>
-                <input type="text" name="facility" value={formData.facility} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="facility" value={formData.facility} onChange={handleInputChange} />
               </div>
               <div className="form-group">
                 <label>Owner</label>
-                <input type="text" name="owner" value={formData.owner} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="owner" value={formData.owner} onChange={handleInputChange} />
               </div>
               <div className="form-group">
                 <label>Plant / Unit</label>
-                <input type="text" name="plantUnit" value={formData.plantUnit} onChange={handleInputChange} />
+                <input data-gramm="false" spellcheck="false" type="text" name="plantUnit" value={formData.plantUnit} onChange={handleInputChange} />
               </div>
               
               <div className="form-group">

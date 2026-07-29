@@ -85,6 +85,8 @@
 /* Print Styles */
 @media print {
   .study-top-nav, .study-sidebar, .nodes-toolbar, .btn-manage-columns {
+  margin-left: auto;
+  margin-left: auto;
     display: none !important;
   }
   .study-layout-container, .study-main-layout, .study-content,

@@ -254,16 +254,15 @@
   border-spacing: 0;
 }
 
-/* Headers matching the image */
 .pha-table thead th {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 2147483647;
 }
 
 .pha-table thead tr:nth-child(2) th {
   top: 37px; /* Approximate height of first header row to prevent overlapping */
-  z-index: 9;
+  z-index: 2147483646;
 }
 
 .pha-table th {
@@ -328,11 +327,11 @@
 .bg-consequence { background-color: #ecfdf5; } /* Light green for consequence */
 .bg-protection { background-color: var(--bg-paper); } /* White for protection */
 
-/* Badges */
-.badge-dev { background-color: #1d4ed8; color: var(--bg-paper); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; }
-.badge-cause { background-color: #d97706; color: var(--bg-paper); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; }
-.badge-cons { background-color: #059669; color: var(--bg-paper); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; }
-.badge-safe { background-color: #059669; color: var(--bg-paper); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; }
+/* Serial Numbers (formerly Badges) formatted as text per user request "1.1 1.2 1.3 types" */
+.badge-dev { color: #1d4ed8; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-cause { color: #d97706; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-cons { color: #059669; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-safe { color: #059669; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
 
 /* Action Links Modernized to Buttons */
 .action-link {

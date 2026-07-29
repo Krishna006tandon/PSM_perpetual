@@ -60,7 +60,7 @@ const AddNodeModal = ({ studyId, onClose, onSuccess }) => {
               <label>
                 Description <span className="required-mark">*</span>
               </label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="description" 
                 value={formData.description} 
@@ -75,7 +75,7 @@ const AddNodeModal = ({ studyId, onClose, onSuccess }) => {
               <label>
                 Intention <span className="required-mark">*</span>
               </label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="intention" 
                 value={formData.intention} 
@@ -87,7 +87,7 @@ const AddNodeModal = ({ studyId, onClose, onSuccess }) => {
 
             <div className="form-group">
               <label>Boundary</label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="boundary" 
                 value={formData.boundary} 
@@ -98,7 +98,7 @@ const AddNodeModal = ({ studyId, onClose, onSuccess }) => {
 
             <div className="form-group">
               <label>EQ. Count</label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="number" 
                 name="eqCount" 
                 value={formData.eqCount} 

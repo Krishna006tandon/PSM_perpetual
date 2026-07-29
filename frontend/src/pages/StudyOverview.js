@@ -105,7 +105,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
 
           <div className="detail-row">
             <span className="detail-label">STUDY NAME</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="studyName" 
               className="detail-value-input" 
@@ -116,7 +116,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">PROJECT NAME</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="projectName" 
               className="detail-value-input" 
@@ -127,7 +127,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">CLIENT NAME</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="clientName" 
               className="detail-value-input" 
@@ -138,7 +138,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">FACILITATOR</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="facilitator" 
               className="detail-value-input" 
@@ -149,7 +149,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">SITE / LOCATION</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="siteLocation" 
               className="detail-value-input" 
@@ -160,7 +160,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">PLANT / UNIT</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="plantUnit" 
               className="detail-value-input" 
@@ -171,7 +171,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           </div>
           <div className="detail-row">
             <span className="detail-label">BUSINESS UNIT</span>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="businessUnit" 
               className="detail-value-input" 

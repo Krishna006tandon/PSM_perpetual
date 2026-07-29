@@ -1,293 +1,251 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
-import ManageColumnsModal from '../components/ManageColumnsModal';
-import './DynamicRegistry.css';
+import './RiskRegistry.css';
 
 const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
-  const [scenarios, setScenarios] = useState([]);
-  const [columns, setColumns] = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [nodes, setNodes] = useState([]);
-  const [deviations, setDeviations] = useState([]);
-  const [causes, setCauses] = useState([]);
-  const [documents, setDocuments] = useState([]);
-  const [allStudies, setAllStudies] = useState([]);
+  const [criteria, setCriteria] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    fetchCriteria();
   }, [study._id]);
 
-  const fetchData = async () => {
+  const fetchCriteria = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      
-      // Fetch Custom Columns
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/risks`, {
+      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (colRes.ok) {
-        const colData = await colRes.json();
-        setColumns(colData.columns || []);
+      if (res.ok) {
+        setCriteria(await res.json());
       }
-
-      // Fetch Scenarios
-      const scRes = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (scRes.ok) {
-        const scData = await scRes.json();
-        setScenarios(scData);
-      }
-
-      // Fetch Team Members
-      const teamRes = await fetch(`http://localhost:5000/api/teams/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (teamRes.ok) {
-        const teamData = await teamRes.json();
-        setTeamMembers(teamData);
-      }
-
-      // Fetch Nodes
-      const nodeRes = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (nodeRes.ok) {
-        const nodeData = await nodeRes.json();
-        setNodes(nodeData);
-      }
-
-      // Fetch Deviations
-      const devRes = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (devRes.ok) setDeviations(await devRes.json());
-
-      // Fetch Causes
-      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (causeRes.ok) setCauses(await causeRes.json());
-
-      // Fetch Documents
-      const docRes = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (docRes.ok) setDocuments(await docRes.json());
-
-      // Fetch Studies
-      const studyRes = await fetch(`http://localhost:5000/api/studies/recent`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (studyRes.ok) setAllStudies(await studyRes.json());
-
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
+    } catch (err) {
+      console.error('Error fetching risk criteria:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCellChange = (id, field, value, isCustom = false) => {
-    setScenarios(prev => prev.map(sc => {
-      if (sc._id === id) {
-        if (isCustom) {
-          const newData = { ...(sc.riskData || {}) };
-          newData[field] = value;
-          return { ...sc, riskData: newData };
-        }
-        return { ...sc, [field]: value };
-      }
-      return sc;
-    }));
-  };
-
-  const handleBlur = async (id, field, value, isCustom = false) => {
+  const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      const sc = scenarios.find(s => s._id === id);
-      if (!sc) return;
-
-      let payload = {};
-      if (isCustom) {
-        payload.riskData = { ...(sc.riskData || {}) };
-        payload.riskData[field] = value;
-      } else {
-        payload[field] = value;
-      }
-
-      await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(criteria)
       });
-    } catch (error) {
-      console.error('Failed to save scenario:', error);
-    }
-  };
-
-  const handleColumnsSaved = (newCols) => {
-    setColumns(newCols);
-    setIsManageColumnsOpen(false);
-  };
-
-  const renderCustomCell = (sc, col) => {
-    const value = (sc.riskData && sc.riskData[col.id]) || '';
-    
-    if (col.type === 'checkbox') {
-      const isChecked = value === 'true' || value === true;
-      return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '30px' }}>
-          <input 
-            type="checkbox" 
-            checked={isChecked}
-            onChange={(e) => {
-              const checkedVal = e.target.checked.toString();
-              handleCellChange(sc._id, col.id, checkedVal, true);
-              handleBlur(sc._id, col.id, checkedVal, true);
-            }}
-          />
-        </div>
-      );
-    }
-
-    if (col.type === 'dropdown') {
-      return (
-        <select 
-          value={value} 
-          onChange={(e) => {
-            handleCellChange(sc._id, col.id, e.target.value, true);
-            handleBlur(sc._id, col.id, e.target.value, true);
-          }}
-        >
-          <option value=""></option>
-          {(col.options || []).map((opt, i) => (
-            <option key={i} value={opt}>{opt}</option>
-          ))}
-        </select>
-      );
-    }
-
-    if (col.type === 'fetch') {
-      let fetchOptions = [];
-      if (col.dataSource === 'team') {
-        fetchOptions = teamMembers.map(tm => tm.fullName);
-      } else if (col.dataSource === 'nodes') {
-        fetchOptions = nodes.map(n => n.description);
-      } else if (col.dataSource === 'deviations') {
-        fetchOptions = deviations.map(d => d.deviationAuto);
-      } else if (col.dataSource === 'causes') {
-        fetchOptions = causes.map(c => c.description);
-      } else if (col.dataSource === 'documents') {
-        fetchOptions = documents.map(d => d.description || d.originalFileName || d.documentType);
-      } else if (col.dataSource === 'studies') {
-        fetchOptions = allStudies.map(s => s.studyName);
-      } else if (col.dataSource === 'scenarios_consequences') {
-        fetchOptions = scenarios.map(s => s.consequencesImmediate);
-      } else if (col.dataSource === 'scenarios_safeguards') {
-        fetchOptions = scenarios.map(s => s.presentProtection);
-      } else if (col.dataSource === 'scenarios_recommendations') {
-        fetchOptions = scenarios.map(s => s.additionalProtection);
+      if (res.ok) {
+        alert('Risk Criteria saved successfully');
       }
-      
-      // Remove empty options and duplicates
-      fetchOptions = [...new Set(fetchOptions.filter(Boolean))];
-
-      return (
-        <select 
-          value={value} 
-          onChange={(e) => {
-            handleCellChange(sc._id, col.id, e.target.value, true);
-            handleBlur(sc._id, col.id, e.target.value, true);
-          }}
-        >
-          <option value=""></option>
-          {fetchOptions.map((opt, i) => (
-            <option key={i} value={opt}>{opt}</option>
-          ))}
-        </select>
-      );
+    } catch (err) {
+      console.error('Error saving risk criteria:', err);
     }
-
-    // Default to text
-    return (
-      <textarea 
-        value={value} 
-        onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
-        onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
-      />
-    );
   };
 
-  if (!study) return null;
+  const handleMatrixCellChange = (sLevel, lLevel, field, value) => {
+    setCriteria(prev => {
+      const newCells = prev.matrixCells.map(cell => {
+        if (cell.severityLevel === sLevel && cell.likelihoodLevel === lLevel) {
+          return { ...cell, [field]: value };
+        }
+        return cell;
+      });
+      return { ...prev, matrixCells: newCells };
+    });
+  };
+
+  const handleConsequenceChange = (sLevel, category, value) => {
+    setCriteria(prev => {
+      const newSeverity = prev.severityLevels.map(s => {
+        if (s.level === sLevel) {
+          const newCons = { ...s.consequences };
+          newCons[category] = value;
+          return { ...s, consequences: newCons };
+        }
+        return s;
+      });
+      return { ...prev, severityLevels: newSeverity };
+    });
+  };
+
+  const handleLikelihoodChange = (lLevel, field, value) => {
+    setCriteria(prev => {
+      const newLikelihood = prev.likelihoodLevels.map(l => {
+        if (l.level === lLevel) {
+          return { ...l, [field]: value };
+        }
+        return l;
+      });
+      return { ...prev, likelihoodLevels: newLikelihood };
+    });
+  };
+
+  if (!study || loading || !criteria) return <StudyLayout activeTab="risk-criteria" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}><div style={{padding:'20px'}}>Loading...</div></StudyLayout>;
 
   return (
     <StudyLayout activeTab="risk-criteria" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
-      <div className="dynamic-container">
-        <div className="dynamic-header">
-          <h2>RISK SUMMARY REGISTRY</h2>
+      <div className="risk-container">
+        <div className="risk-header">
+          <h2>RISK CRITERIA & MATRIX</h2>
+          <button className="btn-primary" onClick={handleSave}>SAVE CRITERIA</button>
         </div>
 
-        <div className="dynamic-toolbar">
-          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
-            <span className="icon">◫</span> MANAGE COLUMNS
-          </button>
-        </div>
+        <div className="risk-content">
+          
+          <div className="risk-section">
+            <h3>Consequence Categories (Severity Definitions)</h3>
+            <div className="table-responsive">
+              <table className="criteria-table">
+                <thead>
+                  <tr>
+                    <th>Severity Level</th>
+                    <th>Name</th>
+                    {criteria.consequenceCategories.map(cat => (
+                      <th key={cat}>{cat}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {criteria.severityLevels.map(s => (
+                    <tr key={s.level}>
+                      <td className="level-col">{s.level}</td>
+                      <td>
+                        <input data-gramm="false" spellcheck="false" className="w-full" value={s.name} onChange={e => {
+                          const newSev = [...criteria.severityLevels];
+                          newSev.find(x => x.level === s.level).name = e.target.value;
+                          setCriteria({...criteria, severityLevels: newSev});
+                        }} />
+                      </td>
+                      {criteria.consequenceCategories.map(cat => (
+                        <td key={cat}>
+                          <textarea data-gramm="false" spellcheck="false" 
+                            className="w-full"
+                            rows="2"
+                            value={(s.consequences && s.consequences[cat]) || ''} 
+                            onChange={e => handleConsequenceChange(s.level, cat, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <div className="dynamic-table-wrapper">
-          <table className="dynamic-table">
-            <thead>
-              <tr>
-                <th style={{width:'50px'}}>#</th>
-                <th className="col-node">NODE</th>
-                <th className="col-dev">DEVIATION</th>
-                <th className="col-cause">CAUSE</th>
-                <th className="col-cons">CONSEQUENCE</th>
-                <th style={{width:'80px'}}>S×L=IR</th>
-                <th style={{width:'80px'}}>S×L=MR</th>
-                <th style={{width:'80px'}}>S×L=RR</th>
-                {columns.map(col => (
-                  <th key={col.id} className="col-custom">{col.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {!loading && scenarios.map((sc, index) => (
-                <tr key={sc._id}>
-                  <td style={{textAlign:'center'}}>{index + 1}</td>
-                  <td className="col-node">{sc.nodeId?.description || ''}</td>
-                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-cause">{sc.causeId?.description || ''}</td>
-                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
-                  <td style={{textAlign:'center', fontWeight:'bold'}}>{sc.inherentRiskRR || '-'}</td>
-                  <td style={{textAlign:'center', fontWeight:'bold'}}>{sc.mitigatedRiskRR || '-'}</td>
-                  <td style={{textAlign:'center', fontWeight:'bold'}}>{sc.residualRiskRR || '-'}</td>
-                  {columns.map(col => (
-                    <td key={col.id} className="col-custom">
-                      {renderCustomCell(sc, col)}
-                    </td>
+          <div className="risk-section">
+            <h3>Likelihood Definitions</h3>
+            <div className="table-responsive">
+              <table className="criteria-table">
+                <thead>
+                  <tr>
+                    <th>Likelihood Level</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Frequency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {criteria.likelihoodLevels.map(l => (
+                    <tr key={l.level}>
+                      <td className="level-col">{l.level}</td>
+                      <td>
+                        <input data-gramm="false" spellcheck="false" className="w-full" value={l.name} onChange={e => handleLikelihoodChange(l.level, 'name', e.target.value)} />
+                      </td>
+                      <td>
+                        <textarea data-gramm="false" spellcheck="false" className="w-full" rows="2" value={l.description} onChange={e => handleLikelihoodChange(l.level, 'description', e.target.value)} />
+                      </td>
+                      <td>
+                        <input data-gramm="false" spellcheck="false" className="w-full" value={l.frequency} onChange={e => handleLikelihoodChange(l.level, 'frequency', e.target.value)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="risk-section">
+            <h3>Risk Categories (Colors)</h3>
+            <div className="category-cards">
+              {criteria.riskCategories.map((cat, i) => (
+                <div key={i} className="category-card" style={{borderLeft: `5px solid ${cat.color}`}}>
+                  <input data-gramm="false" spellcheck="false" 
+                    value={cat.name} 
+                    onChange={e => {
+                      const newCats = [...criteria.riskCategories];
+                      newCats[i].name = e.target.value;
+                      setCriteria({...criteria, riskCategories: newCats});
+                    }}
+                  />
+                  <input data-gramm="false" spellcheck="false" 
+                    type="color" 
+                    value={cat.color} 
+                    onChange={e => {
+                      const newCats = [...criteria.riskCategories];
+                      newCats[i].color = e.target.value;
+                      setCriteria({...criteria, riskCategories: newCats});
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="risk-section matrix-wrapper">
+            <h3>Risk Matrix (Severity x Likelihood)</h3>
+            <table className="risk-matrix-table">
+              <thead>
+                <tr>
+                  <th colSpan="2" rowSpan="2"></th>
+                  <th colSpan="5">SEVERITY</th>
+                </tr>
+                <tr>
+                  {criteria.severityLevels.map(s => (
+                    <th key={s.level}>{s.name} ({s.level})</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {criteria.likelihoodLevels.map((l, i) => (
+                  <tr key={l.level}>
+                    {i === 0 && <th rowSpan="5" className="likelihood-header">LIKELIHOOD</th>}
+                    <th>{l.name} ({l.level})</th>
+                    {criteria.severityLevels.map(s => {
+                      const cell = criteria.matrixCells.find(c => c.severityLevel === s.level && c.likelihoodLevel === l.level) || {};
+                      const categoryData = criteria.riskCategories.find(c => c.name === cell.category);
+                      const bgColor = categoryData ? categoryData.color : '#ffffff';
+                      
+                      return (
+                        <td key={s.level} style={{ backgroundColor: bgColor }}>
+                          <div className="matrix-cell">
+                            <input data-gramm="false" spellcheck="false" 
+                              type="number" 
+                              value={cell.score || ''} 
+                              onChange={e => handleMatrixCellChange(s.level, l.level, 'score', parseInt(e.target.value) || 0)}
+                              className="cell-score"
+                            />
+                            <select 
+                              value={cell.category || ''} 
+                              onChange={e => handleMatrixCellChange(s.level, l.level, 'category', e.target.value)}
+                              className="cell-category"
+                            >
+                              {criteria.riskCategories.map(cat => (
+                                <option key={cat.name} value={cat.name}>{cat.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-
-      {isManageColumnsOpen && (
-        <ManageColumnsModal 
-          studyId={study._id}
-          registryType="risks"
-          onClose={() => setIsManageColumnsOpen(false)}
-          onSave={handleColumnsSaved}
-        />
-      )}
     </StudyLayout>
   );
 };

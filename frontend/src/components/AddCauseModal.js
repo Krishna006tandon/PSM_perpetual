@@ -62,7 +62,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
             <label>
               Cause Description <span className="required-mark">*</span>
             </label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="description" 
               value={formData.description} 
@@ -75,7 +75,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
           
           <div className="form-group">
             <label>Category / Type</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="categoryType" 
               value={formData.categoryType} 
@@ -86,7 +86,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
 
           <div className="form-group">
             <label>Equipment</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="equipment" 
               value={formData.equipment} 
@@ -97,7 +97,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
 
           <div className="form-group">
             <label>Instrument</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="instrument" 
               value={formData.instrument} 
@@ -108,7 +108,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
           
           <div className="form-group">
             <label>Source / Reference</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="sourceReference" 
               value={formData.sourceReference} 
@@ -119,7 +119,7 @@ const AddCauseModal = ({ studyId, onClose, onSuccess }) => {
           
           <div className="form-group">
             <label>Comments</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="comments" 
               value={formData.comments} 

@@ -21,6 +21,8 @@
 }
 
 .btn-manage-columns {
+  margin-left: auto;
+  margin-left: auto;
   background-color: var(--bg-paper, white);
   color: var(--text-primary, #1a2b3c);
   border: 1px solid var(--divider, #cbd5e1);

@@ -144,7 +144,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       const isChecked = value === 'true' || value === true;
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '30px' }}>
-          <input 
+          <input data-gramm="false" spellcheck="false" 
             type="checkbox" 
             checked={isChecked}
             onChange={(e) => {
@@ -217,7 +217,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
     // Default to text
     return (
-      <textarea 
+      <textarea data-gramm="false" spellcheck="false" 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
@@ -280,7 +280,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                     </select>
                   </td>
                   <td className="col-custom">
-                    <textarea 
+                    <textarea data-gramm="false" spellcheck="false" 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}

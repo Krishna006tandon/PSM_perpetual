@@ -33,6 +33,7 @@ const EditableSelect = ({ options, value, onChange, onBlur, className, style, pl
 
 const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [nodes, setNodes] = useState([]);
+  const [riskCriteria, setRiskCriteria] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +68,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     const result = [];
     let devNum = 0;
     let causeNum = 0;
-    let consNum = 0;
-    
     const getConsKey = (s) => s.consequenceGroupId || s._id;
+    const getSafeKey = (s) => s.safeguardGroupId || s._id;
+
+    let consNum = 0;
+    let safeNum = 0;
 
     for (let i = 0; i < sortedScenarios.length; i++) {
       const sc = sortedScenarios[i];
@@ -78,6 +81,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
       const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
       const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
+      const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
       
       if (isNewDev) {
         devNum++;
@@ -89,20 +93,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       }
       if (isNewCons) {
         consNum++;
+        safeNum = 0;
       }
-      
-      let safeNum = 0;
-      for(let j=0; j<=i; j++){
-        if(sortedScenarios[j].deviationId?._id === sc.deviationId?._id &&
-           sortedScenarios[j].causeId?._id === sc.causeId?._id &&
-           getConsKey(sortedScenarios[j]) === getConsKey(sc)) {
-             safeNum++;
-        }
+      if (isNewSafe) {
+        safeNum++;
       }
       
       let devSpanCount = 0;
       let causeSpanCount = 0;
       let consSpanCount = 0;
+      let safeSpanCount = 0;
       
       if (isNewDev) {
         for (let j = i; j < sortedScenarios.length; j++) {
@@ -126,6 +126,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           else break;
         }
       }
+
+      if (isNewSafe) {
+        for (let j = i; j < sortedScenarios.length; j++) {
+          if (sortedScenarios[j].deviationId?._id === sc.deviationId?._id && 
+              sortedScenarios[j].causeId?._id === sc.causeId?._id &&
+              getConsKey(sortedScenarios[j]) === getConsKey(sc) &&
+              getSafeKey(sortedScenarios[j]) === getSafeKey(sc)) safeSpanCount++;
+          else break;
+        }
+      }
       
       result.push({
         ...sc,
@@ -135,6 +145,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
         causeSpanCount,
         isNewCons,
         consSpanCount,
+        isNewSafe,
+        safeSpanCount,
         badgeDev: `${devNum}`,
         badgeCause: `${devNum}.${causeNum}`,
         badgeCons: `${devNum}.${causeNum}.${consNum}`,
@@ -177,7 +189,20 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
 
   useEffect(() => {
     fetchNodes();
+    fetchRiskCriteria();
   }, [study._id]);
+
+  const fetchRiskCriteria = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setRiskCriteria(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     if (selectedNodeId) {
@@ -227,30 +252,44 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     }
   };
 
+  const getRiskColor = (sVal, lVal) => {
+    const s = parseInt(sVal);
+    const l = parseInt(lVal);
+    if (!s || !l || !riskCriteria) return 'transparent';
+    const cell = riskCriteria.matrixCells.find(c => c.severityLevel === s && c.likelihoodLevel === l);
+    if (!cell) return 'transparent';
+    const cat = riskCriteria.riskCategories.find(c => c.name === cell.category);
+    return cat ? cat.color : 'transparent';
+  };
+
   const handleCellChange = (id, field, value) => {
     setScenarios(prev => {
       const targetSc = prev.find(s => s._id === id);
       const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
-      const targetGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+      const isSafeGroupField = ['presentProtection', 'mitigatedRiskS', 'mitigatedRiskL'].includes(field);
+      const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+      const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
 
       return prev.map(sc => {
-        if (sc._id === id || (targetGroupId && sc.consequenceGroupId === targetGroupId)) {
+        if (sc._id === id || (targetConsGroupId && sc.consequenceGroupId === targetConsGroupId) || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId)) {
           const updatedSc = { ...sc, [field]: value };
           
+          const calcRisk = (sVal, lVal) => {
+            const s = parseInt(sVal) || 0;
+            const l = parseInt(lVal) || 0;
+            if (!s || !l || !riskCriteria) return '';
+            const cell = riskCriteria.matrixCells.find(c => c.severityLevel === s && c.likelihoodLevel === l);
+            return cell ? cell.score : s * l;
+          };
+
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
-            const s = parseInt(updatedSc.inherentRiskS) || 0;
-            const l = parseInt(updatedSc.inherentRiskL) || 0;
-            updatedSc.inherentRiskRR = s && l ? s * l : '';
+            updatedSc.inherentRiskRR = calcRisk(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
           }
           if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-            const s = parseInt(updatedSc.mitigatedRiskS) || 0;
-            const l = parseInt(updatedSc.mitigatedRiskL) || 0;
-            updatedSc.mitigatedRiskRR = s && l ? s * l : '';
+            updatedSc.mitigatedRiskRR = calcRisk(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
           }
           if (field === 'residualRiskS' || field === 'residualRiskL') {
-            const s = parseInt(updatedSc.residualRiskS) || 0;
-            const l = parseInt(updatedSc.residualRiskL) || 0;
-            updatedSc.residualRiskRR = s && l ? s * l : '';
+            updatedSc.residualRiskRR = calcRisk(updatedSc.residualRiskS, updatedSc.residualRiskL);
           }
           
           return updatedSc;
@@ -284,9 +323,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       }
 
       const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
-      const targetGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+      const isSafeGroupField = ['presentProtection', 'mitigatedRiskS', 'mitigatedRiskL'].includes(field);
+      const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+      const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
 
-      const scenariosToUpdate = targetGroupId ? scenarios.filter(s => s.consequenceGroupId === targetGroupId) : [targetSc];
+      let scenariosToUpdate = [targetSc];
+      if (targetConsGroupId) scenariosToUpdate = scenarios.filter(s => s.consequenceGroupId === targetConsGroupId);
+      else if (targetSafeGroupId) scenariosToUpdate = scenarios.filter(s => s.safeguardGroupId === targetSafeGroupId);
 
       await Promise.all(scenariosToUpdate.map(sc => 
         fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
@@ -493,6 +536,53 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     }
   };
 
+  const handleQuickAddRecommendation = async (sc) => {
+    if (!sc.deviationId || !sc.causeId) return;
+    try {
+      const token = localStorage.getItem('token');
+      
+      let groupId = sc.safeguardGroupId;
+      
+      if (!groupId) {
+        groupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        
+        await fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ safeguardGroupId: groupId })
+        });
+      }
+
+      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ 
+          nodeId: selectedNodeId, 
+          deviationId: sc.deviationId._id, 
+          causeId: sc.causeId._id,
+          consequenceGroupId: sc.consequenceGroupId,
+          consequencesImmediate: sc.consequencesImmediate,
+          consequencesUltimate: sc.consequencesUltimate,
+          inherentRiskS: sc.inherentRiskS,
+          inherentRiskL: sc.inherentRiskL,
+          safeguardGroupId: groupId,
+          presentProtection: sc.presentProtection,
+          mitigatedRiskS: sc.mitigatedRiskS,
+          mitigatedRiskL: sc.mitigatedRiskL
+        })
+      });
+      if (response.ok) {
+        const newScenario = await response.json();
+        setScenarios(prev => {
+          const updatedPrev = prev.map(s => s._id === sc._id ? { ...s, safeguardGroupId: groupId } : s);
+          return [...updatedPrev, newScenario];
+        });
+      }
+    } catch (error) {
+      console.error('Error adding quick recommendation:', error);
+    }
+  };
+
   const handleDeviationFieldChange = (deviationId, field, value) => {
     if (!deviationId) return;
     setScenarios(prev => prev.map(sc => {
@@ -686,7 +776,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             <thead>
               <tr>
                 <th className="th-primary" rowSpan={2} style={{width: '40px', textAlign: 'center'}}>
-                  <input 
+                  <input data-gramm="false" spellcheck="false" 
                     type="checkbox" 
                     checked={scenarios.length > 0 && selectedRowIds.length === scenarios.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
@@ -717,7 +807,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
               </tr>
               <tr>
                 {/* Sub headers */}
-                <th className="th-sub w-guideword">GUIDE WORD<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Auto)</span></th>
+                <th className="th-sub w-guideword">DEVIATION</th>
                 <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
                 <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
                 <th className="th-sub w-from">EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span></th>
@@ -759,7 +849,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
                   <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="checkbox" 
                       checked={selectedRowIds.includes(sc._id)}
                       onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
@@ -828,7 +918,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
-                        <textarea 
+                        <textarea data-gramm="false" spellcheck="false" 
                           value={sc.deviationId?.deviationAuto || ''} 
                           onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
                           onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
@@ -842,10 +932,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   {sc.isNewCause && (
                     <td className="w-cause bg-cause" rowSpan={sc.causeSpanCount}>
                       <span className="badge-cause">{sc.badgeCause}</span>
-                      <textarea 
+                      <textarea data-gramm="false" spellcheck="false" 
                         value={sc.causeId?.description || ''} 
                         onChange={(e) => handleCauseTextChange(sc.causeId?._id, e.target.value)}
                         onBlur={(e) => handleCauseTextBlur(sc.causeId?._id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            e.target.blur();
+                            handleQuickAddCause(sc.deviationId?._id);
+                          }
+                        }}
                         style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top', marginBottom: '4px'}}
                         placeholder="Description..."
                       />
@@ -876,16 +973,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <>
                       <td className="w-cons-imm bg-consequence" rowSpan={sc.consSpanCount}>
                         <span className="badge-cons">{sc.badgeCons}</span>
-                        <textarea 
+                        <textarea data-gramm="false" spellcheck="false" 
                           style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
                           value={sc.consequencesImmediate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.target.blur();
+                              handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id);
+                            }
+                          }}
                         />
                         <span className="action-link" style={{color: '#10b981'}} onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
                       </td>
                       <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
-                        <textarea 
+                        <textarea data-gramm="false" spellcheck="false" 
                           value={sc.consequencesUltimate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
@@ -902,38 +1006,57 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                           <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount}><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
-                  <td className="w-protection bg-protection">
-                    <span className="badge-safe">{sc.badgeSafe}</span>
-                    <textarea 
-                      style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
-                      value={sc.presentProtection || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
-                    />
-                  </td>
-                  
-                  <td className="w-risk-s">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                    </select>
-                  </td>
-                  <td className="w-risk-l">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                    </select>
-                  </td>
-                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  {sc.isNewSafe && (
+                    <>
+                      <td className="w-protection bg-protection" rowSpan={sc.safeSpanCount}>
+                        <span className="badge-safe">{sc.badgeSafe}</span>
+                        <textarea data-gramm="false" spellcheck="false" 
+                          style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
+                          value={sc.presentProtection || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
+                          onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.target.blur();
+                              handleQuickAddSafeguard(sc);
+                            }
+                          }}
+                        />
+                      </td>
+                      
+                      <td className="w-risk-s" rowSpan={sc.safeSpanCount}>
+                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
+                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                      </td>
+                      <td className="w-risk-l" rowSpan={sc.safeSpanCount}>
+                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
+                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" rowSpan={sc.safeSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                    </>
+                  )}
                   
                   <td className="w-additional">
-                    <textarea 
+                    <textarea data-gramm="false" spellcheck="false" 
                       value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          e.target.blur();
+                          handleQuickAddRecommendation(sc);
+                        }
+                      }}
                     />
+                    <span className="action-link" style={{color: '#10b981', display: 'block', marginTop: '4px'}} onClick={() => handleQuickAddRecommendation(sc)}>+ ADD RECOMMENDATION</span>
                   </td>
 
                   <td className="w-risk-s">
@@ -946,9 +1069,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                     </select>
                   </td>
-                  <td className="w-risk-rr"><input style={{textAlign:'center', fontWeight:'bold'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated (S * L)"/></td>
+                  <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                   <td className="w-remarks">
-                    <textarea 
+                    <textarea data-gramm="false" spellcheck="false" 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}

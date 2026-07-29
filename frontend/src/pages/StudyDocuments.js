@@ -269,7 +269,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 >
                   <td className="col-num">{index + 1}</td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.drawingId} 
                       onChange={(e) => handleCellChange(doc._id, 'drawingId', e.target.value)}
@@ -277,7 +277,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.revision} 
                       onChange={(e) => handleCellChange(doc._id, 'revision', e.target.value)}
@@ -302,7 +302,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     </select>
                   </td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.description} 
                       onChange={(e) => handleCellChange(doc._id, 'description', e.target.value)}
@@ -310,7 +310,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       placeholder="https://..."
                       value={doc.hyperlink} 
@@ -326,7 +326,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <span className="attach-text" style={{ color: doc.originalFileName ? '#004d80' : '#94a3b8', fontWeight: doc.originalFileName ? 'bold' : 'normal' }}>
                       {doc.originalFileName || 'No file'}
                     </span>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="file" 
                       id={`file-upload-${doc._id}`}
                       style={{ display: 'none' }}

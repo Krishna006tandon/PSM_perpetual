@@ -48,7 +48,7 @@ const Auth = ({ onAuthSuccess, onCancel }) => {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="email" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
@@ -57,7 +57,7 @@ const Auth = ({ onAuthSuccess, onCancel }) => {
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="password" 
               value={password} 
               onChange={e => setPassword(e.target.value)} 

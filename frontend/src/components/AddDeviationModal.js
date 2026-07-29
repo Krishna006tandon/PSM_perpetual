@@ -63,7 +63,7 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
               <label>
                 Guidewords <span className="required-mark">*</span>
               </label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="guidewords" 
                 value={formData.guidewords} 
@@ -78,7 +78,7 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
               <label>
                 Parameter <span className="required-mark">*</span>
               </label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="parameter" 
                 value={formData.parameter} 
@@ -90,7 +90,7 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
 
             <div className="form-group">
               <label>Process Flow / Material</label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="processFlowMaterial" 
                 value={formData.processFlowMaterial} 
@@ -101,7 +101,7 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
 
             <div className="form-group">
               <label>Equipment</label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="locationFrom" 
                 value={formData.locationFrom} 
@@ -112,7 +112,7 @@ const AddDeviationModal = ({ studyId, onClose, onSuccess }) => {
             
             <div className="form-group">
               <label>Instrument</label>
-              <input 
+              <input data-gramm="false" spellcheck="false" 
                 type="text" 
                 name="locationTo" 
                 value={formData.locationTo} 

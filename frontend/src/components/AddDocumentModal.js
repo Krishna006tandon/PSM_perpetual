@@ -59,7 +59,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
         <form className="document-modal-body" onSubmit={handleSubmit}>
           <div className="form-group-row">
             <label>DRAWING ID <span className="required">*</span></label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="drawingId" 
               value={formData.drawingId} 
@@ -69,7 +69,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
           </div>
           <div className="form-group-row">
             <label>REV.</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="revision" 
               value={formData.revision} 
@@ -90,7 +90,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
           </div>
           <div className="form-group-row">
             <label>DESCRIPTION <span className="required">*</span></label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="description" 
               value={formData.description} 
@@ -100,7 +100,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
           </div>
           <div className="form-group-row">
             <label>HYPERLINK / URI</label>
-            <input 
+            <input data-gramm="false" spellcheck="false" 
               type="text" 
               name="hyperlink" 
               value={formData.hyperlink} 

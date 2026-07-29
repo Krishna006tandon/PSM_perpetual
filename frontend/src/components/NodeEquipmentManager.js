@@ -123,13 +123,13 @@ const NodeEquipmentManager = ({ studyId, node, onClose, onSave }) => {
               {!loading && equipments.map((eq, index) => (
                 <tr key={index}>
                   <td className="col-hash">{index + 1}</td>
-                  <td><input type="text" value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} /></td>
-                  <td><input type="text" value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} /></td>
-                  <td><input type="text" value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} /></td>
-                  <td><input type="text" value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} /></td>
-                  <td><input type="text" value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} /></td>
-                  <td><input type="text" value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} /></td>
-                  <td><input type="text" value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} /></td>
                   <td>
                     <button className="btn-remove-row" onClick={() => removeRow(index)}>✕</button>
                   </td>

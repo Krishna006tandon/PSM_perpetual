@@ -1,0 +1,162 @@
+.risk-container {
+  padding: 20px;
+  background-color: var(--bg-default);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.risk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.risk-section {
+  margin-bottom: 30px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.risk-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.criteria-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.criteria-table th, .criteria-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.criteria-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #444;
+}
+
+.level-col {
+  text-align: center !important;
+  font-weight: bold;
+  width: 50px;
+}
+
+.w-full {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px;
+  font-family: inherit;
+}
+
+.w-full:focus {
+  outline: none;
+  border-color: #004d80;
+}
+
+.category-cards {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.category-card {
+  background: var(--bg-paper);
+  padding: 10px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  width: 150px;
+}
+
+.category-card input[type="text"] {
+  border: 1px solid #ccc;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.category-card input[type="color"] {
+  width: 100%;
+  height: 30px;
+  border: none;
+  cursor: pointer;
+}
+
+.matrix-wrapper {
+  overflow-x: auto;
+}
+
+.risk-matrix-table {
+  border-collapse: collapse;
+  margin: 0 auto;
+}
+
+.risk-matrix-table th, .risk-matrix-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+.risk-matrix-table th {
+  background-color: #f3f4f6;
+  font-size: 12px;
+}
+
+.likelihood-header {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  background-color: #f3f4f6;
+}
+
+.matrix-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.cell-score {
+  width: 50px;
+  text-align: center;
+  font-weight: bold;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.cell-category {
+  width: 80px;
+  font-size: 11px;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+.btn-primary {
+  background-color: #004d80;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-primary:hover {
+  background-color: #003355;
+}

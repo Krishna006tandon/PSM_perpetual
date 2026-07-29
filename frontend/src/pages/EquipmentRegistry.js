@@ -147,13 +147,13 @@ const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
               {!loading && equipments.map((eq, index) => (
                 <tr key={index}>
                   <td className="col-num">{index + 1}</td>
-                  <td><input type="text" value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input type="text" value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} onBlur={handleSave} /></td>
+                  <td><input data-gramm="false" spellcheck="false" type="text" value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} onBlur={handleSave} /></td>
                 </tr>
               ))}
               {equipments.length === 0 && (

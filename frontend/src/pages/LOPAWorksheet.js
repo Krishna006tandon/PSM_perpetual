@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
@@ -35,7 +35,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       if (scRes.ok) {
         let scData = await scRes.json();
         
-        // Ensure lopaData structure exists for all scenarios
         scData = scData.map(sc => {
           const defaultLopa = {
             freqOfInitiatingEvent: '',
@@ -46,26 +45,18 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             tolerance: '',
             requiredSil: '',
             recommendationRequiredSil: '',
-            ipls: [],
+            iplCredit: 1, // Store IPL credit on the scenario itself
             recommendations: []
           };
           
           if (!sc.lopaData) {
             sc.lopaData = defaultLopa;
-            
-            // Pre-populate IPLs from presentProtection if exists
-            if (sc.presentProtection) {
-              sc.lopaData.ipls.push({ no: '1.1', description: sc.presentProtection, credit: 1 });
-            }
-            
-            // Pre-populate Recs from additionalProtection if exists
             if (sc.additionalProtection) {
               sc.lopaData.recommendations.push({ description: sc.additionalProtection, credit: 1 });
             }
           } else {
-             // ensure arrays exist
-             if (!sc.lopaData.ipls) sc.lopaData.ipls = [];
              if (!sc.lopaData.recommendations) sc.lopaData.recommendations = [];
+             if (sc.lopaData.iplCredit === undefined) sc.lopaData.iplCredit = 1;
           }
           return sc;
         });
@@ -130,12 +121,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     setScenarios(prev => prev.map(sc => {
       if (sc._id === id) {
         const newArray = [...sc.lopaData[arrayName]];
-        if (isIpl) {
-          const newNo = `${scenarios.indexOf(sc) + 1}.${newArray.length + 1}`;
-          newArray.push({ no: newNo, description: '', credit: 1 });
-        } else {
-          newArray.push({ description: '', credit: 1 });
-        }
+        newArray.push(isIpl ? { no: '', description: '', credit: 1 } : { description: '', credit: 1 });
         return { ...sc, lopaData: { ...sc.lopaData, [arrayName]: newArray } };
       }
       return sc;
@@ -147,13 +133,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       if (sc._id === id) {
         const newArray = [...sc.lopaData[arrayName]];
         newArray.splice(index, 1);
-        
-        // Re-number IPLs if needed
-        if (arrayName === 'ipls') {
-           const scIndex = scenarios.indexOf(sc) + 1;
-           newArray.forEach((item, i) => item.no = `${scIndex}.${i + 1}`);
-        }
-        
         return { ...sc, lopaData: { ...sc.lopaData, [arrayName]: newArray } };
       }
       return sc;
@@ -161,11 +140,10 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   };
 
   const handleBlur = async (id) => {
+    const sc = scenarios.find(s => s._id === id);
+    if (!sc) return;
     try {
       const token = localStorage.getItem('token');
-      const sc = scenarios.find(s => s._id === id);
-      if (!sc) return;
-
       await fetch(`http://localhost:5000/api/scenarios/${id}`, {
         method: 'PUT',
         headers: {
@@ -174,104 +152,172 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
         },
         body: JSON.stringify({ lopaData: sc.lopaData })
       });
-    } catch (error) {
-      console.error('Failed to save scenario:', error);
-    }
-  };
-
-  const calculateTotalCredit = (sc, includeRecs = false) => {
-    const data = sc.lopaData || {};
-    const freq = parseFloat(data.freqOfInitiatingEvent) || 0;
-    const pfd = parseFloat(data.cmPfd) || 1;
-    const time = parseFloat(data.cmTimeAtRisk) || 1;
-    const occ = parseFloat(data.cmOccupancy) || 1;
-    
-    let total = freq * pfd * time * occ;
-    
-    if (data.ipls && data.ipls.length > 0) {
-      data.ipls.forEach(ipl => {
-         const cr = parseFloat(ipl.credit);
-         if (!isNaN(cr)) total *= cr;
-      });
-    }
-
-    if (includeRecs && data.recommendations && data.recommendations.length > 0) {
-      data.recommendations.forEach(rec => {
-         const cr = parseFloat(rec.credit);
-         if (!isNaN(cr)) total *= cr;
-      });
-    }
-
-    // Format to avoid huge floating points, e.g. 0.000100
-    return total > 0 ? Number(total.toPrecision(4)) : '';
-  };
-
-  const calculateRRF = (totalCredit, tolerance) => {
-    const t = parseFloat(totalCredit);
-    const tol = parseFloat(tolerance);
-    if (!isNaN(t) && !isNaN(tol) && tol > 0) {
-      return Number((t / tol).toPrecision(4));
-    }
-    return '';
-  };
-
-  const evaluateFormula = (formulaStr, sc) => {
-    if (!formulaStr) return '';
-    try {
-      let expr = formulaStr;
-      
-      // Known predefined values
-      const dict = {
-        '[Severity]': parseFloat(sc.lopaData?.severity) || 0,
-        '[Tolerance]': parseFloat(sc.lopaData?.tolerance) || 0,
-        '[Required SIL]': parseFloat(sc.lopaData?.requiredSil) || 0,
-        '[Freq of Initiating Event]': parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0,
-        '[PFD]': parseFloat(sc.lopaData?.cmPfd) || 0,
-        '[Time at Risk]': parseFloat(sc.lopaData?.cmTimeAtRisk) || 0,
-        '[Occupancy]': parseFloat(sc.lopaData?.cmOccupancy) || 0
-      };
-      
-      // Handle array accumulations
-      let allIplCredits = 1;
-      (sc.lopaData?.ipls || []).forEach(ipl => {
-         const cr = parseFloat(ipl.credit);
-         if (!isNaN(cr)) allIplCredits *= cr;
-      });
-      dict['[ALL_IPL_CREDITS]'] = allIplCredits;
-      
-      let allRecCredits = 1;
-      (sc.lopaData?.recommendations || []).forEach(rec => {
-         const cr = parseFloat(rec.credit);
-         if (!isNaN(cr)) allRecCredits *= cr;
-      });
-      dict['[ALL_REC_CREDITS]'] = allRecCredits;
-      
-      // Custom columns
-      columns.forEach(col => {
-         if (!col.isSystem) {
-           const val = parseFloat((sc.lopaData || {})[col.id]) || 0;
-           dict[`[${col.label}]`] = val;
-         }
-      });
-      
-      Object.keys(dict).forEach(key => {
-        const escapedKey = key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-        const regex = new RegExp(escapedKey, 'g');
-        expr = expr.replace(regex, dict[key]);
-      });
-      
-      if (/^[0-9+\-*/().\s]+$/.test(expr)) {
-         // eslint-disable-next-line no-new-func
-         const result = new Function('return ' + expr)();
-         return isNaN(result) ? 'ERR' : Number(result.toPrecision(4));
-      }
-      return 'ERR (Invalid)';
     } catch (e) {
-      return 'ERR';
+      console.error('Failed to save LOPA data:', e);
     }
   };
 
-  if (!study) return null;
+  // Group scenarios into Consequences, then individual safeguards are IPLs
+  const formattedScenarios = useMemo(() => {
+    const sorted = [...scenarios].sort((a, b) => {
+      const n1 = a.nodeId?._id || '';
+      const n2 = b.nodeId?._id || '';
+      if (n1 !== n2) return n1.localeCompare(n2);
+      
+      const d1 = a.deviationId?._id || '';
+      const d2 = b.deviationId?._id || '';
+      if (d1 !== d2) return d1.localeCompare(d2);
+      
+      const c1 = a.causeId?._id || '';
+      const c2 = b.causeId?._id || '';
+      if (c1 !== c2) return c1.localeCompare(c2);
+      
+      const t1 = new Date(a.createdAt).getTime();
+      const t2 = new Date(b.createdAt).getTime();
+      return t1 - t2;
+    });
+
+    let nodeMap = new Map();
+    nodes.forEach((n, i) => nodeMap.set(n._id, i + 1));
+
+    let devCounter = 1;
+    let causeCounter = 1;
+    let consCounter = 1;
+
+    let currentNode = null;
+    let currentDev = null;
+    let currentCause = null;
+    let currentCons = null;
+    let safeCounter = 1;
+
+    const result = [];
+    
+    for (let i = 0; i < sorted.length; i++) {
+      const sc = sorted[i];
+      const nId = sc.nodeId?._id || null;
+      const devId = sc.deviationId?._id || null;
+      const causeId = sc.causeId?._id || null;
+      const consKey = sc.consequencesImmediate || '';
+
+      if (nId !== currentNode) {
+        currentNode = nId;
+        devCounter = 1;
+        currentDev = null;
+      }
+
+      if (devId !== currentDev) {
+        currentDev = devId;
+        causeCounter = 1;
+        currentCause = null;
+        if (i > 0 && nId === currentNode) devCounter++;
+      }
+
+      if (causeId !== currentCause) {
+        currentCause = causeId;
+        consCounter = 1;
+        currentCons = null;
+        if (i > 0 && devId === currentDev) causeCounter++;
+      }
+
+      if (consKey !== currentCons) {
+        currentCons = consKey;
+        safeCounter = 1;
+        if (i > 0 && causeId === currentCause) consCounter++;
+      } else {
+        safeCounter++;
+      }
+
+      const nodeNum = nodeMap.get(nId) || 1;
+      const devNum = `${nodeNum}.${devCounter}`;
+      const causeNum = `${nodeNum}.${devCounter}.${causeCounter}`;
+      const consNum = `${nodeNum}.${devCounter}.${causeCounter}.${consCounter}`;
+      const safeNum = `${nodeNum}.${devCounter}.${causeCounter}.${consCounter}.${safeCounter}`;
+
+      let isNewCons = false;
+      let consSpanCount = 0;
+      if (safeCounter === 1) {
+        isNewCons = true;
+        for (let j = i; j < sorted.length; j++) {
+          const scJ = sorted[j];
+          if (scJ.nodeId?._id === nId && scJ.deviationId?._id === devId && scJ.causeId?._id === causeId && (scJ.consequencesImmediate || '') === consKey) {
+            // we will need to calculate max of (1, recs.length) for each of these to get true consSpanCount
+            const recsLen = scJ.lopaData?.recommendations?.length || 0;
+            consSpanCount += Math.max(1, recsLen);
+          } else {
+            break;
+          }
+        }
+      }
+
+      result.push({
+        ...sc,
+        badgeDev: devNum,
+        badgeCause: causeNum,
+        badgeCons: consNum,
+        badgeSafe: safeNum,
+        isNewCons,
+        consSpanCount
+      });
+    }
+    
+    return result;
+  }, [scenarios, nodes]);
+
+  // Evaluate Custom Formulas
+  const evaluateFormula = (formulaString, sc, parentSc = sc) => {
+    try {
+      if (!formulaString) return '';
+      
+      const pfd = parseFloat(parentSc.lopaData?.cmPfd) || 1;
+      const timeAtRisk = parseFloat(parentSc.lopaData?.cmTimeAtRisk) || 1;
+      const occ = parseFloat(parentSc.lopaData?.cmOccupancy) || 1;
+      const freq = parseFloat(parentSc.lopaData?.freqOfInitiatingEvent) || 1;
+      const iplCredit = parseFloat(sc.lopaData?.iplCredit) || 1;
+      
+      const dict = {
+        '[Severity]': parseFloat(parentSc.inherentRiskS || parentSc.lopaData?.severity) || 0,
+        '[Tolerance]': parseFloat(parentSc.lopaData?.tolerance) || 0,
+        '[Required SIL]': parseFloat(parentSc.lopaData?.requiredSil) || 0,
+        '[Freq of Initiating Event]': freq,
+        '[PFD]': pfd,
+        '[Time at Risk]': timeAtRisk,
+        '[Occupancy]': occ
+      };
+
+      let expr = formulaString;
+      for (const [key, val] of Object.entries(dict)) {
+        expr = expr.split(key).join(val);
+      }
+      
+      // Calculate total credit for formula
+      // We will just do a simple eval for demonstration.
+      return (new Function('return ' + expr))();
+    } catch (e) {
+      return 'Error';
+    }
+  };
+
+  const calculateTotalCredit = (parentSc, includeRecs = false) => {
+    const f = parseFloat(parentSc.lopaData?.freqOfInitiatingEvent) || 0;
+    if (!f) return 0;
+    
+    const pfd = parseFloat(parentSc.lopaData?.cmPfd) || 1;
+    const timeAtRisk = parseFloat(parentSc.lopaData?.cmTimeAtRisk) || 1;
+    const occ = parseFloat(parentSc.lopaData?.cmOccupancy) || 1;
+    
+    // Total IPL credit is product of all IPL credits in the consequence group
+    // But since we pass parentSc, we need to gather all siblings?
+    // Wait, the formula in the image: Total IPL Credit = PDI * Time at Risk * Occupancy * IPL1 * IPL2 ...
+    // Since we map per scenario (Safeguard = IPL), the "Total IPL Credit" should be calculated per Consequence and displayed once!
+    return 0; // Handled inline below for consequence group
+  };
+
+  const calculateRRF = (totalCredit, toleranceStr) => {
+    const t = parseFloat(toleranceStr);
+    if (!totalCredit || !t) return '';
+    const rrf = totalCredit / t;
+    return rrf >= 1 ? rrf.toFixed(2) : 1;
+  };
 
   return (
     <StudyLayout activeTab="lopa" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
@@ -305,8 +351,8 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 <th rowSpan="2" style={{width:'80px'}}>RRF</th>
                 <th rowSpan="2" style={{width:'80px'}}>Required SIL</th>
                 <th rowSpan="2" style={{minWidth:'250px'}}>Recommendation</th>
-                <th rowSpan="2" style={{width:'80px'}}>IPL Credit</th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Total IPL Credit</th>
+                <th rowSpan="2" style={{width:'80px'}}>Rec Credit</th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>Total Credit</th>
                 <th rowSpan="2" style={{minWidth:'100px'}}>Tolerance</th>
                 <th rowSpan="2" style={{width:'80px'}}>RRF</th>
                 <th rowSpan="2" style={{width:'80px'}}>Required SIL</th>
@@ -321,77 +367,89 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
               </tr>
             </thead>
             <tbody>
-              {!loading && scenarios.map((sc, scIndex) => {
-                const ipls = sc.lopaData?.ipls || [];
+              {!loading && formattedScenarios.map((sc, scIndex) => {
                 const recs = sc.lopaData?.recommendations || [];
-                const rowCount = Math.max(1, ipls.length, recs.length);
+                const rowCount = Math.max(1, recs.length);
 
-                const sysTotalIpl = columns.find(c => c.id === 'sys_total_ipl');
-                const sysTolerance = columns.find(c => c.id === 'sys_tolerance');
-                const sysRrf = columns.find(c => c.id === 'sys_rrf');
-                const sysReqSil = columns.find(c => c.id === 'sys_req_sil');
+                // For Consequence level calculations, we need to gather all siblings
+                let totalIplCredit = 1;
+                let totalRecCredit = 1;
+                let parentSc = sc;
 
-                const totalCredit1 = sysTotalIpl?.formulaString ? evaluateFormula(sysTotalIpl.formulaString, sc) : calculateTotalCredit(sc, false);
-                const rrf1 = sysRrf?.formulaString ? evaluateFormula(sysRrf.formulaString, sc) : calculateRRF(totalCredit1, sc.lopaData?.tolerance);
-                
-                const totalCredit2 = calculateTotalCredit(sc, true);
-                const rrf2 = calculateRRF(totalCredit2, sc.lopaData?.tolerance);
+                if (sc.isNewCons) {
+                  const freq = parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0;
+                  const pfd = parseFloat(sc.lopaData?.cmPfd) || 1;
+                  const time = parseFloat(sc.lopaData?.cmTimeAtRisk) || 1;
+                  const occ = parseFloat(sc.lopaData?.cmOccupancy) || 1;
+                  
+                  // Product of all IPL credits in this consequence group
+                  let siblingProduct = 1;
+                  let siblingRecProduct = 1;
+                  
+                  for(let s of formattedScenarios) {
+                    if (s.badgeCons === sc.badgeCons) {
+                       siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
+                       // Also multiply recommendations
+                       const srecs = s.lopaData?.recommendations || [];
+                       if (srecs.length > 0) {
+                         srecs.forEach(r => {
+                           siblingRecProduct *= (parseFloat(r.credit) || 1);
+                         });
+                       }
+                    }
+                  }
+
+                  totalIplCredit = (freq * pfd * time * occ * siblingProduct).toFixed(6);
+                  totalRecCredit = (freq * pfd * time * occ * siblingProduct * siblingRecProduct).toFixed(6);
+                }
+
+                const rrf1 = calculateRRF(totalIplCredit, sc.lopaData?.tolerance);
+                const rrf2 = calculateRRF(totalRecCredit, sc.lopaData?.tolerance);
 
                 const rows = [];
                 for (let i = 0; i < rowCount; i++) {
-                  const ipl = ipls[i] || {};
                   const rec = recs[i] || {};
-                  
                   const isFirstRow = i === 0;
 
                   rows.push(
                     <tr key={`${sc._id}-${i}`}>
-                      {isFirstRow && (
+                      {sc.isNewCons && isFirstRow && (
                         <>
-                          <td rowSpan={rowCount} style={{textAlign:'center'}}>{scIndex + 1}</td>
-                          <td rowSpan={rowCount} style={{whiteSpace:'normal'}}>{sc.deviationId?.deviationAuto || ''}</td>
-                          <td rowSpan={rowCount} style={{whiteSpace:'normal'}}>{sc.consequencesImmediate || ''}</td>
-                          <td rowSpan={rowCount} style={{whiteSpace:'normal'}}>{sc.causeId?.description || ''}</td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
+                          <td rowSpan={sc.consSpanCount} style={{textAlign:'center'}}>{sc.badgeCons}</td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeDev} {sc.deviationId?.deviationAuto || ''}</td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeCons} {sc.consequencesImmediate || ''}</td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeCause} {sc.causeId?.description || ''}</td>
+                          
+                          <td rowSpan={sc.consSpanCount}>
+                            <input data-gramm="false" spellcheck="false" 
+                              type="number" style={{width:'100%'}}
                               value={sc.lopaData?.freqOfInitiatingEvent || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'freqOfInitiatingEvent', e.target.value)}
                               onBlur={() => handleBlur(sc._id)}
                             />
                           </td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
-                              value={sc.lopaData?.severity || ''} 
-                              onChange={(e) => handleLopaChange(sc._id, 'severity', e.target.value)}
-                              onBlur={() => handleBlur(sc._id)}
-                            />
+                          <td rowSpan={sc.consSpanCount} style={{textAlign: 'center', fontWeight: 'bold'}}>
+                            {sc.inherentRiskS || ''}
                           </td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
+                          <td rowSpan={sc.consSpanCount}>
+                            <input data-gramm="false" spellcheck="false" 
+                              type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmPfd || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmPfd', e.target.value)}
                               onBlur={() => handleBlur(sc._id)}
                             />
                           </td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
+                          <td rowSpan={sc.consSpanCount}>
+                            <input data-gramm="false" spellcheck="false" 
+                              type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmTimeAtRisk || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmTimeAtRisk', e.target.value)}
                               onBlur={() => handleBlur(sc._id)}
                             />
                           </td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
+                          <td rowSpan={sc.consSpanCount}>
+                            <input data-gramm="false" spellcheck="false" 
+                              type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmOccupancy || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmOccupancy', e.target.value)}
                               onBlur={() => handleBlur(sc._id)}
@@ -400,80 +458,60 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         </>
                       )}
                       
-                      {/* IPL Sub-row columns */}
-                      <td style={{textAlign:'center'}}>
-                        {ipl.no || ''}
-                      </td>
-                      <td style={{position:'relative', whiteSpace:'normal'}}>
-                        <textarea 
-                          value={ipl.description || ''}
-                          onChange={(e) => handleArrayChange(sc._id, 'ipls', i, 'description', e.target.value)}
-                          onBlur={() => handleBlur(sc._id)}
-                          style={{width:'calc(100% - 20px)'}}
-                        />
-                        {i < ipls.length && (
-                          <button onClick={() => removeArrayItem(sc._id, 'ipls', i)} style={{position:'absolute', right:'2px', top:'5px', color:'red', background:'none', border:'none', cursor:'pointer'}}>x</button>
-                        )}
-                        {i === ipls.length - 1 && (
-                          <button onClick={() => addArrayItem(sc._id, 'ipls', true)} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
-                        )}
-                        {ipls.length === 0 && i === 0 && (
-                          <button onClick={() => addArrayItem(sc._id, 'ipls', true)} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
-                        )}
-                      </td>
-                      <td>
-                        {i < ipls.length && (
-                          <input 
-                            type="number"
-                            style={{width:'100%'}}
-                            value={ipl.credit || ''}
-                            onChange={(e) => handleArrayChange(sc._id, 'ipls', i, 'credit', e.target.value)}
-                            onBlur={() => handleBlur(sc._id)}
-                          />
-                        )}
-                      </td>
-
-                      {/* Calculated columns (rowSpan) */}
+                      {/* IPL Sub-row columns (One per Scenario) */}
                       {isFirstRow && (
-                        <>
-                          <td rowSpan={rowCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
-                            {totalCredit1}
-                          </td>
-                          <td rowSpan={rowCount}>
-                            {sysTolerance?.formulaString ? (
-                              <div style={{textAlign:'center', background:'rgba(0,0,0,0.05)', padding:'5px'}}>{evaluateFormula(sysTolerance.formulaString, sc)}</div>
-                            ) : (
-                              <input 
-                                type="number" 
+                         <>
+                            <td rowSpan={rowCount} style={{textAlign:'center'}}>
+                              {sc.badgeSafe || ''}
+                            </td>
+                            <td rowSpan={rowCount} style={{position:'relative', whiteSpace:'normal'}}>
+                              <div style={{width:'calc(100% - 20px)', padding:'5px'}}>
+                                {sc.presentProtection || ''}
+                              </div>
+                            </td>
+                            <td rowSpan={rowCount}>
+                              <input data-gramm="false" spellcheck="false" 
+                                type="number"
                                 style={{width:'100%'}}
+                                value={sc.lopaData?.iplCredit || ''}
+                                onChange={(e) => handleLopaChange(sc._id, 'iplCredit', e.target.value)}
+                                onBlur={() => handleBlur(sc._id)}
+                              />
+                            </td>
+                         </>
+                      )}
+
+                      {/* Calculated columns (Consequence Level) */}
+                      {sc.isNewCons && isFirstRow && (
+                        <>
+                          <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
+                            {totalIplCredit}
+                          </td>
+                          <td rowSpan={sc.consSpanCount}>
+                             <input data-gramm="false" spellcheck="false" 
+                                type="number" style={{width:'100%'}}
                                 value={sc.lopaData?.tolerance || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'tolerance', e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
                               />
-                            )}
                           </td>
-                          <td rowSpan={rowCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
+                          <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
                             {rrf1}
                           </td>
-                          <td rowSpan={rowCount}>
-                            {sysReqSil?.formulaString ? (
-                              <div style={{textAlign:'center', background:'rgba(0,0,0,0.05)', padding:'5px'}}>{evaluateFormula(sysReqSil.formulaString, sc)}</div>
-                            ) : (
-                              <input 
-                                type="number" 
-                                style={{width:'100%'}}
+                          <td rowSpan={sc.consSpanCount}>
+                             <input data-gramm="false" spellcheck="false" 
+                                type="number" style={{width:'100%'}}
                                 value={sc.lopaData?.requiredSil || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'requiredSil', e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
                               />
-                            )}
                           </td>
                         </>
                       )}
 
-                      {/* Recommendations Sub-row columns */}
+                      {/* Recommendations (Multiple per Scenario) */}
                       <td style={{position:'relative', whiteSpace:'normal'}}>
-                        <textarea 
+                        <textarea data-gramm="false" spellcheck="false" 
                           value={rec.description || ''}
                           onChange={(e) => handleArrayChange(sc._id, 'recommendations', i, 'description', e.target.value)}
                           onBlur={() => handleBlur(sc._id)}
@@ -483,15 +521,15 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                           <button onClick={() => removeArrayItem(sc._id, 'recommendations', i)} style={{position:'absolute', right:'2px', top:'5px', color:'red', background:'none', border:'none', cursor:'pointer'}}>x</button>
                         )}
                         {i === recs.length - 1 && (
-                          <button onClick={() => addArrayItem(sc._id, 'recommendations', false)} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
+                          <button onClick={() => addArrayItem(sc._id, 'recommendations')} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
                         )}
                         {recs.length === 0 && i === 0 && (
-                          <button onClick={() => addArrayItem(sc._id, 'recommendations', false)} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
+                          <button onClick={() => addArrayItem(sc._id, 'recommendations')} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
                         )}
                       </td>
                       <td>
                         {i < recs.length && (
-                          <input 
+                          <input data-gramm="false" spellcheck="false" 
                             type="number"
                             style={{width:'100%'}}
                             value={rec.credit || ''}
@@ -501,62 +539,66 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         )}
                       </td>
 
-                      {/* New Calculated columns (rowSpan) */}
-                      {isFirstRow && (
+                      {/* Rec Calculated (Consequence Level) */}
+                      {sc.isNewCons && isFirstRow && (
                         <>
-                          <td rowSpan={rowCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
-                            {totalCredit2}
+                          <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
+                            {totalRecCredit}
                           </td>
-                          <td rowSpan={rowCount} style={{textAlign:'center', color:'var(--text-secondary)'}}>
-                            {sysTolerance?.formulaString ? evaluateFormula(sysTolerance.formulaString, sc) : (sc.lopaData?.tolerance || '')}
+                          <td rowSpan={sc.consSpanCount}>
+                             {sc.lopaData?.tolerance || ''}
                           </td>
-                          <td rowSpan={rowCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
+                          <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
                             {rrf2}
                           </td>
-                          <td rowSpan={rowCount}>
-                            <input 
-                              type="number" 
-                              style={{width:'100%'}}
-                              value={sc.lopaData?.recommendationRequiredSil || ''} 
-                              onChange={(e) => handleLopaChange(sc._id, 'recommendationRequiredSil', e.target.value)}
-                              onBlur={() => handleBlur(sc._id)}
-                            />
+                          <td rowSpan={sc.consSpanCount}>
+                             <input data-gramm="false" spellcheck="false" 
+                                type="number" style={{width:'100%'}}
+                                value={sc.lopaData?.recommendationRequiredSil || ''} 
+                                onChange={(e) => handleLopaChange(sc._id, 'recommendationRequiredSil', e.target.value)}
+                                onBlur={() => handleBlur(sc._id)}
+                              />
                           </td>
                           {columns.filter(c => !c.isSystem).map(col => (
-                            <td key={col.id} rowSpan={rowCount} className="col-custom" style={col.type === 'formula' ? {background:'var(--surface-hover)', textAlign:'center'} : {}}>
-                              {col.type === 'formula' ? (
-                                <span>{evaluateFormula(col.formulaString, sc)}</span>
-                              ) : (
-                                <input
-                                  type="text"
-                                  style={{width:'100%'}}
-                                  value={(sc.lopaData || {})[col.id] || ''}
-                                  onChange={(e) => handleLopaChange(sc._id, col.id, e.target.value)}
-                                  onBlur={() => handleBlur(sc._id)}
-                                />
-                              )}
+                            <td key={col.id} rowSpan={sc.consSpanCount}>
+                              <input data-gramm="false" spellcheck="false" 
+                                style={{width:'100%'}}
+                                value={(sc.lopaData || {})[col.id] || ''} 
+                                onChange={(e) => handleLopaChange(sc._id, col.id, e.target.value)}
+                                onBlur={() => handleBlur(sc._id)}
+                              />
                             </td>
                           ))}
                         </>
                       )}
+
                     </tr>
                   );
                 }
                 return rows;
               })}
+              
+              {!loading && formattedScenarios.length === 0 && (
+                <tr>
+                  <td colSpan="20" style={{textAlign:'center', padding:'20px'}}>No scenarios available. Add data in PHA Worksheet first.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {isManageColumnsOpen && (
-        <ManageColumnsModal 
-          studyId={study._id}
-          registryType="lopa"
-          onClose={() => setIsManageColumnsOpen(false)}
-          onSave={(newCols) => { setColumns(newCols); setIsManageColumnsOpen(false); }}
-        />
-      )}
+        {isManageColumnsOpen && (
+          <ManageColumnsModal
+            studyId={study._id}
+            registryType="lopa"
+            onClose={() => setIsManageColumnsOpen(false)}
+            onSave={(newCols) => {
+              setColumns(newCols);
+              setIsManageColumnsOpen(false);
+            }}
+          />
+        )}
+      </div>
     </StudyLayout>
   );
 };

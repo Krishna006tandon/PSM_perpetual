@@ -234,7 +234,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 >
                   <td className="col-num">{index + 1}</td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={node.description} 
                       onChange={(e) => handleCellChange(node._id, 'description', e.target.value)}
@@ -242,7 +242,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={node.intention} 
                       onChange={(e) => handleCellChange(node._id, 'intention', e.target.value)}
@@ -250,7 +250,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={node.boundary} 
                       onChange={(e) => handleCellChange(node._id, 'boundary', e.target.value)}
@@ -258,7 +258,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-eq-count">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={node.eqCount} 
                       onChange={(e) => handleCellChange(node._id, 'eqCount', e.target.value)}

@@ -294,7 +294,9 @@ function App() {
   return (
     <div className="app-container">
       {/* Formal Sidebar with new Navigation logic */}
-      <Sidebar activeView={currentView} onNavigate={setCurrentView} />
+      {currentView !== 'study' && (
+        <Sidebar activeView={currentView} onNavigate={setCurrentView} />
+      )}
       {renderContent()}
     </div>
   );

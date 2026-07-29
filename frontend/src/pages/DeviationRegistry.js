@@ -32,16 +32,12 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
     fetchDeviations();
   }, [study._id]);
 
-  const computeDeviationAuto = (dev) => {
-    return `${dev.guidewords || ''} ${dev.parameter || ''} of ${dev.processFlowMaterial || ''} from ${dev.locationFrom || ''} to ${dev.locationTo || ''}`.trim();
-  };
+
 
   const handleCellChange = (id, field, value) => {
     setDeviations(prev => prev.map(dev => {
       if (dev._id === id) {
         const updatedDev = { ...dev, [field]: value };
-        // Auto-compute the deviation text on the fly
-        updatedDev.deviationAuto = computeDeviationAuto(updatedDev);
         return updatedDev;
       }
       return dev;
@@ -50,10 +46,6 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
 
   const handleBlur = async (id, field, value) => {
     try {
-      // Find the currently updated deviation state to get the new computed auto text
-      const currentDev = deviations.find(d => d._id === id);
-      const computedAuto = currentDev ? currentDev.deviationAuto : '';
-
       const token = localStorage.getItem('token');
       await fetch(`http://localhost:5000/api/deviations/${id}`, {
         method: 'PUT',
@@ -62,8 +54,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
-          [field]: value,
-          deviationAuto: computedAuto // Save the computed value to DB
+          [field]: value
         })
       });
     } catch (error) {
@@ -166,7 +157,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   };
 
   const handleExport = () => {
-    const headers = ['GUIDEWORDS', 'PARAMETER', 'PROCESS FLOW / MATERIAL', 'EQUIPMENT', 'INSTRUMENT', 'DEVIATION (AUTO)'];
+    const headers = ['GUIDEWORDS', 'PARAMETER', 'PROCESS FLOW / MATERIAL', 'EQUIPMENT', 'INSTRUMENT', 'DEVIATION'];
     const csvRows = [headers.join(',')];
     
     deviations.forEach(dev => {
@@ -243,7 +234,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 <th className="col-dev-process">PROCESS FLOW / MATERIAL</th>
                 <th className="col-dev-loc-from">EQUIPMENT</th>
                 <th className="col-dev-loc-to">INSTRUMENT</th>
-                <th className="col-dev-auto">DEVIATION (AUTO)</th>
+                <th className="col-dev-auto">DEVIATION</th>
               </tr>
             </thead>
             <tbody>
@@ -255,7 +246,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 >
                   <td className="col-dev-num">{index + 1}</td>
                   <td className="col-dev-guidewords">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.guidewords} 
                       onChange={(e) => handleCellChange(dev._id, 'guidewords', e.target.value)}
@@ -263,7 +254,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-parameter">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.parameter} 
                       onChange={(e) => handleCellChange(dev._id, 'parameter', e.target.value)}
@@ -271,7 +262,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-process">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.processFlowMaterial} 
                       onChange={(e) => handleCellChange(dev._id, 'processFlowMaterial', e.target.value)}
@@ -279,7 +270,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-loc-from">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.locationFrom} 
                       onChange={(e) => handleCellChange(dev._id, 'locationFrom', e.target.value)}
@@ -287,7 +278,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-loc-to">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.locationTo} 
                       onChange={(e) => handleCellChange(dev._id, 'locationTo', e.target.value)}
@@ -295,7 +286,12 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-auto">
-                    <div className="auto-text">{dev.deviationAuto}</div>
+                    <input data-gramm="false" spellcheck="false" 
+                      type="text" 
+                      value={dev.deviationAuto || ''} 
+                      onChange={(e) => handleCellChange(dev._id, 'deviationAuto', e.target.value)}
+                      onBlur={(e) => handleBlur(dev._id, 'deviationAuto', e.target.value)}
+                    />
                   </td>
                 </tr>
               ))}

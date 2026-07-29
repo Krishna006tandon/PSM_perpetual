@@ -237,7 +237,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 >
                   <td className="col-cause-num">{index + 1}</td>
                   <td className="col-cause-desc">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.description} 
                       onChange={(e) => handleCellChange(cause._id, 'description', e.target.value)}
@@ -245,7 +245,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-cat">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.categoryType} 
                       onChange={(e) => handleCellChange(cause._id, 'categoryType', e.target.value)}
@@ -253,7 +253,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-source">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.sourceReference} 
                       onChange={(e) => handleCellChange(cause._id, 'sourceReference', e.target.value)}
@@ -261,7 +261,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-comments">
-                    <input 
+                    <input data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.comments} 
                       onChange={(e) => handleCellChange(cause._id, 'comments', e.target.value)}

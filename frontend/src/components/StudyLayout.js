@@ -37,7 +37,8 @@ const STUDY_NAV_ITEMS = [
     label: 'NODES',
     icon: ICONS.nodes,
     subItems: [
-      { id: 'nodes-registry', label: 'Registry', icon: ICONS.nodes }
+      { id: 'nodes-registry', label: 'Registry', icon: ICONS.nodes },
+      { id: 'equipment-details', label: 'Equipment', icon: '⚙️' }
     ]
   },
   {

@@ -553,6 +553,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     handleCauseFieldChange(causeId, 'description', value);
   };
 
+
   const handleCauseTextBlur = (causeId, value) => {
     handleCauseFieldBlur(causeId, 'description', value);
   };
@@ -605,6 +606,39 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
               </span>
             </div>
           </div>
+          
+          {selectedNode && selectedNode.equipments && selectedNode.equipments.length > 0 && (
+            <div className="pha-metadata-row pha-metadata-equipments">
+              <div className="pha-metadata-cell" style={{flex: 1, padding: 0}}>
+                <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '12px'}}>
+                  <thead>
+                    <tr style={{backgroundColor: '#f5f7fa', borderBottom: '1px solid #e0e0e0'}}>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>TAG NO.</th>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>EQUIPMENT NAME</th>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>OPERATION CONDITION</th>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>CAPACITY</th>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>MOC</th>
+                      <th style={{padding: '5px', textAlign: 'left', borderRight: '1px solid #e0e0e0'}}>DESIGN TEMP</th>
+                      <th style={{padding: '5px', textAlign: 'left'}}>DESIGN PRESSURE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedNode.equipments.map((eq, i) => (
+                      <tr key={i} style={{borderBottom: '1px solid #e0e0e0'}}>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.tagNo}</td>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.equipmentName}</td>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.operationCondition}</td>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.capacity}</td>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.moc}</td>
+                        <td style={{padding: '5px', borderRight: '1px solid #e0e0e0'}}>{eq.designTemp}</td>
+                        <td style={{padding: '5px'}}>{eq.designPressure}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Toolbar */}

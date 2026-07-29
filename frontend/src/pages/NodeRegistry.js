@@ -279,6 +279,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           onSuccess={handleAddNodeSuccess} 
         />
       )}
+
     </StudyLayout>
   );
 };

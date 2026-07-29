@@ -14,6 +14,7 @@ import RiskRegistry from './pages/RiskRegistry';
 import ChecklistRegistry from './pages/ChecklistRegistry';
 import ActionTrackingRegistry from './pages/ActionTrackingRegistry';
 import LOPAWorksheet from './pages/LOPAWorksheet';
+import EquipmentRegistry from './pages/EquipmentRegistry';
 
 import Auth from './components/Auth';
 
@@ -125,6 +126,18 @@ function App() {
       if (studyTab === 'deviations-registry') {
         return (
           <DeviationRegistry 
+            study={activeStudy} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'equipment-details') {
+        return (
+          <EquipmentRegistry 
             study={activeStudy} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}

@@ -22,6 +22,15 @@ const nodeSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  equipments: [{
+    tagNo: String,
+    equipmentName: String,
+    operationCondition: String,
+    capacity: String,
+    moc: String,
+    designTemp: String,
+    designPressure: String
+  }],
   order: {
     type: Number,
     default: 0

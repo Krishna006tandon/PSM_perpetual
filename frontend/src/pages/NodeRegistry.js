@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddNodeModal from '../components/AddNodeModal';
+import ManageColumnsModal from '../components/ManageColumnsModal';
 import './NodeRegistry.css';
 
 const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [nodes, setNodes] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,6 +15,15 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const fetchNodes = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/nodes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -32,26 +44,74 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     fetchNodes();
   }, [study._id]);
 
-  const handleCellChange = (id, field, value) => {
-    setNodes(prevNodes => prevNodes.map(node => 
-      node._id === id ? { ...node, [field]: value } : node
-    ));
+  const handleCellChange = (id, field, value, isCustom = false) => {
+    setNodes(prevNodes => prevNodes.map(node => {
+      if (node._id === id) {
+        if (isCustom) {
+          const newData = { ...(node.customData || {}) };
+          newData[field] = value;
+          return { ...node, customData: newData };
+        }
+        return { ...node, [field]: value };
+      }
+      return node;
+    }));
   };
 
-  const handleBlur = async (id, field, value) => {
+  const handleBlur = async (id, field, value, isCustom = false) => {
     try {
       const token = localStorage.getItem('token');
+      const node = nodes.find(n => n._id === id);
+      if (!node) return;
+      
+      let payload = {};
+      if (isCustom) {
+        payload.customData = { ...(node.customData || {}) };
+        payload.customData[field] = value;
+      } else {
+        payload[field] = value;
+      }
+
       await fetch(`http://localhost:5000/api/nodes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify(payload)
       });
     } catch (error) {
       console.error('Failed to save node:', error);
     }
+  };
+
+  const handleColumnsSaved = (newCols) => {
+    setColumns(newCols);
+    setIsManageColumnsOpen(false);
+  };
+
+  const renderCustomCell = (node, col) => {
+    const value = (node.customData && node.customData[col.id]) || '';
+    if (col.type === 'dropdown' && col.options) {
+      return (
+        <select value={value} onChange={(e) => {
+          handleCellChange(node._id, col.id, e.target.value, true);
+          handleBlur(node._id, col.id, e.target.value, true);
+        }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
+          <option value=""></option>
+          {col.options.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input 
+        data-gramm="false" spellcheck="false"
+        type="text" 
+        value={value} 
+        onChange={(e) => handleCellChange(node._id, col.id, e.target.value, true)}
+        onBlur={(e) => handleBlur(node._id, col.id, e.target.value, true)}
+      />
+    );
   };
 
   const handleAddNodeSuccess = (newNode) => {
@@ -86,6 +146,15 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       const { _id, createdAt, updatedAt, order, ...copyData } = nodeToCopy;
       
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/nodes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
         method: 'POST',
         headers: {
@@ -179,7 +248,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           <div className="nodes-header-left">
             <h2>NODES REGISTRY</h2>
           </div>
-          <button className="btn-manage-columns">
+          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
             <span className="icon">◫</span> MANAGE COLUMNS
           </button>
         </div>
@@ -265,6 +334,11 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       onBlur={(e) => handleBlur(node._id, 'eqCount', e.target.value)}
                     />
                   </td>
+                  {columns.map(col => (
+                    <td key={col.id} className="col-custom">
+                      {renderCustomCell(node, col)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -272,6 +346,14 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
         </div>
       </div>
 
+      {isManageColumnsOpen && (
+        <ManageColumnsModal 
+          studyId={study._id} 
+          registryType="nodes" 
+          onClose={() => setIsManageColumnsOpen(false)} 
+          onSave={handleColumnsSaved} 
+        />
+      )}
       {isModalOpen && (
         <AddNodeModal 
           studyId={study._id} 

@@ -70,6 +70,7 @@ const STUDY_NAV_ITEMS = [
   { id: 'lopa', label: 'LOPA WORKSHEET', icon: ICONS.analysis, subItems: [] },
   { id: 'recommendations', label: 'RECOMMENDATIONS', icon: ICONS.recommendations, subItems: [] },
   { id: 'check-lists', label: 'CHECK LISTS', icon: ICONS.checklists, subItems: [] },
+  { id: 'action-tracking', label: 'ACTION TRACKING', icon: ICONS.action, subItems: [] },
   { id: 'risk-criteria', label: 'RISK CRITERIA', icon: ICONS.risk, subItems: [] }
 ];
 

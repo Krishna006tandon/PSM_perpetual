@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
+import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddCauseModal from '../components/AddCauseModal';
 import './CauseRegistry.css';
 
 const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [causes, setCauses] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,6 +15,15 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const fetchCauses = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/causes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -32,29 +44,74 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     fetchCauses();
   }, [study._id]);
 
-  const handleCellChange = (id, field, value) => {
+  const handleCellChange = (id, field, value, isCustom = false) => {
     setCauses(prev => prev.map(cause => {
       if (cause._id === id) {
+        if (isCustom) {
+          const newData = { ...(cause.customData || {}) };
+          newData[field] = value;
+          return { ...cause, customData: newData };
+        }
         return { ...cause, [field]: value };
       }
       return cause;
     }));
   };
 
-  const handleBlur = async (id, field, value) => {
+  const handleBlur = async (id, field, value, isCustom = false) => {
     try {
       const token = localStorage.getItem('token');
+      const item = causes.find(x => x._id === id);
+      if (!item) return;
+
+      let payload = {};
+      if (isCustom) {
+        payload.customData = { ...(item.customData || {}) };
+        payload.customData[field] = value;
+      } else {
+        payload[field] = value;
+      }
+
       await fetch(`http://localhost:5000/api/causes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify(payload)
       });
     } catch (error) {
-      console.error('Failed to save cause:', error);
+      console.error('Failed to save:', error);
     }
+  };
+
+  const handleColumnsSaved = (newCols) => {
+    setColumns(newCols);
+    setIsManageColumnsOpen(false);
+  };
+
+  const renderCustomCell = (cause, col) => {
+    const value = (cause.customData && cause.customData[col.id]) || '';
+    if (col.type === 'dropdown' && col.options) {
+      return (
+        <select value={value} onChange={(e) => {
+          handleCellChange(cause._id, col.id, e.target.value, true);
+          handleBlur(cause._id, col.id, e.target.value, true);
+        }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
+          <option value=""></option>
+          {col.options.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input 
+        data-gramm="false" spellcheck="false"
+        type="text" 
+        value={value} 
+        onChange={(e) => handleCellChange(cause._id, col.id, e.target.value, true)}
+        onBlur={(e) => handleBlur(cause._id, col.id, e.target.value, true)}
+      />
+    );
   };
 
   const handleAddCauseSuccess = (newCause) => {
@@ -89,6 +146,15 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       const { _id, createdAt, updatedAt, order, ...copyData } = causeToCopy;
       
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/causes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
         method: 'POST',
         headers: {
@@ -178,11 +244,19 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   return (
     <StudyLayout activeTab="causes-registry" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="causes-container">
+      {isManageColumnsOpen && (
+        <ManageColumnsModal 
+          studyId={study._id} 
+          registryType="causes" 
+          onClose={() => setIsManageColumnsOpen(false)} 
+          onSave={handleColumnsSaved} 
+        />
+      )}
         <div className="causes-header">
           <div className="causes-header-left">
             <h2>CAUSES REGISTRY</h2>
           </div>
-          <button className="btn-manage-columns">
+          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
             <span className="icon">◫</span> MANAGE COLUMNS
           </button>
         </div>
@@ -226,6 +300,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 <th className="col-cause-cat">CATEGORY / TYPE</th>
                 <th className="col-cause-source">SOURCE / REFERENCE</th>
                 <th className="col-cause-comments">COMMENTS</th>
+                {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -268,6 +343,11 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       onBlur={(e) => handleBlur(cause._id, 'comments', e.target.value)}
                     />
                   </td>
+                  {columns.map(col => (
+                    <td key={col.id} className="col-custom">
+                      {renderCustomCell(cause, col)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

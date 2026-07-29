@@ -94,6 +94,11 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   const handleCellChange = (id, field, value, isCustom = false) => {
     setScenarios(prev => prev.map(sc => {
       if (sc._id === id) {
+        if (isCustom && (field === 'assignAction' || field === 'dueDate')) {
+          const newData = { ...(sc.actionTrackingData || {}) };
+          newData[field] = value;
+          return { ...sc, actionTrackingData: newData };
+        }
         if (isCustom) {
           const newData = { ...(sc.actionTrackingData || {}) };
           newData[field] = value;
@@ -112,7 +117,10 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       if (!sc) return;
 
       let payload = {};
-      if (isCustom) {
+      if (isCustom && (field === 'assignAction' || field === 'dueDate')) {
+        payload.actionTrackingData = { ...(sc.actionTrackingData || {}) };
+        payload.actionTrackingData[field] = value;
+      } else if (isCustom) {
         payload.actionTrackingData = { ...(sc.actionTrackingData || {}) };
         payload.actionTrackingData[field] = value;
       } else {
@@ -249,7 +257,10 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                 <th className="col-dev">DEVIATION</th>
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
-                <th className="col-custom">STATUS</th>
+                <th className="col-custom" style={{width: '200px'}}>RECOMMENDATION</th>
+                <th className="col-custom">ASSIGN ACTION</th>
+                <th className="col-custom">TRACK DUE DATE</th>
+                <th className="col-custom">UPDATE STATUS</th>
                 <th className="col-custom">REMARKS</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
@@ -265,6 +276,35 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
                   <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
+                    <textarea data-gramm="false" spellcheck="false" 
+                      value={sc.additionalProtection || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                    />
+                  </td>
+                  <td className="col-custom">
+                    <select
+                      value={(sc.actionTrackingData && sc.actionTrackingData.assignAction) || ''} 
+                      onChange={(e) => {
+                        handleCellChange(sc._id, 'assignAction', e.target.value, true);
+                        handleBlur(sc._id, 'assignAction', e.target.value, true);
+                      }}
+                    >
+                      <option value=""></option>
+                      {teamMembers.map((member, i) => (
+                        <option key={i} value={member.fullName}>{member.fullName}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="col-custom">
+                    <input data-gramm="false" spellcheck="false" 
+                      type="date"
+                      value={(sc.actionTrackingData && sc.actionTrackingData.dueDate) || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'dueDate', e.target.value, true)}
+                      onBlur={(e) => handleBlur(sc._id, 'dueDate', e.target.value, true)}
+                    />
+                  </td>
+                  <td className="col-custom">
                     <select
                       value={sc.status || ''} 
                       onChange={(e) => {
@@ -273,7 +313,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                       }}
                     >
                       <option value=""></option>
-                      <option value="Pending">Pending</option>
+                      <option value="Open">Open</option>
                       <option value="In Progress">In Progress</option>
                       <option value="Completed">Completed</option>
                       <option value="Closed">Closed</option>

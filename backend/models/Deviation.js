@@ -34,6 +34,8 @@ const deviationSchema = new mongoose.Schema({
     type: Number,
     default: 0
   }
+,
+  customData: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
 // Pre-save hook to automatically compute deviationAuto

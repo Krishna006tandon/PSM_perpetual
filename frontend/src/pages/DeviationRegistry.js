@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
+import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddDeviationModal from '../components/AddDeviationModal';
 import './DeviationRegistry.css';
 
 const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [deviations, setDeviations] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,6 +15,15 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   const fetchDeviations = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/deviations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -34,32 +46,74 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
 
 
 
-  const handleCellChange = (id, field, value) => {
+  const handleCellChange = (id, field, value, isCustom = false) => {
     setDeviations(prev => prev.map(dev => {
       if (dev._id === id) {
-        const updatedDev = { ...dev, [field]: value };
-        return updatedDev;
+        if (isCustom) {
+          const newData = { ...(dev.customData || {}) };
+          newData[field] = value;
+          return { ...dev, customData: newData };
+        }
+        return { ...dev, [field]: value };
       }
       return dev;
     }));
   };
 
-  const handleBlur = async (id, field, value) => {
+  const handleBlur = async (id, field, value, isCustom = false) => {
     try {
       const token = localStorage.getItem('token');
+      const item = deviations.find(x => x._id === id);
+      if (!item) return;
+
+      let payload = {};
+      if (isCustom) {
+        payload.customData = { ...(item.customData || {}) };
+        payload.customData[field] = value;
+      } else {
+        payload[field] = value;
+      }
+
       await fetch(`http://localhost:5000/api/deviations/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          [field]: value
-        })
+        body: JSON.stringify(payload)
       });
     } catch (error) {
-      console.error('Failed to save deviation:', error);
+      console.error('Failed to save:', error);
     }
+  };
+
+  const handleColumnsSaved = (newCols) => {
+    setColumns(newCols);
+    setIsManageColumnsOpen(false);
+  };
+
+  const renderCustomCell = (dev, col) => {
+    const value = (dev.customData && dev.customData[col.id]) || '';
+    if (col.type === 'dropdown' && col.options) {
+      return (
+        <select value={value} onChange={(e) => {
+          handleCellChange(dev._id, col.id, e.target.value, true);
+          handleBlur(dev._id, col.id, e.target.value, true);
+        }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
+          <option value=""></option>
+          {col.options.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input 
+        data-gramm="false" spellcheck="false"
+        type="text" 
+        value={value} 
+        onChange={(e) => handleCellChange(dev._id, col.id, e.target.value, true)}
+        onBlur={(e) => handleBlur(dev._id, col.id, e.target.value, true)}
+      />
+    );
   };
 
   const handleAddDeviationSuccess = (newDeviation) => {
@@ -94,6 +148,15 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       const token = localStorage.getItem('token');
       const { _id, createdAt, updatedAt, order, ...copyData } = devToCopy;
       
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/deviations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
         method: 'POST',
         headers: {
@@ -185,11 +248,19 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
   return (
     <StudyLayout activeTab="deviations-registry" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="deviations-container">
+      {isManageColumnsOpen && (
+        <ManageColumnsModal 
+          studyId={study._id} 
+          registryType="deviations" 
+          onClose={() => setIsManageColumnsOpen(false)} 
+          onSave={handleColumnsSaved} 
+        />
+      )}
         <div className="deviations-header">
           <div className="deviations-header-left">
             <h2>DEVIATIONS REGISTRY</h2>
           </div>
-          <button className="btn-manage-columns">
+          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
             <span className="icon">◫</span> MANAGE COLUMNS
           </button>
         </div>
@@ -235,6 +306,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 <th className="col-dev-loc-from">EQUIPMENT</th>
                 <th className="col-dev-loc-to">INSTRUMENT</th>
                 <th className="col-dev-auto">DEVIATION</th>
+                {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -293,6 +365,11 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                       onBlur={(e) => handleBlur(dev._id, 'deviationAuto', e.target.value)}
                     />
                   </td>
+                  {columns.map(col => (
+                    <td key={col.id} className="col-custom">
+                      {renderCustomCell(dev, col)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

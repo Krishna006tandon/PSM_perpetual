@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import StudyLayout from '../components/StudyLayout';
+import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddDocumentModal from '../components/AddDocumentModal';
 import './StudyDocuments.css';
 
 const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const [documents, setDocuments] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
@@ -14,6 +17,15 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   const fetchDocuments = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/documents`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -39,26 +51,74 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     setIsModalOpen(false);
   };
 
-  const handleCellChange = (id, field, value) => {
-    setDocuments(docs => docs.map(doc => 
-      doc._id === id ? { ...doc, [field]: value } : doc
-    ));
+  const handleCellChange = (id, field, value, isCustom = false) => {
+    setDocuments(prev => prev.map(doc => {
+      if (doc._id === id) {
+        if (isCustom) {
+          const newData = { ...(doc.customData || {}) };
+          newData[field] = value;
+          return { ...doc, customData: newData };
+        }
+        return { ...doc, [field]: value };
+      }
+      return doc;
+    }));
   };
 
-  const handleBlur = async (id, field, value) => {
+  const handleBlur = async (id, field, value, isCustom = false) => {
     try {
       const token = localStorage.getItem('token');
+      const item = documents.find(x => x._id === id);
+      if (!item) return;
+
+      let payload = {};
+      if (isCustom) {
+        payload.customData = { ...(item.customData || {}) };
+        payload.customData[field] = value;
+      } else {
+        payload[field] = value;
+      }
+
       await fetch(`http://localhost:5000/api/documents/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify(payload)
       });
     } catch (error) {
-      console.error('Failed to save document:', error);
+      console.error('Failed to save:', error);
     }
+  };
+
+  const handleColumnsSaved = (newCols) => {
+    setColumns(newCols);
+    setIsManageColumnsOpen(false);
+  };
+
+  const renderCustomCell = (doc, col) => {
+    const value = (doc.customData && doc.customData[col.id]) || '';
+    if (col.type === 'dropdown' && col.options) {
+      return (
+        <select value={value} onChange={(e) => {
+          handleCellChange(doc._id, col.id, e.target.value, true);
+          handleBlur(doc._id, col.id, e.target.value, true);
+        }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
+          <option value=""></option>
+          {col.options.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input 
+        data-gramm="false" spellcheck="false"
+        type="text" 
+        value={value} 
+        onChange={(e) => handleCellChange(doc._id, col.id, e.target.value, true)}
+        onBlur={(e) => handleBlur(doc._id, col.id, e.target.value, true)}
+      />
+    );
   };
 
   const handleDelete = async (id) => {
@@ -88,6 +148,15 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       const { _id, createdAt, updatedAt, order, ...copyData } = docToCopy;
       
+      
+      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/documents`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColumns(colData.columns || []);
+      }
+
       const response = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
         method: 'POST',
         headers: {
@@ -207,11 +276,19 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
   return (
     <StudyLayout activeTab="documents" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="docs-container">
+      {isManageColumnsOpen && (
+        <ManageColumnsModal 
+          studyId={study._id} 
+          registryType="documents" 
+          onClose={() => setIsManageColumnsOpen(false)} 
+          onSave={handleColumnsSaved} 
+        />
+      )}
         <div className="docs-header">
           <div className="docs-header-left">
             <h2>STUDY DOCUMENTS</h2>
           </div>
-          <button className="btn-manage-columns">
+          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
             <span className="icon">◫</span> MANAGE COLUMNS
           </button>
         </div>
@@ -257,6 +334,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 <th className="col-desc">DESCRIPTION</th>
                 <th className="col-link">HYPERLINK / URI</th>
                 <th className="col-attach">ATTACHMENT</th>
+                {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
                 <th className="col-action"></th>
               </tr>
             </thead>

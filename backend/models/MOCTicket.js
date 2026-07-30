@@ -16,7 +16,7 @@ const mocTicketSchema = new mongoose.Schema({
     orgNumber: String
   },
   currentStageIndex: { type: Number, default: 0, min: 0, max: 10 },
-  status: { type: String, enum: ['Active', 'Closed', 'Rejected'], default: 'Active' },
+  status: { type: String, enum: ['Active', 'Closed', 'Rejected', 'Archived'], default: 'Active' },
   stageHistory: [{
     stageIndex: Number,
     action: { type: String, enum: ['Approved', 'Rejected', 'Query Sent', 'Submitted'] },

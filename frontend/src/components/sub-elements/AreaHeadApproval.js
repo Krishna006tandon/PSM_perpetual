@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -77,21 +78,39 @@ const AreaHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
 
   const data = ticketData || { title: "No Title", plant: "N/A", department: "N/A", changeType: "N/A", riskLevel: "N/A", description: "No description provided." };
 
-  const handleAction = (actionType) => {
+  const handleAction = async (actionType) => {
     if (!canAct) return;
     if ((actionType === 'Reject' || actionType === 'Query') && comments.trim() === '') {
       return alert(`Please provide comments before selecting ${actionType}.`);
     }
     setIsProcessing(true);
-    setTimeout(() => {
+    
+    try {
+      const payload = {
+        action: actionType === 'Approve' ? 'Approved' : actionType === 'Reject' ? 'Rejected' : 'Query Sent',
+        actor: { name: currentUser.name, designation: currentUser.designation },
+        comments
+      };
+
+      if (actionType === 'Approve') {
+        await mocService.advanceStage(ticketData.mocId || ticketData._id, payload);
+      } else if (actionType === 'Reject') {
+        await mocService.rejectMOC(ticketData.mocId || ticketData._id, payload);
+      }
+
       setIsProcessing(false);
       setActionTaken(actionType);
+      
       if (actionType === 'Query' && onAddQuery) {
         onAddQuery({ from: currentUser.designation, to: 'Process Engineer / Initiator', description: comments });
         setComments('');
       }
       if (actionType === 'Approve' && onPromote) onPromote();
-    }, 800);
+    } catch (err) {
+      console.error("Failed to process action", err);
+      setIsProcessing(false);
+      alert("Database error: Could not process action.");
+    }
   };
 
   return (
@@ -157,7 +176,7 @@ const AreaHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
         {/* Ticket metadata */}
         <div style={styles.metaGrid}>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>MOC Title</span><span style={styles.metaValue}>{data.title}</span></div>
-          <div style={styles.metaBlock}><span style={styles.metaLabel}>Requestor</span><span style={styles.metaValue}>{data.requestor}</span></div>
+          <div style={styles.metaBlock}><span style={styles.metaLabel}>Requestor</span><span style={styles.metaValue}>{data.requestor?.name || (typeof data.requestor === 'string' ? data.requestor : 'Unknown')}</span></div>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>Plant / Unit</span><span style={styles.metaValue}>{data.plant}</span></div>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>Department</span><span style={styles.metaValue}>{data.department}</span></div>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>Risk Level</span><span style={styles.riskBadge(data.riskLevel)}>{data.riskLevel} Risk</span></div>

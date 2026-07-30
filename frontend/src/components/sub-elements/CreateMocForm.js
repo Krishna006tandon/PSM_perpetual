@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -87,35 +88,58 @@ const getStyles = (theme) => {
   };
 };
 
-const CreateMocForm = ({ theme, setTicketData, currentUser, onPromote, onNext }) => {
+const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromote, onNext }) => {
   const styles = getStyles(theme);
   const isDark = theme === 'dark';
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(!!ticketData);
 
   const hasPermission = currentUser.designation === 'Process Engineer';
+  const isExisting = !!ticketData;
 
   const [formData, setFormData] = useState({
-    id: 'MOC-' + Math.floor(Math.random() * 90000 + 10000),
-    requestor: `${currentUser.name} (${currentUser.designation})`,
-    title: '', description: '', plant: 'Plant A', department: 'Mechanical',
-    changeType: 'Permanent', urgency: 'General', riskLevel: 'Medium',
+    mocId: ticketData?.mocId || ticketData?.id || 'MOC-' + Math.floor(Math.random() * 90000 + 10000),
+    requestor: ticketData?.requestor || {
+      name: currentUser.name,
+      designation: currentUser.designation,
+      orgNumber: currentUser.orgNumber || 'ORG-1234',
+      contact: currentUser.contact || 'contact@example.com'
+    },
+    title: ticketData?.title || '', 
+    description: ticketData?.description || '', 
+    plant: ticketData?.plant || 'Plant A', 
+    department: ticketData?.department || 'Mechanical',
+    changeType: ticketData?.changeType || 'Permanent', 
+    urgency: ticketData?.urgency || 'General', 
+    riskLevel: ticketData?.riskLevel || 'Medium',
   });
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!hasPermission) return;
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const response = await mocService.createMOC(formData);
+      // Immediately advance from stage 0 → 1 in the backend so that
+      // when Area Head fetches this MOC, it will be at currentStageIndex: 1
+      // and their approval buttons will be active.
+      const advancedMoc = await mocService.advanceStage(response.mocId || response._id, {
+        action: 'Submitted',
+        actor: { name: currentUser.name, designation: currentUser.designation },
+        comments: 'MOC submitted by initiator'
+      });
       setIsSubmitting(false);
       setSubmitted(true);
-      setTicketData(formData);
-      if (onPromote) onPromote();
-    }, 800);
+      setTicketData(advancedMoc);
+      if (onPromote) onPromote(advancedMoc);
+    } catch (err) {
+      console.error("Failed to create MOC", err);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -135,7 +159,7 @@ const CreateMocForm = ({ theme, setTicketData, currentUser, onPromote, onNext })
             color: isDark ? '#8ab4f8' : '#1a56c4',
             border: isDark ? '1px solid rgba(26,115,232,0.4)' : '1px solid #c5d8f8',
           }}>
-            {formData.id}
+            {formData.mocId}
           </span>
           <span style={{ fontSize: '12px', color: isDark ? '#7070a0' : '#aaa' }}>
             Initiated by: <strong style={{ color: isDark ? '#e8e8ff' : '#1a1a3e' }}>{currentUser.name}</strong> · {currentUser.designation}
@@ -152,7 +176,7 @@ const CreateMocForm = ({ theme, setTicketData, currentUser, onPromote, onNext })
           </div>
         )}
 
-        {submitted && (
+        {submitted && !isExisting && (
           <>
             <div style={{ ...styles.alertBase, backgroundColor: isDark ? 'rgba(19,115,51,0.18)' : '#e6f4ea', color: isDark ? '#81c995' : '#137333', border: isDark ? '1px solid #137333' : '1px solid #ceead6' }}>
               <span>✅</span>
@@ -165,8 +189,15 @@ const CreateMocForm = ({ theme, setTicketData, currentUser, onPromote, onNext })
           </>
         )}
 
+        {isExisting && (
+          <div style={{ ...styles.alertBase, backgroundColor: isDark ? 'rgba(26,115,232,0.18)' : '#e8f0fe', color: isDark ? '#8ab4f8' : '#1a73e8', border: isDark ? '1px solid rgba(26,115,232,0.4)' : '1px solid #c5d8f8' }}>
+            <span>ℹ️</span>
+            <span><strong>MOC is Active.</strong> This MOC was successfully submitted. Use the navigation buttons below to view its progress.</span>
+          </div>
+        )}
+
         {/* Form fields */}
-        <div style={{ ...styles.formGrid, opacity: hasPermission ? 1 : 0.6, pointerEvents: hasPermission ? 'auto' : 'none' }}>
+        <div style={{ ...styles.formGrid, opacity: (hasPermission && !isExisting) ? 1 : 0.6, pointerEvents: (hasPermission && !isExisting) ? 'auto' : 'none' }}>
           <div style={{ ...styles.inputGroup, ...styles.fullWidth }}>
             <label style={styles.inputLabel}>MOC Title</label>
             <input
@@ -222,7 +253,7 @@ const CreateMocForm = ({ theme, setTicketData, currentUser, onPromote, onNext })
           </div>
         </div>
 
-        {hasPermission && !submitted && (
+        {hasPermission && !isExisting && !submitted && (
           <>
             <div style={styles.divider} />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

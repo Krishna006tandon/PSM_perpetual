@@ -82,8 +82,8 @@ const ClosureStage = ({ theme, ticketData, currentUser, onPromote, onAddQuery, i
     <div style={styles.container}>
       <div style={styles.card}>
         <h3 style={styles.sectionTitle}>
-          <span style={styles.stagePill}>8</span>
-          Final Site Verification & Closure
+          <span style={styles.stagePill}>11</span>
+          Formal Closure
         </h3>
 
         {/* Universal View */}
@@ -144,7 +144,7 @@ const ClosureStage = ({ theme, ticketData, currentUser, onPromote, onAddQuery, i
 
         <div style={styles.metaGrid}>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>MOC Title</span><span style={styles.metaValue}>{data.title}</span></div>
-          <div style={styles.metaBlock}><span style={styles.metaLabel}>Requestor</span><span style={styles.metaValue}>{data.requestor}</span></div>
+          <div style={styles.metaBlock}><span style={styles.metaLabel}>Requestor</span><span style={styles.metaValue}>{data.requestor?.name || (typeof data.requestor === 'string' ? data.requestor : 'Unknown')}</span></div>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>Plant / Unit</span><span style={styles.metaValue}>{data.plant}</span></div>
           <div style={styles.metaBlock}><span style={styles.metaLabel}>Risk Level</span><span style={styles.riskBadge(data.riskLevel)}>{data.riskLevel} Risk</span></div>
         </div>

@@ -12,5 +12,8 @@ router.patch('/:mocId/checklist', mocController.submitChecklist);
 router.patch('/:mocId/cost', mocController.submitCostEstimation);
 router.patch('/:mocId/assign-pm', mocController.assignPM);
 router.patch('/:mocId/close', mocController.closeMOC);
+router.patch('/:mocId/archive', mocController.archiveMOC);
+router.patch('/:mocId/unarchive', mocController.unarchiveMOC);
+router.delete('/:mocId', mocController.deleteMOC);
 
 module.exports = router;

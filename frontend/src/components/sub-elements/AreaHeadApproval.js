@@ -67,7 +67,7 @@ const getStyles = (theme) => {
   };
 };
 
-const AreaHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuery, isWorkflowActive, onPrevious, onNext }) => {
+const AreaHeadApproval = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, onPrevious, onNext }) => {
   const styles = getStyles(theme);
   const hasPermission = currentUser.designation === 'Area Head';
   const canAct = hasPermission && isWorkflowActive;
@@ -92,14 +92,18 @@ const AreaHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
         comments
       };
 
+      let updatedMoc;
       if (actionType === 'Approve') {
-        await mocService.advanceStage(ticketData.mocId || ticketData._id, payload);
+        updatedMoc = await mocService.advanceStage(ticketData.mocId || ticketData._id, payload);
       } else if (actionType === 'Reject') {
-        await mocService.rejectMOC(ticketData.mocId || ticketData._id, payload);
+        updatedMoc = await mocService.rejectMOC(ticketData.mocId || ticketData._id, payload);
       }
 
       setIsProcessing(false);
       setActionTaken(actionType);
+      if (updatedMoc && setTicketData) {
+        setTicketData(updatedMoc);
+      }
       
       if (actionType === 'Query' && onAddQuery) {
         onAddQuery({ from: currentUser.designation, to: 'Process Engineer / Initiator', description: comments });
@@ -164,12 +168,38 @@ const AreaHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
           <>
             <div style={{ ...styles.alertBase, ...styles.alertError }}>
               <span>⛔</span>
-              <span><strong>MOC Rejected.</strong> The workflow has been permanently halted by Area Head decision.</span>
+              <span><strong>MOC Rejected.</strong> The workflow has been {ticketData?.status === 'Permanently Rejected' ? 'permanently' : 'temporarily'} halted by Area Head decision.</span>
             </div>
             <div style={{ ...styles.alertBase, ...styles.alertWarning }}>
               <span>📋</span>
               <span>Your rejection has been recorded. Please review the other stages and coordinate with the team for next steps.</span>
             </div>
+            
+            {/* UNDO REJECTION BUTTON */}
+            {hasPermission && ticketData?.status !== 'Permanently Rejected' && (
+               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                 <button 
+                   style={{ backgroundColor: '#1a73e8', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+                   onClick={async () => {
+                     try {
+                       const updatedMoc = await mocService.unrejectMOC(ticketData.mocId || ticketData._id, {
+                         actor: { name: currentUser.name, designation: currentUser.designation },
+                         comments: 'Reanalyzed and un-rejected'
+                       });
+                       setActionTaken(null);
+                       if (setTicketData) {
+                         setTicketData(updatedMoc);
+                       }
+                     } catch (err) {
+                       console.error('Failed to unreject', err);
+                       alert('Failed to undo rejection.');
+                     }
+                   }}
+                 >
+                   🔄 Reanalyze and Undo Rejection
+                 </button>
+               </div>
+            )}
           </>
         )}
 

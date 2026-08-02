@@ -11,8 +11,9 @@ const apiClient = axios.create({
 
 export const mocService = {
   // --- MOC Tickets ---
-  getAllMOCs: async () => {
-    const response = await apiClient.get('/mocs');
+  getAllMOCs: async (orgNumber) => {
+    const url = orgNumber ? `/mocs?orgNumber=${encodeURIComponent(orgNumber)}` : '/mocs';
+    const response = await apiClient.get(url);
     return response.data;
   },
 
@@ -36,8 +37,18 @@ export const mocService = {
     return response.data;
   },
 
+  unrejectMOC: async (id, data) => {
+    const response = await apiClient.patch(`/mocs/${id}/unreject`, data);
+    return response.data;
+  },
+
   addQuery: async (id, data) => {
     const response = await apiClient.patch(`/mocs/${id}/query`, data);
+    return response.data;
+  },
+
+  resolveQuery: async (id, data) => {
+    const response = await apiClient.patch(`/mocs/${id}/resolve-query`, data);
     return response.data;
   },
 
@@ -48,6 +59,11 @@ export const mocService = {
 
   submitCostEstimation: async (id, data) => {
     const response = await apiClient.patch(`/mocs/${id}/cost`, data);
+    return response.data;
+  },
+
+  submitSecondaryApproval: async (id, data) => {
+    const response = await apiClient.patch(`/mocs/${id}/secondary-approval`, data);
     return response.data;
   },
 

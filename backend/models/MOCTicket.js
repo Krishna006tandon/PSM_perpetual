@@ -16,7 +16,8 @@ const mocTicketSchema = new mongoose.Schema({
     orgNumber: String
   },
   currentStageIndex: { type: Number, default: 0, min: 0, max: 10 },
-  status: { type: String, enum: ['Active', 'Closed', 'Rejected', 'Archived'], default: 'Active' },
+  status: { type: String, enum: ['Active', 'Closed', 'Rejected', 'Archived', 'Permanently Rejected'], default: 'Active' },
+  rejectionCount: { type: Number, default: 0 },
   stageHistory: [{
     stageIndex: Number,
     action: { type: String, enum: ['Approved', 'Rejected', 'Query Sent', 'Submitted'] },
@@ -32,6 +33,7 @@ const mocTicketSchema = new mongoose.Schema({
     }],
     stage5: mongoose.Schema.Types.Mixed
   },
+  secondaryApprovals: mongoose.Schema.Types.Mixed,
   costEstimation: {
     departments: [{
       name: String,
@@ -44,6 +46,8 @@ const mocTicketSchema = new mongoose.Schema({
     from: String,
     to: String,
     description: String,
+    status: { type: String, enum: ['Active', 'Resolved'], default: 'Active' },
+    resolutionMessage: String,
     timestamp: { type: Date, default: Date.now }
   }],
   assignedPM: {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
@@ -52,14 +52,23 @@ const getStyles = (theme) => {
   };
 };
 
-const SiteHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuery, isWorkflowActive, onPrevious, onNext }) => {
+const SiteHeadApproval = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser.designation === 'Site Head';
+  const hasPermission = currentUser?.designation === 'Site Head';
   const canAct = hasPermission && isWorkflowActive;
 
   const [comments, setComments] = useState('');
   const [actionTaken, setActionTaken] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const stageHistory = ticketData?.stageHistory || [];
+    // Site Head is Stage 8, so index 7 in workflow
+    const siteHeadAction = stageHistory.find(h => h.stageIndex === 7);
+    if (siteHeadAction) {
+      setActionTaken(siteHeadAction.action === 'Approved' ? 'Approve' : siteHeadAction.action === 'Rejected' ? 'Reject' : 'Query');
+    }
+  }, [ticketData]);
 
   const data = ticketData || { title: "No Title", plant: "N/A", department: "N/A", changeType: "N/A", riskLevel: "N/A", description: "No description provided." };
 
@@ -77,14 +86,19 @@ const SiteHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
         comments
       };
 
+      let updatedMoc;
       if (actionType === 'Approve') {
-        await mocService.advanceStage(ticketData.mocId || ticketData._id, payload);
+        updatedMoc = await mocService.advanceStage(ticketData.mocId || ticketData._id, payload);
       } else if (actionType === 'Reject') {
-        await mocService.rejectMOC(ticketData.mocId || ticketData._id, payload);
+        updatedMoc = await mocService.rejectMOC(ticketData.mocId || ticketData._id, payload);
       }
 
       setIsProcessing(false);
       setActionTaken(actionType);
+      if (updatedMoc && setTicketData) {
+        setTicketData(updatedMoc);
+      }
+      
       if (actionType === 'Query' && onAddQuery) {
         onAddQuery({ from: currentUser.designation, to: 'All Reviewers / Initiator', description: comments });
         setComments('');
@@ -101,7 +115,7 @@ const SiteHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
     <div style={styles.container}>
       <div style={styles.card}>
         <h3 style={styles.sectionTitle}>
-          <span style={styles.stagePill}>6</span>
+          <span style={styles.stagePill}>8</span>
           Site Head Executive Approval
         </h3>
 
@@ -148,12 +162,38 @@ const SiteHeadApproval = ({ theme, ticketData, currentUser, onPromote, onAddQuer
           <>
             <div style={{ ...styles.alertBase, ...styles.alertError }}>
               <span>⛔</span>
-              <span><strong>MOC Vetoed.</strong> The workflow has been permanently halted by Site Head executive decision.</span>
+              <span><strong>MOC Rejected.</strong> The workflow has been {ticketData?.status === 'Permanently Rejected' ? 'permanently' : 'temporarily'} halted by the Site Head.</span>
             </div>
             <div style={{ ...styles.alertBase, ...styles.alertWarning }}>
               <span>📋</span>
-              <span>Your rejection has been recorded. Please coordinate with the team for next steps.</span>
+              <span>Your rejection has been recorded. The MOC is now {ticketData?.status === 'Permanently Rejected' ? 'permanently ' : ''}closed.</span>
             </div>
+            
+            {/* UNDO REJECTION BUTTON */}
+            {hasPermission && ticketData?.status !== 'Permanently Rejected' && (
+               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                 <button 
+                   style={{ backgroundColor: '#1a73e8', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+                   onClick={async () => {
+                     try {
+                       const updatedMoc = await mocService.unrejectMOC(ticketData.mocId || ticketData._id, {
+                         actor: { name: currentUser.name, designation: currentUser.designation },
+                         comments: 'Reanalyzed and un-rejected'
+                       });
+                       setActionTaken(null);
+                       if (setTicketData) {
+                         setTicketData(updatedMoc);
+                       }
+                     } catch (err) {
+                       console.error('Failed to unreject', err);
+                       alert('Failed to undo rejection.');
+                     }
+                   }}
+                 >
+                   🔄 Reanalyze and Undo Rejection
+                 </button>
+               </div>
+            )}
           </>
         )}
 

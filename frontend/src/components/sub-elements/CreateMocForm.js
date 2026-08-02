@@ -92,6 +92,7 @@ const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromot
   const styles = getStyles(theme);
   const isDark = theme === 'dark';
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(!!ticketData);
 
   const hasPermission = currentUser.designation === 'Process Engineer';
@@ -116,12 +117,14 @@ const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromot
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    if (submitError) setSubmitError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!hasPermission) return;
     setIsSubmitting(true);
+    setSubmitError("");
     try {
       const response = await mocService.createMOC(formData);
       // Immediately advance from stage 0 → 1 in the backend so that
@@ -138,6 +141,7 @@ const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromot
       if (onPromote) onPromote(advancedMoc);
     } catch (err) {
       console.error("Failed to create MOC", err);
+      setSubmitError(err.response?.data?.error || "Failed to create MOC. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -169,6 +173,12 @@ const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromot
         <div style={styles.divider} />
 
         {/* Banners */}
+        {submitError && (
+          <div style={{ padding: '12px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '6px', border: '1px solid #f5c6cb', marginBottom: '16px', fontSize: '14px' }}>
+            <strong>Error:</strong> {submitError}
+          </div>
+        )}
+
         {!hasPermission && (
           <div style={{ ...styles.alertBase, ...styles.alertWarning }}>
             <span>🔒</span>

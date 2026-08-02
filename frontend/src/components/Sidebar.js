@@ -1,48 +1,66 @@
 import React, { useState } from 'react';
 
 const NAV_ITEMS = [
-  { id: 'Dashboard', label: 'Dashboard' },
-  { id: 'Analytics', label: 'Analytics' },
-  { id: 'Settings', label: 'Settings' },
+  { id: 'Dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'Analytics', label: 'Analytics', icon: '📈' },
+  { id: 'Settings', label: 'Settings', icon: '⚙️' },
+  { id: 'User Guide', label: 'User Guide', icon: '📖' },
 ];
 
 function Sidebar({ activeTab, setActiveTab }) {
-  // Local state to control if the submenu is open or closed
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <aside className="sidebar">
-      <h2>Brand</h2>
+    <aside className="sidebar" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s ease', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        {!isCollapsed && <h2 style={{ margin: 0 }}>Brand</h2>}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          style={{ background: 'none', border: 'none', color: 'inherit', fontSize: '20px', cursor: 'pointer', padding: isCollapsed ? '0' : '0 10px' }}
+        >
+          ☰
+        </button>
+      </div>
       <nav>
         <ul>
           {/* 1. Dashboard */}
           <li 
             className={activeTab === 'Dashboard' ? 'active' : ''}
             onClick={() => setActiveTab('Dashboard')}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}
+            title="Dashboard"
           >
-            Dashboard
+            <span>📊</span>
+            {!isCollapsed && <span>Dashboard</span>}
           </li>
 
           {/* 2. Projects (Dropdown Header) */}
           <li 
-            onClick={() => setIsProjectsOpen(!isProjectsOpen)}
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            onClick={() => !isCollapsed && setIsProjectsOpen(!isProjectsOpen)}
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', justifyContent: isCollapsed ? 'center' : 'flex-start' }}
+            title="Projects"
           >
-            Projects <span style={{ fontSize: '10px' }}>{isProjectsOpen ? '▼' : '▶'}</span>
+            <span>📁</span>
+            {!isCollapsed && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span>Projects</span>
+                <span style={{ fontSize: '10px' }}>{isProjectsOpen ? '▼' : '▶'}</span>
+              </div>
+            )}
           </li>
 
-          {/* 3. Submenu Items (Only visible if isProjectsOpen is true) */}
-          {isProjectsOpen && (
+          {/* 3. Submenu Items (Only visible if isProjectsOpen is true and not collapsed) */}
+          {isProjectsOpen && !isCollapsed && (
             <div style={{ backgroundColor: 'rgba(0,0,0,0.05)', padding: '5px 0' }}>
               <li 
                 className={activeTab === 'Projects' ? 'active' : ''}
                 onClick={() => setActiveTab('Projects')}
-                style={{ paddingLeft: '40px', fontSize: '14px', cursor: 'pointer' }}
+                style={{ paddingLeft: '40px', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}
               >
-                MOC Module
+                <span>📝</span>
+                <span>MOC Module</span>
               </li>
-              {/* You can add more sub-projects here later like 'Permit to Work' */}
             </div>
           )}
 
@@ -52,9 +70,11 @@ function Sidebar({ activeTab, setActiveTab }) {
               key={item.id} 
               className={activeTab === item.id ? 'active' : ''}
               onClick={() => setActiveTab(item.id)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}
+              title={item.label}
             >
-              {item.label}
+              <span>{item.icon}</span>
+              {!isCollapsed && <span>{item.label}</span>}
             </li>
           ))}
         </ul>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -53,29 +54,48 @@ const getStyles = (theme) => {
 
 const ClosureStage = ({ theme, ticketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted: isCompletedProp, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser.designation === 'Area Owner';
+  const hasPermission = currentUser?.designation === 'Area Owner';
   const canAct = hasPermission && isWorkflowActive;
 
   const [comments, setComments] = useState('');
   const [actionTaken, setActionTaken] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  useEffect(() => {
+    if (ticketData?.status === 'Closed') {
+      setActionTaken('Close');
+    }
+  }, [ticketData]);
+
   const data = ticketData || { title: "No Title", plant: "N/A", department: "N/A", changeType: "N/A", riskLevel: "N/A", description: "No description provided." };
   const isCompleted = isCompletedProp || actionTaken === 'Close';
 
-  const handleAction = (actionType) => {
+  const handleAction = async (actionType) => {
     if (!canAct) return;
     if (comments.trim() === '') return alert(`Please provide final verification remarks before proceeding.`);
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setActionTaken(actionType);
-      if (actionType === 'Query' && onAddQuery) {
+    try {
+      if (actionType === 'Close') {
+        await mocService.closeMOC(ticketData.mocId || ticketData._id, {
+          actor: { name: currentUser.name, designation: currentUser.designation },
+          comments
+        });
+      } else if (actionType === 'Reject') {
+        await mocService.rejectMOC(ticketData.mocId || ticketData._id, {
+          actor: { name: currentUser.name, designation: currentUser.designation },
+          comments
+        });
+      } else if (actionType === 'Query' && onAddQuery) {
         onAddQuery({ from: currentUser.designation, to: 'Project Manager / Initiator', description: comments });
-        setComments('');
       }
+      
+      setActionTaken(actionType);
       if (actionType === 'Close' && onPromote) onPromote();
-    }, 800);
+      setComments('');
+    } catch (err) {
+      console.error("Failed to close MOC", err);
+    }
+    setIsProcessing(false);
   };
 
   return (

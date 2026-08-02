@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -80,26 +81,70 @@ const DocumentationStage = ({ theme, ticketData, currentUser, onPromote, isWorkf
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localIsCompleted, setLocalIsCompleted] = useState(false);
   const [actionTaken, setActionTaken] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const isCompleted = isCompletedProp || localIsCompleted;
   const displayDocs = isCompletedProp ? docs.map(d => ({ ...d, status: 'Yes' })) : docs;
   const radioColor = { Yes: '#137333', No: '#c5221f', NA: '#1a73e8' };
+
+  // Fetch saved docs or use defaults
+  useEffect(() => {
+    const savedDocs = ticketData?.checklistResponses?.stage10;
+    if (savedDocs && savedDocs.length > 0) {
+      setDocs(savedDocs.map(d => ({ id: d.id || d.question, label: d.question, status: d.status })));
+    }
+  }, [ticketData]);
+
+  const [isManageMode, setIsManageMode] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState('');
 
   const handleDocChange = (id, newStatus) => {
     if (!canAct) return;
     setDocs(docs.map(doc => doc.id === id ? { ...doc, status: newStatus } : doc));
   };
 
-  const handleSubmit = () => {
+  const handleAddQuestion = () => {
+    if (!newQuestionText.trim()) return;
+    const newDoc = { id: Date.now().toString(), label: newQuestionText.trim(), status: 'Pending' };
+    setDocs([...docs, newDoc]);
+    setNewQuestionText('');
+  };
+
+  const handleDeleteQuestion = (id) => {
+    setDocs(docs.filter(d => d.id !== id));
+  };
+
+  const handleSubmit = async () => {
     if (!canAct) return;
+    setErrorMessage('');
     const allChecked = docs.every(doc => doc.status !== 'Pending' && doc.status !== 'No');
-    if (!allChecked) return alert("All required documentation must be marked as 'Yes' or 'NA' to proceed.");
+    if (!allChecked) {
+      setErrorMessage("All required documentation must be marked as 'Yes' or 'NA' to proceed.");
+      return;
+    }
+    
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      // First save the checklist responses
+      await mocService.submitChecklist(ticketData.mocId || ticketData._id, {
+        stage: 'stage10',
+        data: docs.map(d => ({ question: d.label, status: d.status }))
+      });
+
+      // Then advance
+      await mocService.advanceStage(ticketData.mocId || ticketData._id, {
+        action: 'Approved',
+        actor: { name: currentUser?.name || 'Project Manager', designation: currentUser?.designation },
+        comments: 'Documentation Phase Completed'
+      });
       setIsSubmitting(false);
       setLocalIsCompleted(true);
       setActionTaken(true);
       if (onPromote) onPromote();
-    }, 800);
+    } catch (err) {
+      console.error("Failed to advance stage", err);
+      setErrorMessage("Database error: Could not complete documentation phase.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -133,9 +178,16 @@ const DocumentationStage = ({ theme, ticketData, currentUser, onPromote, isWorkf
             </div>
             <div style={{ ...styles.alertBase, ...styles.alertApproved }}>
               <span>🎉</span>
-              <span>Thank you for your diligence. The workflow is progressing to Stage 8 — review other stages using the tracker above.</span>
+              <span>Thank you for your diligence. The workflow is progressing to Final Closure.</span>
             </div>
           </>
+        )}
+
+        {errorMessage && (
+          <div style={{ ...styles.alertBase, ...styles.alertError }}>
+            <span>⚠️</span>
+            <span><strong>Notice:</strong> {errorMessage}</span>
+          </div>
         )}
 
         {isCompleted && !actionTaken && (
@@ -157,12 +209,28 @@ const DocumentationStage = ({ theme, ticketData, currentUser, onPromote, isWorkf
         </div>
 
         <div style={{ opacity: canAct ? 1 : 0.65, pointerEvents: canAct ? 'auto' : 'none' }}>
-          <h4 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '700', color: isDark ? '#aab' : '#555', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-            Documentation Checklist {isCompleted && '— Archived'}
-          </h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: isDark ? '#aab' : '#555', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              Documentation Checklist {isCompleted && '— Archived'}
+            </h4>
+            {canAct && !isCompleted && (
+              <button 
+                onClick={() => setIsManageMode(!isManageMode)}
+                style={{ backgroundColor: 'transparent', border: isDark ? '1px solid #555' : '1px solid #ccc', color: isDark ? '#aaa' : '#555', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
+              >
+                {isManageMode ? 'Done' : '⚙️ Manage Questions'}
+              </button>
+            )}
+          </div>
+
           {displayDocs.map((doc, index) => (
-            <div key={doc.id} style={{ ...styles.questionRow, borderBottom: index === docs.length - 1 ? 'none' : styles.questionRow.borderBottom }}>
-              <div style={styles.questionText}>{doc.label}</div>
+            <div key={doc.id} style={{ ...styles.questionRow, borderBottom: index === docs.length - 1 && !isManageMode ? 'none' : styles.questionRow.borderBottom }}>
+              <div style={{...styles.questionText, display: 'flex', justifyContent: 'space-between'}}>
+                {doc.label}
+                {isManageMode && canAct && !isCompleted && (
+                  <button onClick={() => handleDeleteQuestion(doc.id)} style={{ backgroundColor: 'transparent', border: 'none', color: '#c5221f', cursor: 'pointer', fontSize: '16px' }}>×</button>
+                )}
+              </div>
               <div style={styles.radioGroup}>
                 {['Yes', 'No', 'NA'].map(option => (
                   <label key={option} style={styles.radioOption(doc.status === option, radioColor[option])}>
@@ -173,6 +241,21 @@ const DocumentationStage = ({ theme, ticketData, currentUser, onPromote, isWorkf
               </div>
             </div>
           ))}
+
+          {isManageMode && canAct && !isCompleted && (
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: isDark ? '1px solid #2a2a4a' : '1px solid #ccc', backgroundColor: isDark ? '#12122a' : '#fff', color: isDark ? '#fff' : '#000' }} 
+                placeholder="Type a new documentation item..."
+                value={newQuestionText}
+                onChange={(e) => setNewQuestionText(e.target.value)}
+              />
+              <button style={{ ...styles.buttonPrimary, padding: '10px 16px' }} onClick={handleAddQuestion}>
+                + Add
+              </button>
+            </div>
+          )}
 
           {canAct && !isCompleted && (
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>

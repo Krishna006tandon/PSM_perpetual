@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -70,38 +71,85 @@ const CostEstimationStage = ({ theme, ticketData, setTicketData, currentUser, on
   const hasPermission = currentUser?.designation === 'Cost Estimator';
   const canAct = hasPermission && isWorkflowActive;
 
-  const [costs, setCosts] = useState(departments.reduce((acc, dept) => ({ ...acc, [dept]: { material: '', thirdParty: '', remarks: '' } }), {}));
+  const [costs, setCosts] = useState({});
   const [actionTaken, setActionTaken] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const initialCosts = departments.reduce((acc, dept) => ({ ...acc, [dept]: { material: '', thirdParty: '', remarks: '' } }), {});
+    if (ticketData?.costEstimation?.departments) {
+      ticketData.costEstimation.departments.forEach(d => {
+        initialCosts[d.name] = {
+          material: d.materialCost || '',
+          thirdParty: d.thirdPartyCost || '',
+          remarks: d.remarks || ''
+        };
+      });
+    }
+    setCosts(initialCosts);
+
+    // Check if stage 6 was completed in stageHistory
+    const stageHistory = ticketData?.stageHistory || [];
+    const costStageAction = stageHistory.find(h => h.stageIndex === 6);
+    if (costStageAction) {
+      setActionTaken(costStageAction.action === 'Approved' ? 'Approve' : costStageAction.action === 'Rejected' ? 'Reject' : 'Query');
+    }
+  }, [ticketData]);
 
   const handleCostChange = (dept, field, value) => {
     setCosts(prev => ({ ...prev, [dept]: { ...prev[dept], [field]: value } }));
   };
 
   const calculateTotal = (dept) => {
-    const mat = parseFloat(costs[dept].material) || 0;
-    const tp = parseFloat(costs[dept].thirdParty) || 0;
+    const mat = parseFloat(costs[dept]?.material) || 0;
+    const tp = parseFloat(costs[dept]?.thirdParty) || 0;
     return mat + tp;
   };
 
   const grandTotal = departments.reduce((sum, dept) => sum + calculateTotal(dept), 0);
 
-  const handleAction = (actionType) => {
+  const handleAction = async (actionType) => {
     if (!canAct) return;
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setActionTaken(actionType);
+    try {
+      if (actionType === 'Approve') {
+        // Save cost estimation first
+        const departmentsData = departments.map(d => ({
+          name: d,
+          materialCost: parseFloat(costs[d]?.material) || 0,
+          thirdPartyCost: parseFloat(costs[d]?.thirdParty) || 0,
+          remarks: costs[d]?.remarks || ''
+        }));
+        await mocService.submitCostEstimation(ticketData.mocId || ticketData._id, { departments: departmentsData });
+        
+        // Then promote stage
+        if (onPromote) {
+           await mocService.advanceStage(ticketData.mocId || ticketData._id, { 
+             action: 'Approved', 
+             actor: { name: currentUser?.name || 'Cost Estimator', designation: currentUser?.designation },
+             comments: 'Cost estimation package approved.'
+           });
+           onPromote();
+        }
+      } else if (actionType === 'Query') {
+        if (onAddQuery) {
+          onAddQuery({ from: currentUser.designation, to: 'Process Engineer / Initiator', description: 'Query regarding cost estimation.' });
+        }
+      } else if (actionType === 'Reject') {
+        await mocService.rejectMOC(ticketData.mocId || ticketData._id, {
+           actor: { name: currentUser?.name || 'Cost Estimator', designation: currentUser?.designation },
+           comments: 'Cost estimation package rejected.'
+        });
+        if (setTicketData) {
+           setTicketData(prev => ({ ...prev, status: 'Rejected' }));
+        }
+      }
       
-      if (setTicketData) {
-        setTicketData(prev => ({ ...prev, costEstimates: costs, totalCost: grandTotal }));
-      }
-
-      if (actionType === 'Query' && onAddQuery) {
-        onAddQuery({ from: currentUser.designation, to: 'Process Engineer / Initiator', description: 'Query regarding cost estimation.' });
-      }
-      if (actionType === 'Approve' && onPromote) onPromote();
-    }, 800);
+      setActionTaken(actionType);
+    } catch (err) {
+      console.error("Action failed", err);
+    }
+    setIsProcessing(false);
   };
 
   return (
@@ -156,15 +204,15 @@ const CostEstimationStage = ({ theme, ticketData, setTicketData, currentUser, on
               <h4 style={{ margin: 0, fontSize: '15px' }}>{dept}</h4>
               <div style={styles.inputGroup}>
                 <label style={styles.inputLabel}>Material Cost</label>
-                <input type="number" style={styles.input} value={costs[dept].material} onChange={(e) => handleCostChange(dept, 'material', e.target.value)} disabled={!canAct || actionTaken} placeholder="0" />
+                <input type="number" style={styles.input} value={costs[dept]?.material || ''} onChange={(e) => handleCostChange(dept, 'material', e.target.value)} disabled={!canAct || actionTaken} placeholder="0" />
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.inputLabel}>Third-Party Services Cost</label>
-                <input type="number" style={styles.input} value={costs[dept].thirdParty} onChange={(e) => handleCostChange(dept, 'thirdParty', e.target.value)} disabled={!canAct || actionTaken} placeholder="0" />
+                <input type="number" style={styles.input} value={costs[dept]?.thirdParty || ''} onChange={(e) => handleCostChange(dept, 'thirdParty', e.target.value)} disabled={!canAct || actionTaken} placeholder="0" />
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.inputLabel}>Remarks</label>
-                <textarea style={styles.textarea} value={costs[dept].remarks} onChange={(e) => handleCostChange(dept, 'remarks', e.target.value)} disabled={!canAct || actionTaken} placeholder="Notes..." />
+                <textarea style={styles.textarea} value={costs[dept]?.remarks || ''} onChange={(e) => handleCostChange(dept, 'remarks', e.target.value)} disabled={!canAct || actionTaken} placeholder="Notes..." />
               </div>
               <div style={styles.deptTotal}>
                 Total: ${calculateTotal(dept).toLocaleString()}

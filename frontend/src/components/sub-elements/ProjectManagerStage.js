@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -80,24 +81,53 @@ const ProjectManagerStage = ({ theme, ticketData, setTicketData, currentUser, on
   const [checkedTasks, setCheckedTasks] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleAssign = () => {
+  useEffect(() => {
+    if (ticketData?.assignedPM) {
+      setAssigned(true);
+      setPmDetails({
+        name: ticketData.assignedPM.name || '',
+        department: ticketData.assignedPM.department || '',
+        timeline: '',
+        comments: ''
+      });
+    }
+  }, [ticketData]);
+
+  const handleAssign = async () => {
     if (!canAct) return;
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      await mocService.assignPM(ticketData.mocId || ticketData._id, {
+        name: pmDetails.name,
+        department: pmDetails.department,
+        assignedBy: currentUser.name
+      });
       setAssigned(true);
       if (setTicketData) {
-        setTicketData(prev => ({ ...prev, pmAssignment: pmDetails }));
+        setTicketData(prev => ({ 
+          ...prev, 
+          assignedPM: { name: pmDetails.name, department: pmDetails.department, assignedBy: currentUser.name } 
+        }));
       }
-      setIsProcessing(false);
-    }, 500);
+    } catch (err) {
+      console.error("Failed to assign PM", err);
+    }
+    setIsProcessing(false);
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      await mocService.advanceStage(ticketData.mocId || ticketData._id, {
+        action: 'Approved',
+        actor: { name: pmDetails.name || 'Project Manager', designation: 'Project Manager' },
+        comments: 'Execution tasks completed.'
+      });
       if (onPromote) onPromote();
-      setIsProcessing(false);
-    }, 500);
+    } catch (err) {
+      console.error("Failed to complete execution", err);
+    }
+    setIsProcessing(false);
   };
 
   const toggleTask = (task) => {

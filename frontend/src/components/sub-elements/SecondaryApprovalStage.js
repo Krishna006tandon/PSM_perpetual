@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
   const isDark = theme === 'dark';
@@ -70,9 +71,16 @@ const approvalChain = [
 
 const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const [statuses, setStatuses] = useState(ticketData?.secondaryStatuses || { area: 'Pending', cts: 'Locked', eng: 'Locked', hse: 'Locked' });
+  const [statuses, setStatuses] = useState({ area: 'Pending', cts: 'Locked', eng: 'Locked', hse: 'Locked' });
   const [comments, setComments] = useState({ area: '', cts: '', eng: '', hse: '' });
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (ticketData?.secondaryApprovals) {
+      setStatuses(ticketData.secondaryApprovals.statuses || { area: 'Pending', cts: 'Locked', eng: 'Locked', hse: 'Locked' });
+      setComments(ticketData.secondaryApprovals.comments || { area: '', cts: '', eng: '', hse: '' });
+    }
+  }, [ticketData]);
 
   const getActiveRoleIndex = () => {
     return approvalChain.findIndex(app => statuses[app.id] === 'Pending');
@@ -83,32 +91,56 @@ const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser,
 
   const hasPermission = currentUser?.designation === activeRole;
 
-  const handleAction = (appId, actionType, roleIndex) => {
+  const handleAction = async (appId, actionType, roleIndex) => {
     if ((actionType === 'Query' || actionType === 'Rejected') && comments[appId].trim() === '') {
       return alert("Please provide comments before querying or rejecting.");
     }
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
       const newStatuses = { ...statuses, [appId]: actionType };
       
       if (actionType === 'Approved' && roleIndex + 1 < approvalChain.length) {
         newStatuses[approvalChain[roleIndex + 1].id] = 'Pending';
       }
 
+      await mocService.submitSecondaryApproval(ticketData.mocId || ticketData._id, {
+        data: { statuses: newStatuses, comments }
+      });
+
       setStatuses(newStatuses);
       if (setTicketData) {
-        setTicketData(prev => ({ ...prev, secondaryStatuses: newStatuses }));
+        setTicketData(prev => ({ 
+          ...prev, 
+          secondaryApprovals: { statuses: newStatuses, comments }
+        }));
       }
       
       if (actionType === 'Query' && onAddQuery) {
         onAddQuery({ from: approvalChain[roleIndex].role, to: 'Initiator', description: comments[appId] });
       }
 
+      if (actionType === 'Rejected') {
+        const updatedMoc = await mocService.rejectMOC(ticketData.mocId || ticketData._id, {
+           actor: { name: currentUser?.name || approvalChain[roleIndex].role, designation: currentUser?.designation },
+           comments: comments[appId]
+        });
+        if (setTicketData) setTicketData(updatedMoc);
+      }
+
       const updatedAllApproved = approvalChain.every(app => newStatuses[app.id] === 'Approved');
-      if (updatedAllApproved && onPromote) onPromote();
-      
-      setIsProcessing(false);
-    }, 500);
+      if (updatedAllApproved && onPromote) {
+         await mocService.advanceStage(ticketData.mocId || ticketData._id, { 
+             action: 'Approved', 
+             actor: { name: currentUser?.name || 'HSE Head', designation: currentUser?.designation },
+             comments: 'All secondary approvals complete.'
+         });
+         onPromote();
+      }
+    } catch (err) {
+      console.error("Secondary approval failed", err);
+      alert("Error: Secondary approval failed - " + (err.response?.data?.error || err.message));
+    }
+    setIsProcessing(false);
   };
 
   const hasRejection = Object.values(statuses).some(s => s === 'Rejected');
@@ -147,9 +179,45 @@ const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser,
         )}
         
         {hasRejection && (
-          <div style={{ ...styles.alertBase, ...styles.alertError }}>
-            <span>⛔</span><span><strong>MOC Rejected.</strong> The workflow has been permanently halted.</span>
-          </div>
+          <>
+            <div style={{ ...styles.alertBase, ...styles.alertError }}>
+              <span>⛔</span><span><strong>MOC Rejected.</strong> The workflow has been {ticketData?.status === 'Permanently Rejected' ? 'permanently' : 'temporarily'} halted.</span>
+            </div>
+            
+            {/* UNDO REJECTION BUTTON */}
+            {currentUser?.designation === 'Area Head' && ticketData?.status !== 'Permanently Rejected' && (
+               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                 <button 
+                   style={{ backgroundColor: '#1a73e8', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+                   onClick={async () => {
+                     try {
+                       const updatedMoc = await mocService.unrejectMOC(ticketData.mocId || ticketData._id, {
+                         actor: { name: currentUser.name, designation: currentUser.designation },
+                         comments: 'Reanalyzed and un-rejected'
+                       });
+                       // Also need to reset the secondary approval status for this role to 'Pending'
+                       const newStatuses = { ...statuses, area: 'Pending' };
+                       await mocService.submitSecondaryApproval(ticketData.mocId || ticketData._id, {
+                         data: { statuses: newStatuses, comments }
+                       });
+                       setStatuses(newStatuses);
+                       if (setTicketData) {
+                         setTicketData({
+                           ...updatedMoc,
+                           secondaryApprovals: { statuses: newStatuses, comments }
+                         });
+                       }
+                     } catch (err) {
+                       console.error('Failed to unreject', err);
+                       alert('Failed to undo rejection.');
+                     }
+                   }}
+                 >
+                   🔄 Reanalyze and Undo Rejection
+                 </button>
+               </div>
+            )}
+          </>
         )}
 
         <div style={styles.grid}>
@@ -177,9 +245,9 @@ const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser,
                       onChange={(e) => setComments({ ...comments, [app.id]: e.target.value })}
                     />
                     <div style={styles.buttonGroup}>
-                      <button style={styles.btnApprove} onClick={() => handleAction(app.id, 'Approved', index)} disabled={isProcessing}>✓ Approve</button>
-                      <button style={styles.btnQuery} onClick={() => handleAction(app.id, 'Query', index)} disabled={isProcessing}>? Raise Query</button>
-                      <button style={styles.btnReject} onClick={() => handleAction(app.id, 'Rejected', index)} disabled={isProcessing}>✗ Reject</button>
+                      <button style={styles.btnApprove} onClick={() => handleAction(app.id, 'Approved', index)}>✓ Approve</button>
+                      <button style={styles.btnQuery} onClick={() => handleAction(app.id, 'Query', index)}>? Raise Query</button>
+                      <button style={styles.btnReject} onClick={() => handleAction(app.id, 'Rejected', index)}>✗ Reject</button>
                     </div>
                   </>
                 )}

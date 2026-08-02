@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { mocService } from '../../api/mocService';
 
 const getStyles = (theme) => {
@@ -118,8 +118,8 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
   const initialExpanded = {};
   
   departments.forEach(d => {
-    initialStatuses[d.id] = ticketData?.reviewStatuses?.[d.id] || 'Pending';
-    initialChecklists[d.id] = ticketData?.reviewChecklists?.[d.id] || {};
+    initialStatuses[d.id] = ticketData?.checklistResponses?.stage5?.[d.id]?.status || 'Pending';
+    initialChecklists[d.id] = ticketData?.checklistResponses?.stage5?.[d.id]?.answers || {};
     initialExpanded[d.id] = true;
   });
 
@@ -127,6 +127,19 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
   const [checklists, setChecklists] = useState(initialChecklists);
   const [expandedCards, setExpandedCards] = useState(initialExpanded);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (ticketData?.checklistResponses?.stage5) {
+      const updatedStatuses = {};
+      const updatedChecklists = {};
+      departments.forEach(d => {
+        updatedStatuses[d.id] = ticketData.checklistResponses.stage5[d.id]?.status || 'Pending';
+        updatedChecklists[d.id] = ticketData.checklistResponses.stage5[d.id]?.answers || {};
+      });
+      setDepartmentStatuses(updatedStatuses);
+      setChecklists(updatedChecklists);
+    }
+  }, [ticketData]);
   const [deptQuestions, setDeptQuestions] = useState(initialQuestionsState);
   const [manageMode, setManageMode] = useState({});
   const [newQTexts, setNewQTexts] = useState({});
@@ -149,10 +162,18 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
 
     try {
       if ((finalActionType === 'Approved' || finalActionType === 'Rejected') && (ticketData.mocId || ticketData._id)) {
+        const currentStage5 = ticketData?.checklistResponses?.stage5 || {};
+        const stage5Data = {
+          ...currentStage5,
+          [deptId]: {
+            status: finalActionType,
+            answers: checklists[deptId] || {}
+          }
+        };
+
         await mocService.submitChecklist(ticketData.mocId || ticketData._id, {
-          department: deptId,
-          status: finalActionType,
-          answers: checklists[deptId] || {}
+          stage: 'stage5',
+          data: stage5Data
         });
       }
     } catch (err) {
@@ -167,7 +188,19 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
     }
     
     if (setTicketData) {
-      setTicketData(prev => ({ ...prev, reviewStatuses: newStatuses, reviewChecklists: checklists }));
+      setTicketData(prev => ({ 
+        ...prev, 
+        checklistResponses: {
+          ...(prev?.checklistResponses || {}),
+          stage5: {
+            ...(prev?.checklistResponses?.stage5 || {}),
+            [deptId]: {
+              status: finalActionType,
+              answers: checklists[deptId] || {}
+            }
+          }
+        }
+      }));
     }
     
     if (finalActionType === 'Query Sent' && onAddQuery) {
@@ -179,7 +212,17 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
     }
     
     const updatedAllApproved = Object.values(newStatuses).every(s => s === 'Approved');
-    if (updatedAllApproved && isWorkflowActive && onPromote) onPromote();
+    if (updatedAllApproved && isWorkflowActive) {
+      try {
+        await mocService.advanceStage(ticketData.mocId || ticketData._id, {
+          actor: { name: currentUser?.name || 'Review Group', designation: 'Review Group Head' },
+          comments: 'All 9 departments have formally approved.'
+        });
+      } catch (err) {
+        console.error("Failed to advance stage after all approvals", err);
+      }
+      if (onPromote) onPromote();
+    }
     
     setIsProcessing(false);
   };
@@ -489,7 +532,33 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
         })}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+      {Object.values(departmentStatuses).length === departments.length && Object.values(departmentStatuses).every(s => s === 'Approved') && isWorkflowActive && (
+        <div style={{ marginTop: '24px', padding: '24px', backgroundColor: theme === 'dark' ? '#12122a' : '#e8f0fe', borderRadius: '12px', border: theme === 'dark' ? '1px solid #137333' : '1px solid #c5d8f8', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <h4 style={{ margin: '0 0 10px 0', color: theme === 'dark' ? '#81c995' : '#1a56c4', fontSize: '18px' }}>🎉 All Departments Approved</h4>
+          <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme === 'dark' ? '#aaa' : '#555' }}>The Review Group stage is fully complete. The workflow is ready to advance.</p>
+          <button 
+            style={{ backgroundColor: '#1a73e8', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '15px' }}
+            onClick={async () => {
+              setIsProcessing(true);
+              try {
+                await mocService.advanceStage(ticketData.mocId || ticketData._id, {
+                  actor: { name: currentUser?.name || 'Review Group', designation: 'Review Group Head' },
+                  comments: 'All 9 departments have formally approved.'
+                });
+              } catch (err) {
+                console.error("Failed to advance stage after all approvals", err);
+              }
+              if (onPromote) onPromote();
+              setIsProcessing(false);
+            }}
+            disabled={isProcessing}
+          >
+            {isProcessing ? 'Processing...' : 'Proceed to Cost Estimation →'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
         <button style={styles.btnNavPrev} onClick={() => onPrevious && onPrevious()}>← Previous Stage</button>
         <button style={styles.btnNavNext} onClick={() => onNext && onNext()}>Next Stage →</button>
       </div>

@@ -2,6 +2,13 @@ const MOCTicket = require('../models/MOCTicket');
 
 exports.createMOC = async (req, res) => {
   try {
+    if (req.body.title) {
+      const existingMoc = await MOCTicket.findOne({ title: { $regex: new RegExp(`^${req.body.title}$`, 'i') } });
+      if (existingMoc) {
+        return res.status(400).json({ error: 'An MOC with this name already exists. Please choose a different name.' });
+      }
+    }
+    
     const newMoc = new MOCTicket(req.body);
     const savedMoc = await newMoc.save();
     res.status(201).json(savedMoc);
@@ -12,7 +19,15 @@ exports.createMOC = async (req, res) => {
 
 exports.getAllMOCs = async (req, res) => {
   try {
-    const mocs = await MOCTicket.find(req.query);
+    const query = { ...req.query };
+    
+    // Map 'orgNumber' from query params to the nested DB field
+    if (query.orgNumber) {
+      query['requestor.orgNumber'] = query.orgNumber;
+      delete query.orgNumber;
+    }
+
+    const mocs = await MOCTicket.find(query);
     res.status(200).json(mocs);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -78,7 +93,13 @@ exports.rejectMOC = async (req, res) => {
       comments
     });
     
-    moc.status = 'Rejected';
+    moc.rejectionCount = (moc.rejectionCount || 0) + 1;
+    if (moc.rejectionCount >= 2) {
+      moc.status = 'Permanently Rejected';
+    } else {
+      moc.status = 'Rejected';
+    }
+    
     await moc.save();
     res.status(200).json(moc);
   } catch (error) {
@@ -144,6 +165,26 @@ exports.submitCostEstimation = async (req, res) => {
   }
 };
 
+exports.submitSecondaryApproval = async (req, res) => {
+  try {
+    const { data } = req.body;
+    let moc = await MOCTicket.findOne({ mocId: req.params.mocId });
+    if (!moc && req.params.mocId.match(/^[0-9a-fA-F]{24}$/)) {
+      moc = await MOCTicket.findById(req.params.mocId);
+    }
+    if (!moc) return res.status(404).json({ error: 'MOC not found' });
+
+    moc = await MOCTicket.findOneAndUpdate(
+      { _id: moc._id },
+      { $set: { secondaryApprovals: data } },
+      { new: true }
+    );
+    res.status(200).json(moc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.assignPM = async (req, res) => {
   try {
     const { name, department, assignedBy } = req.body;
@@ -172,11 +213,23 @@ exports.closeMOC = async (req, res) => {
     }
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
 
-    moc = await MOCTicket.findOneAndUpdate(
-      { _id: moc._id },
-      { $set: { status: 'Closed', currentStageIndex: 10 } },
-      { new: true }
-    );
+      const { actor, comments } = req.body || {};
+      
+      moc = await MOCTicket.findOneAndUpdate(
+        { _id: moc._id },
+        { 
+          $set: { status: 'Closed', currentStageIndex: 10 },
+          $push: {
+            stageHistory: {
+              stageIndex: 10,
+              action: 'Approved',
+              actor: actor || { name: 'System', designation: 'Admin' },
+              comments: comments || 'MOC Closed and Archived'
+            }
+          }
+        },
+        { new: true }
+      );
     res.status(200).json(moc);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -234,6 +287,65 @@ exports.unarchiveMOC = async (req, res) => {
       actor: req.body.actor || { name: 'System', designation: 'System' },
       comments: req.body.comments || 'MOC restored from archive'
     });
+    await moc.save();
+    res.status(200).json(moc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.unrejectMOC = async (req, res) => {
+  try {
+    let moc = await MOCTicket.findOne({ mocId: req.params.mocId });
+    if (!moc && req.params.mocId.match(/^[0-9a-fA-F]{24}$/)) {
+      moc = await MOCTicket.findById(req.params.mocId);
+    }
+    if (!moc) return res.status(404).json({ error: 'MOC not found' });
+
+    moc.status = 'Active';
+    moc.stageHistory.push({
+      stageIndex: moc.currentStageIndex,
+      action: 'Submitted',
+      actor: req.body.actor || { name: 'System', designation: 'System' },
+      comments: req.body.comments || 'Reanalyzed and un-rejected'
+    });
+    
+    await moc.save();
+    res.status(200).json(moc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.resolveQuery = async (req, res) => {
+  try {
+    const { queryId, resolutionMessage } = req.body;
+    let moc = await MOCTicket.findOne({ mocId: req.params.mocId });
+    if (!moc && req.params.mocId.match(/^[0-9a-fA-F]{24}$/)) {
+      moc = await MOCTicket.findById(req.params.mocId);
+    }
+    if (!moc) return res.status(404).json({ error: 'MOC not found' });
+
+    let query = null;
+    if (queryId) {
+      query = moc.queries.id(queryId) || moc.queries.find(q => q._id.toString() === queryId.toString() || String(q.id) === String(queryId));
+    }
+    
+    if (!query && req.body.description) {
+      // Fallback matching if queryId is not provided/used
+      query = moc.queries.find(q => 
+        q.description === req.body.description && 
+        (req.body.timestamp ? new Date(q.timestamp).getTime() === new Date(req.body.timestamp).getTime() : true)
+      );
+    }
+    
+    if (!query) return res.status(404).json({ error: 'Query not found' });
+
+    query.status = 'Resolved';
+    query.resolutionMessage = resolutionMessage;
+    
+    moc.markModified('queries');
+    
     await moc.save();
     res.status(200).json(moc);
   } catch (error) {

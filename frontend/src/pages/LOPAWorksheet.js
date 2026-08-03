@@ -3,7 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
 
-const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [scenarios, setScenarios] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [deviations, setDeviations] = useState([]);
@@ -421,7 +421,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                           <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeCause} {sc.causeId?.description || ''}</td>
                           
                           <td rowSpan={sc.consSpanCount}>
-                            <input data-gramm="false" spellcheck="false" 
+                            <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                               type="number" style={{width:'100%'}}
                               value={sc.lopaData?.freqOfInitiatingEvent || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'freqOfInitiatingEvent', e.target.value)}
@@ -432,7 +432,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             {sc.inherentRiskS || ''}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                            <input data-gramm="false" spellcheck="false" 
+                            <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                               type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmPfd || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmPfd', e.target.value)}
@@ -440,7 +440,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             />
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                            <input data-gramm="false" spellcheck="false" 
+                            <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                               type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmTimeAtRisk || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmTimeAtRisk', e.target.value)}
@@ -448,7 +448,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             />
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                            <input data-gramm="false" spellcheck="false" 
+                            <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                               type="number" style={{width:'100%'}}
                               value={sc.lopaData?.cmOccupancy || ''} 
                               onChange={(e) => handleLopaChange(sc._id, 'cmOccupancy', e.target.value)}
@@ -470,7 +470,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                               </div>
                             </td>
                             <td rowSpan={rowCount}>
-                              <input data-gramm="false" spellcheck="false" 
+                              <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                                 type="number"
                                 style={{width:'100%'}}
                                 value={sc.lopaData?.iplCredit || ''}
@@ -488,7 +488,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             {totalIplCredit}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input data-gramm="false" spellcheck="false" 
+                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                                 type="number" style={{width:'100%'}}
                                 value={sc.lopaData?.tolerance || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'tolerance', e.target.value)}
@@ -499,7 +499,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             {rrf1}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input data-gramm="false" spellcheck="false" 
+                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                                 type="number" style={{width:'100%'}}
                                 value={sc.lopaData?.requiredSil || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'requiredSil', e.target.value)}
@@ -511,7 +511,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
 
                       {/* Recommendations (Multiple per Scenario) */}
                       <td style={{position:'relative', whiteSpace:'normal'}}>
-                        <textarea data-gramm="false" spellcheck="false" 
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                           value={rec.description || ''}
                           onChange={(e) => handleArrayChange(sc._id, 'recommendations', i, 'description', e.target.value)}
                           onBlur={() => handleBlur(sc._id)}
@@ -529,7 +529,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       </td>
                       <td>
                         {i < recs.length && (
-                          <input data-gramm="false" spellcheck="false" 
+                          <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                             type="number"
                             style={{width:'100%'}}
                             value={rec.credit || ''}
@@ -552,7 +552,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                             {rrf2}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input data-gramm="false" spellcheck="false" 
+                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                                 type="number" style={{width:'100%'}}
                                 value={sc.lopaData?.recommendationRequiredSil || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'recommendationRequiredSil', e.target.value)}
@@ -561,7 +561,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                           </td>
                           {columns.filter(c => !c.isSystem).map(col => (
                             <td key={col.id} rowSpan={sc.consSpanCount}>
-                              <input data-gramm="false" spellcheck="false" 
+                              <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                                 style={{width:'100%'}}
                                 value={(sc.lopaData || {})[col.id] || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, col.id, e.target.value)}

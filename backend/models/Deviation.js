@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const deviationSchema = new mongoose.Schema({
+  companyCode: { type: String },
   studyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Study',

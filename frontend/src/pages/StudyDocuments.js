@@ -4,7 +4,7 @@ import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddDocumentModal from '../components/AddDocumentModal';
 import './StudyDocuments.css';
 
-const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [documents, setDocuments] = useState([]);
   const [columns, setColumns] = useState([]);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -101,7 +101,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     const value = (doc.customData && doc.customData[col.id]) || '';
     if (col.type === 'dropdown' && col.options) {
       return (
-        <select value={value} onChange={(e) => {
+        <select disabled={!canEdit}  value={value} onChange={(e) => {
           handleCellChange(doc._id, col.id, e.target.value, true);
           handleBlur(doc._id, col.id, e.target.value, true);
         }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
@@ -111,7 +111,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       );
     }
     return (
-      <input 
+      <input disabled={!canEdit}  
         data-gramm="false" spellcheck="false"
         type="text" 
         value={value} 
@@ -347,7 +347,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 >
                   <td className="col-num">{index + 1}</td>
                   <td>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.drawingId} 
                       onChange={(e) => handleCellChange(doc._id, 'drawingId', e.target.value)}
@@ -355,7 +355,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.revision} 
                       onChange={(e) => handleCellChange(doc._id, 'revision', e.target.value)}
@@ -363,7 +363,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <select 
+                    <select disabled={!canEdit}  
                       value={doc.documentType} 
                       onChange={(e) => {
                         handleCellChange(doc._id, 'documentType', e.target.value);
@@ -380,7 +380,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     </select>
                   </td>
                   <td>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={doc.description} 
                       onChange={(e) => handleCellChange(doc._id, 'description', e.target.value)}
@@ -388,7 +388,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       placeholder="https://..."
                       value={doc.hyperlink} 
@@ -404,7 +404,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <span className="attach-text" style={{ color: doc.originalFileName ? '#004d80' : '#94a3b8', fontWeight: doc.originalFileName ? 'bold' : 'normal' }}>
                       {doc.originalFileName || 'No file'}
                     </span>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="file" 
                       id={`file-upload-${doc._id}`}
                       style={{ display: 'none' }}
@@ -412,9 +412,9 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="action-cell">
-                    <button className="btn-delete-row" onClick={() => handleDelete(doc._id)}>
+                    {canEdit && <button className="btn-delete-row" onClick={() => handleDelete(doc._id)}>
                       🗑️
-                    </button>
+                    </button>}
                   </td>
                 </tr>
               ))}

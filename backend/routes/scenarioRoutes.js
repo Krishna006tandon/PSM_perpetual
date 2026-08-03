@@ -34,8 +34,7 @@ router.post('/:studyId', async (req, res) => {
     const lastScenario = await Scenario.findOne(filter).sort({ order: -1 });
     const newOrder = lastScenario ? lastScenario.order + 1 : 1;
 
-    const newScenario = new Scenario({
-      studyId: req.params.studyId,
+    const newScenario = new Scenario({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       order: newOrder,
       ...req.body
     });

@@ -5,6 +5,7 @@ const path = require('path');
 require('dotenv').config();
 
 const studyRoutes = require('./routes/studyRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -22,6 +23,8 @@ mongoose.connect(MONGODB_URI)
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
+const publicRoutes = require('./routes/publicRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const nodeRoutes = require('./routes/nodeRoutes');
@@ -32,7 +35,10 @@ const columnRoutes = require('./routes/columnRoutes');
 const riskCriteriaRoutes = require('./routes/riskCriteriaRoutes');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/studies', studyRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/nodes', nodeRoutes);

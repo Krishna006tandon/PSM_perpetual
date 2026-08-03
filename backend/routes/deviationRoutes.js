@@ -9,7 +9,7 @@ router.use(auth);
 // GET all deviations for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const deviations = await Deviation.find({ studyId: req.params.studyId }).sort({ order: 1 });
+    const deviations = await Deviation.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: 1 });
     res.json(deviations);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -19,12 +19,11 @@ router.get('/:studyId', async (req, res) => {
 // POST a new deviation row
 router.post('/:studyId', async (req, res) => {
   try {
-    const lastDeviation = await Deviation.findOne({ studyId: req.params.studyId }).sort({ order: -1 });
+    const lastDeviation = await Deviation.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: -1 });
     const newOrder = lastDeviation ? lastDeviation.order + 1 : 1;
 
     // The pre-save hook in the model handles computing deviationAuto if not passed
-    const newDeviation = new Deviation({
-      studyId: req.params.studyId,
+    const newDeviation = new Deviation({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       order: newOrder,
       ...req.body
     });

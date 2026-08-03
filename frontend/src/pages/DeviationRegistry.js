@@ -4,7 +4,7 @@ import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddDeviationModal from '../components/AddDeviationModal';
 import './DeviationRegistry.css';
 
-const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [deviations, setDeviations] = useState([]);
   const [columns, setColumns] = useState([]);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -96,7 +96,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
     const value = (dev.customData && dev.customData[col.id]) || '';
     if (col.type === 'dropdown' && col.options) {
       return (
-        <select value={value} onChange={(e) => {
+        <select disabled={!canEdit}  value={value} onChange={(e) => {
           handleCellChange(dev._id, col.id, e.target.value, true);
           handleBlur(dev._id, col.id, e.target.value, true);
         }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
@@ -106,7 +106,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       );
     }
     return (
-      <input 
+      <input disabled={!canEdit}  
         data-gramm="false" spellcheck="false"
         type="text" 
         value={value} 
@@ -318,7 +318,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                 >
                   <td className="col-dev-num">{index + 1}</td>
                   <td className="col-dev-guidewords">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.guidewords} 
                       onChange={(e) => handleCellChange(dev._id, 'guidewords', e.target.value)}
@@ -326,7 +326,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-parameter">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.parameter} 
                       onChange={(e) => handleCellChange(dev._id, 'parameter', e.target.value)}
@@ -334,7 +334,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-process">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.processFlowMaterial} 
                       onChange={(e) => handleCellChange(dev._id, 'processFlowMaterial', e.target.value)}
@@ -342,7 +342,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-loc-from">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.locationFrom} 
                       onChange={(e) => handleCellChange(dev._id, 'locationFrom', e.target.value)}
@@ -350,7 +350,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-loc-to">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.locationTo} 
                       onChange={(e) => handleCellChange(dev._id, 'locationTo', e.target.value)}
@@ -358,7 +358,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                     />
                   </td>
                   <td className="col-dev-auto">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={dev.deviationAuto || ''} 
                       onChange={(e) => handleCellChange(dev._id, 'deviationAuto', e.target.value)}

@@ -3,7 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
 
-const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [scenarios, setScenarios] = useState([]);
   const [columns, setColumns] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -144,7 +144,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       const isChecked = value === 'true' || value === true;
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '30px' }}>
-          <input data-gramm="false" spellcheck="false" 
+          <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
             type="checkbox" 
             checked={isChecked}
             onChange={(e) => {
@@ -159,7 +159,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
 
     if (col.type === 'dropdown') {
       return (
-        <select 
+        <select disabled={!canEdit}  
           value={value} 
           onChange={(e) => {
             handleCellChange(sc._id, col.id, e.target.value, true);
@@ -200,7 +200,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
       fetchOptions = [...new Set(fetchOptions.filter(Boolean))];
 
       return (
-        <select 
+        <select disabled={!canEdit}  
           value={value} 
           onChange={(e) => {
             handleCellChange(sc._id, col.id, e.target.value, true);
@@ -217,7 +217,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
 
     // Default to text
     return (
-      <textarea data-gramm="false" spellcheck="false" 
+      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
@@ -264,7 +264,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) =>
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
                   <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       value={sc.presentProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}

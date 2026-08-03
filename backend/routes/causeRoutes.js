@@ -9,7 +9,7 @@ router.use(auth);
 // GET all causes for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const causes = await Cause.find({ studyId: req.params.studyId }).sort({ order: 1 });
+    const causes = await Cause.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: 1 });
     res.json(causes);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -19,11 +19,10 @@ router.get('/:studyId', async (req, res) => {
 // POST a new cause row
 router.post('/:studyId', async (req, res) => {
   try {
-    const lastCause = await Cause.findOne({ studyId: req.params.studyId }).sort({ order: -1 });
+    const lastCause = await Cause.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: -1 });
     const newOrder = lastCause ? lastCause.order + 1 : 1;
 
-    const newCause = new Cause({
-      studyId: req.params.studyId,
+    const newCause = new Cause({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       order: newOrder,
       ...req.body
     });

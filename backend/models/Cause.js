@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const causeSchema = new mongoose.Schema({
+  companyCode: { type: String },
   studyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Study',

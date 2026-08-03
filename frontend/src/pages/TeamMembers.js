@@ -3,7 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import AddMemberModal from '../components/AddMemberModal';
 import './TeamMembers.css';
 
-const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,9 +46,9 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             <h2>TEAM MEMBERS</h2>
             <span className="team-count-badge">{members.length}</span>
           </div>
-          <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
+          {canEdit && <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
             <span className="plus-icon">+</span> ADD MEMBER
-          </button>
+          </button>}
         </div>
 
         <div className="team-warning-banner">
@@ -66,9 +66,9 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
               </svg>
             </div>
             <h3>NO TEAM MEMBERS YET</h3>
-            <button className="btn-add-first" onClick={() => setIsModalOpen(true)}>
+            {canEdit && <button className="btn-add-first" onClick={() => setIsModalOpen(true)}>
               ADD FIRST MEMBER
-            </button>
+            </button>}
           </div>
         )}
 

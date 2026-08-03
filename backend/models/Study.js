@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const studySchema = new mongoose.Schema({
+  companyCode: { type: String },
   studyName: {
     type: String,
     required: true,

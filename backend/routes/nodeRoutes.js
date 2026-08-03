@@ -9,7 +9,7 @@ router.use(auth);
 // GET all nodes for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const nodes = await Node.find({ studyId: req.params.studyId }).sort({ order: 1 });
+    const nodes = await Node.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: 1 });
     res.json(nodes);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -20,11 +20,10 @@ router.get('/:studyId', async (req, res) => {
 router.post('/:studyId', async (req, res) => {
   try {
     // Find highest order to append at the end
-    const lastNode = await Node.findOne({ studyId: req.params.studyId }).sort({ order: -1 });
+    const lastNode = await Node.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: -1 });
     const newOrder = lastNode ? lastNode.order + 1 : 1;
 
-    const newNode = new Node({
-      studyId: req.params.studyId,
+    const newNode = new Node({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       order: newOrder,
       ...req.body
     });

@@ -8,8 +8,7 @@ router.use(auth);
 // GET columns for a specific registry type within a study
 router.get('/:studyId/:registryType', async (req, res) => {
   try {
-    const setting = await ColumnSetting.findOne({
-      studyId: req.params.studyId,
+    const setting = await ColumnSetting.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       registryType: req.params.registryType
     });
     

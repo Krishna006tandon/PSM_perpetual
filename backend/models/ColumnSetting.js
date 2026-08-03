@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const columnDefSchema = new mongoose.Schema({
+  companyCode: { type: String },
   id: { type: String, required: true },
   label: { type: String, required: true },
   type: { type: String, default: 'text' },

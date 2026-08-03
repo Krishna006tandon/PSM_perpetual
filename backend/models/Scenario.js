@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const scenarioSchema = new mongoose.Schema({
+  companyCode: { type: String },
   studyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Study', required: true },
   nodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Node', required: true },
   

@@ -34,6 +34,7 @@ const FileIcon = () => (
 
 const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [recentStudies, setRecentStudies] = useState([]);
   const [formData, setFormData] = useState({
     studyName: '',
@@ -45,6 +46,27 @@ const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
     phaType: 'HAZOP',
     studyStatus: 'Planned'
   });
+
+  
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch('http://localhost:5000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const user = await res.json();
+        setCurrentUser(user);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     fetchRecentStudies();

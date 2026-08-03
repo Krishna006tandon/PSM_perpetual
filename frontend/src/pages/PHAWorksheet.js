@@ -4,9 +4,9 @@ import AddScenarioModal from '../components/AddScenarioModal';
 import './PHAWorksheet.css';
 
 // A custom Select component that allows adding new options
-const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder }) => {
+const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder , canEdit}) => {
   return (
-    <select 
+    <select disabled={!canEdit}  
       className={className} 
       style={{ ...style, cursor: 'pointer', appearance: 'auto' }} 
       value={value || ''} 
@@ -31,7 +31,7 @@ const EditableSelect = ({ options, value, onChange, onBlur, className, style, pl
   );
 };
 
-const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [nodes, setNodes] = useState([]);
   const [riskCriteria, setRiskCriteria] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState('');
@@ -751,7 +751,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
           
           <div className="pha-node-selector">
             NODE: 
-            <select value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
+            <select disabled={!canEdit}  value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
               {nodes.length === 0 && <option value="">No nodes</option>}
               {nodes.map((n, i) => (
                 <option key={n._id} value={n._id}>{i + 1}. {n.description}</option>
@@ -776,7 +776,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             <thead>
               <tr>
                 <th className="th-primary" rowSpan={2} style={{width: '40px', textAlign: 'center'}}>
-                  <input data-gramm="false" spellcheck="false" 
+                  <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                     type="checkbox" 
                     checked={scenarios.length > 0 && selectedRowIds.length === scenarios.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
@@ -835,9 +835,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   <td colSpan={24}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
-                      <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
+                      {canEdit && <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
                         <span style={{fontSize:'16px'}}>⊕</span> ADD DEVIATION / NEW ANALYSIS SCENARIO FOR CURRENT NODE
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>
@@ -849,7 +849,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
                   <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="checkbox" 
                       checked={selectedRowIds.includes(sc._id)}
                       onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
@@ -861,7 +861,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
                       
                       <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           className="cell-guideword cell-select" 
                           style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                           options={uniqueDropdownOptions.guidewords} 
@@ -872,7 +872,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         />
                       </td>
                       <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           className="cell-parameter cell-select" 
                           style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                           options={uniqueDropdownOptions.parameters} 
@@ -883,7 +883,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         />
                       </td>
                       <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           className="cell-material cell-select" 
                           style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                           options={uniqueDropdownOptions.materials} 
@@ -894,7 +894,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         />
                       </td>
                       <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           className="cell-from cell-select" 
                           style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                           options={uniqueDropdownOptions.equipments} 
@@ -905,7 +905,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         />
                       </td>
                       <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           className="cell-to cell-select" 
                           style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                           options={uniqueDropdownOptions.instruments} 
@@ -918,7 +918,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
-                        <textarea data-gramm="false" spellcheck="false" 
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                           value={sc.deviationId?.deviationAuto || ''} 
                           onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
                           onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
@@ -932,7 +932,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   {sc.isNewCause && (
                     <td className="w-cause bg-cause" rowSpan={sc.causeSpanCount}>
                       <span className="badge-cause">{sc.badgeCause}</span>
-                      <textarea data-gramm="false" spellcheck="false" 
+                      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                         value={sc.causeId?.description || ''} 
                         onChange={(e) => handleCauseTextChange(sc.causeId?._id, e.target.value)}
                         onBlur={(e) => handleCauseTextBlur(sc.causeId?._id, e.target.value)}
@@ -947,7 +947,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         placeholder="Description..."
                       />
                       <div style={{display: 'flex', gap: '4px', width: '100%', paddingLeft: '35px', boxSizing: 'border-box', marginBottom: '4px'}}>
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           options={uniqueDropdownOptions.equipments} 
                           placeholder="Eq..." 
                           style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
@@ -955,7 +955,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                           onChange={(e) => handleCauseFieldChange(sc.causeId?._id, 'equipment', e.target.value)}
                           onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'equipment', e.target.value)}
                         />
-                        <EditableSelect 
+                        <EditableSelect disabled={!canEdit}  
                           options={uniqueDropdownOptions.instruments} 
                           placeholder="Inst..." 
                           style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
@@ -973,7 +973,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <>
                       <td className="w-cons-imm bg-consequence" rowSpan={sc.consSpanCount}>
                         <span className="badge-cons">{sc.badgeCons}</span>
-                        <textarea data-gramm="false" spellcheck="false" 
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                           style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
                           value={sc.consequencesImmediate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
@@ -989,7 +989,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                         <span className="action-link" style={{color: '#10b981'}} onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
                       </td>
                       <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
-                        <textarea data-gramm="false" spellcheck="false" 
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                           value={sc.consequencesUltimate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
@@ -997,16 +997,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       </td>
                       
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
                           <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
                           <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
@@ -1014,7 +1014,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <>
                       <td className="w-protection bg-protection" rowSpan={sc.safeSpanCount}>
                         <span className="badge-safe">{sc.badgeSafe}</span>
-                        <textarea data-gramm="false" spellcheck="false" 
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                           style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
                           value={sc.presentProtection || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
@@ -1030,21 +1030,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       </td>
                       
                       <td className="w-risk-s" rowSpan={sc.safeSpanCount}>
-                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
                           <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.safeSpanCount}>
-                        <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
                           <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.safeSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.safeSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
                   <td className="w-additional">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
@@ -1060,18 +1060,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   </td>
 
                   <td className="w-risk-s">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                    <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
                       <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                     </select>
                   </td>
                   <td className="w-risk-l">
-                    <select className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                    <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
                       <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                     </select>
                   </td>
-                  <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                  <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                   <td className="w-remarks">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
@@ -1079,7 +1079,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                   </td>
                   <td className="w-status">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <select 
+                      <select disabled={!canEdit}  
                         className="cell-select"
                         style={{width:'100%', border:'none', background:'transparent', padding:'8px'}}
                         value={sc.status || ''} 

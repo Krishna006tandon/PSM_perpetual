@@ -28,7 +28,7 @@ router.use(auth);
 // GET all documents for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const docs = await StudyDocument.find({ studyId: req.params.studyId }).sort({ order: 1 });
+    const docs = await StudyDocument.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: 1 });
     res.json(docs);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -39,11 +39,10 @@ router.get('/:studyId', async (req, res) => {
 router.post('/:studyId', async (req, res) => {
   try {
     // Find highest order to append at the end
-    const lastDoc = await StudyDocument.findOne({ studyId: req.params.studyId }).sort({ order: -1 });
+    const lastDoc = await StudyDocument.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ order: -1 });
     const newOrder = lastDoc ? lastDoc.order + 1 : 1;
 
-    const newDoc = new StudyDocument({
-      studyId: req.params.studyId,
+    const newDoc = new StudyDocument({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       order: newOrder,
       ...req.body
     });

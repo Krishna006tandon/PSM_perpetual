@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const riskCriteriaSchema = new mongoose.Schema({
+  companyCode: { type: String },
   studyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Study', required: true, unique: true },
   
   consequenceCategories: [{ type: String }],

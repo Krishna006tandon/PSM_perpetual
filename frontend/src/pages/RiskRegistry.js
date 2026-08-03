@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import './RiskRegistry.css';
 
-const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [criteria, setCriteria] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -111,7 +111,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <tr key={s.level}>
                       <td className="level-col">{s.level}</td>
                       <td>
-                        <input data-gramm="false" spellcheck="false" className="w-full" value={s.name} onChange={e => {
+                        <input disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" value={s.name} onChange={e => {
                           const newSev = [...criteria.severityLevels];
                           newSev.find(x => x.level === s.level).name = e.target.value;
                           setCriteria({...criteria, severityLevels: newSev});
@@ -119,7 +119,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       </td>
                       {criteria.consequenceCategories.map(cat => (
                         <td key={cat}>
-                          <textarea data-gramm="false" spellcheck="false" 
+                          <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                             className="w-full"
                             rows="2"
                             value={(s.consequences && s.consequences[cat]) || ''} 
@@ -151,13 +151,13 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     <tr key={l.level}>
                       <td className="level-col">{l.level}</td>
                       <td>
-                        <input data-gramm="false" spellcheck="false" className="w-full" value={l.name} onChange={e => handleLikelihoodChange(l.level, 'name', e.target.value)} />
+                        <input disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" value={l.name} onChange={e => handleLikelihoodChange(l.level, 'name', e.target.value)} />
                       </td>
                       <td>
-                        <textarea data-gramm="false" spellcheck="false" className="w-full" rows="2" value={l.description} onChange={e => handleLikelihoodChange(l.level, 'description', e.target.value)} />
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" rows="2" value={l.description} onChange={e => handleLikelihoodChange(l.level, 'description', e.target.value)} />
                       </td>
                       <td>
-                        <input data-gramm="false" spellcheck="false" className="w-full" value={l.frequency} onChange={e => handleLikelihoodChange(l.level, 'frequency', e.target.value)} />
+                        <input disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" value={l.frequency} onChange={e => handleLikelihoodChange(l.level, 'frequency', e.target.value)} />
                       </td>
                     </tr>
                   ))}
@@ -171,7 +171,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
             <div className="category-cards">
               {criteria.riskCategories.map((cat, i) => (
                 <div key={i} className="category-card" style={{borderLeft: `5px solid ${cat.color}`}}>
-                  <input data-gramm="false" spellcheck="false" 
+                  <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                     value={cat.name} 
                     onChange={e => {
                       const newCats = [...criteria.riskCategories];
@@ -179,7 +179,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       setCriteria({...criteria, riskCategories: newCats});
                     }}
                   />
-                  <input data-gramm="false" spellcheck="false" 
+                  <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                     type="color" 
                     value={cat.color} 
                     onChange={e => {
@@ -220,13 +220,13 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                       return (
                         <td key={s.level} style={{ backgroundColor: bgColor }}>
                           <div className="matrix-cell">
-                            <input data-gramm="false" spellcheck="false" 
+                            <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                               type="number" 
                               value={cell.score || ''} 
                               onChange={e => handleMatrixCellChange(s.level, l.level, 'score', parseInt(e.target.value) || 0)}
                               className="cell-score"
                             />
-                            <select 
+                            <select disabled={!canEdit}  
                               value={cell.category || ''} 
                               onChange={e => handleMatrixCellChange(s.level, l.level, 'category', e.target.value)}
                               className="cell-category"

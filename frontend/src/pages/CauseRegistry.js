@@ -4,7 +4,7 @@ import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddCauseModal from '../components/AddCauseModal';
 import './CauseRegistry.css';
 
-const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [causes, setCauses] = useState([]);
   const [columns, setColumns] = useState([]);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -94,7 +94,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
     const value = (cause.customData && cause.customData[col.id]) || '';
     if (col.type === 'dropdown' && col.options) {
       return (
-        <select value={value} onChange={(e) => {
+        <select disabled={!canEdit}  value={value} onChange={(e) => {
           handleCellChange(cause._id, col.id, e.target.value, true);
           handleBlur(cause._id, col.id, e.target.value, true);
         }} style={{ width: '100%', border: 'none', background: 'transparent' }}>
@@ -104,7 +104,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
       );
     }
     return (
-      <input 
+      <input disabled={!canEdit}  
         data-gramm="false" spellcheck="false"
         type="text" 
         value={value} 
@@ -312,7 +312,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                 >
                   <td className="col-cause-num">{index + 1}</td>
                   <td className="col-cause-desc">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.description} 
                       onChange={(e) => handleCellChange(cause._id, 'description', e.target.value)}
@@ -320,7 +320,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-cat">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.categoryType} 
                       onChange={(e) => handleCellChange(cause._id, 'categoryType', e.target.value)}
@@ -328,7 +328,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-source">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.sourceReference} 
                       onChange={(e) => handleCellChange(cause._id, 'sourceReference', e.target.value)}
@@ -336,7 +336,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
                     />
                   </td>
                   <td className="col-cause-comments">
-                    <input data-gramm="false" spellcheck="false" 
+                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       type="text" 
                       value={cause.comments} 
                       onChange={(e) => handleCellChange(cause._id, 'comments', e.target.value)}

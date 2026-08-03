@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import PHAStartMenu from './pages/PHAStartMenu';
+import PlatformOwnerDashboard from './pages/PlatformOwnerDashboard';
+import LandingPage from './pages/LandingPage';
 import StudyOverview from './pages/StudyOverview';
 import TeamMembers from './pages/TeamMembers';
 import StudyDocuments from './pages/StudyDocuments';
@@ -25,6 +27,38 @@ function App() {
   const [studyTab, setStudyTab] = useState('overview'); // New state for study tabs
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [showAuth, setShowAuth] = useState(false);
+  const [checkoutPackage, setCheckoutPackage] = useState(null);
+  useEffect(() => {
+    if (window.location.pathname === '/owner' && !isAuthenticated) {
+      setShowAuth(true);
+    }
+  }, [isAuthenticated]);
+
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchUser = async () => {
+        try {
+          const res = await fetch('http://localhost:5000/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setCurrentUser(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchUser();
+    }
+  }, [isAuthenticated]);
+  
+  // The RBAC lock: Only Admins and Scribes can edit
+  const canEditGlobal = currentUser?.role === 'Admin';
+  const canEditPHA = currentUser?.role === 'Admin' || currentUser?.role === 'Scribe';
+
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -62,7 +96,14 @@ function App() {
 
   const renderContent = () => {
     if (showAuth) {
-      return <Auth onAuthSuccess={handleAuthSuccess} onCancel={() => setShowAuth(false)} />;
+      return (
+        <Auth 
+          onAuthSuccess={handleAuthSuccess} 
+          onCancel={() => { setShowAuth(false); setCheckoutPackage(null); }} 
+          isCheckoutRegistration={!!checkoutPackage}
+          selectedPackage={checkoutPackage}
+        />
+      );
     }
 
     if (currentView === 'study') {
@@ -78,6 +119,7 @@ function App() {
         return (
           <StudyOverview 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -91,6 +133,7 @@ function App() {
         return (
           <TeamMembers 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -103,6 +146,7 @@ function App() {
         return (
           <StudyDocuments 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -115,6 +159,7 @@ function App() {
         return (
           <NodeRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -127,6 +172,7 @@ function App() {
         return (
           <DeviationRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -139,6 +185,7 @@ function App() {
         return (
           <EquipmentRegistry 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -151,6 +198,7 @@ function App() {
         return (
           <CauseRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -163,6 +211,7 @@ function App() {
         return (
           <PHAWorksheet 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -175,6 +224,7 @@ function App() {
         return (
           <SafeguardRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -187,6 +237,7 @@ function App() {
         return (
           <RecommendationRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -199,6 +250,7 @@ function App() {
         return (
           <LOPAWorksheet 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -211,6 +263,7 @@ function App() {
         return (
           <RiskRegistry 
             study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -223,6 +276,7 @@ function App() {
         return (
           <ChecklistRegistry 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -235,6 +289,7 @@ function App() {
         return (
           <ActionTrackingRegistry 
             study={activeStudy} 
+            canEdit={canEditGlobal} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}
@@ -266,11 +321,34 @@ function App() {
       );
     }
 
+    if (!isAuthenticated) {
+      return <LandingPage onLogin={() => setShowAuth(true)} onCheckoutSuccess={(pkg) => { setCheckoutPackage(pkg); setShowAuth(true); }} />;
+    }
+    
+    if (currentUser?.role === 'SuperAdmin') {
+      return <PlatformOwnerDashboard onLogout={handleLogout} />;
+    }
+
+    if (window.location.pathname === '/owner' && currentUser?.role !== 'SuperAdmin') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f8f9fa' }}>
+          <h1 style={{ fontSize: '3rem', color: '#ff4d4f', marginBottom: '20px' }}>403 Access Denied</h1>
+          <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '30px' }}>You do not have Platform Owner privileges to view this page.</p>
+          <button 
+            onClick={() => { window.location.pathname = '/'; }}
+            style={{ padding: '12px 24px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      );
+    }
+
     return (
       <main className="main-content">
         <header className="header">
           <div>
-            <h1>Dashboard Overview</h1>
+            <h1 className="text-gradient" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Dashboard Overview</h1>
             <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
               Welcome back! Here is your latest summary.
             </p>
@@ -281,7 +359,7 @@ function App() {
         </header>
 
         <div className="card-container">
-          <div className="card" onClick={handlePhaClick} style={{ cursor: 'pointer' }}>
+          <div className="card" onClick={handlePhaClick} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
             <h3>PHA</h3>
             <p>Process Hazard Analysis</p>
             <span className="status-badge status-info">View Details</span>
@@ -294,7 +372,7 @@ function App() {
   return (
     <div className="app-container">
       {/* Formal Sidebar with new Navigation logic */}
-      {currentView !== 'study' && (
+      {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && (
         <Sidebar activeView={currentView} onNavigate={setCurrentView} />
       )}
       {renderContent()}

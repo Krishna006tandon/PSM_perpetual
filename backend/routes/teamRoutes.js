@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const TeamMember = require('../models/TeamMember');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const User = require('../models/User');
+
 const auth = require('../middleware/auth');
 
 // Apply auth middleware to all team routes
@@ -9,7 +13,7 @@ router.use(auth);
 // GET all team members for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const members = await TeamMember.find({ studyId: req.params.studyId }).sort({ createdAt: -1 });
+    const members = await TeamMember.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ createdAt: -1 });
     res.json(members);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -28,8 +32,7 @@ router.post('/:studyId', async (req, res) => {
   } = req.body;
 
   try {
-    const newMember = new TeamMember({
-      studyId: req.params.studyId,
+    const newMember = new TeamMember({ companyCode: req.user.companyCode, studyId: req.params.studyId,
       fullName,
       email,
       phone,
@@ -39,6 +42,54 @@ router.post('/:studyId', async (req, res) => {
     });
 
     const savedMember = await newMember.save();
+
+    // Check if user account exists
+    let user = await User.findOne({ companyCode: req.user.companyCode, email });
+    if (!user) {
+      // Create user account with random password
+      const randomPassword = Math.random().toString(36).slice(-8) + 'P@ss!';
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+      
+      user = new User({ companyCode: req.user.companyCode, email,
+        password: hashedPassword,
+        role: role
+      });
+      await user.save();
+
+      // Send email using Nodemailer
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          }
+        });
+
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: 'Welcome to the HAZOP Project Portal',
+          html: `
+            <h2>Welcome ${fullName}!</h2>
+            <p>You have been added to a new HAZOP project as a <strong>${role}</strong>.</p>
+            <p>Your account has been automatically created. Please use the following credentials to log in:</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Password:</strong> ${randomPassword}</p>
+            <p><em>Please change your password after logging in.</em></p>
+            <p><a href="http://localhost:3000">Login to the Portal</a></p>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Invitation email sent to ${email}`);
+      } catch (emailErr) {
+        console.error('Failed to send email:', emailErr);
+        // We don't fail the request if the email fails, just log it
+      }
+    }
+
     res.status(201).json(savedMember);
   } catch (err) {
     res.status(400).json({ message: err.message });

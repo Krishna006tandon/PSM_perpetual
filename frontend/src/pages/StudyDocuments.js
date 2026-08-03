@@ -288,32 +288,34 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
           <div className="docs-header-left">
             <h2>STUDY DOCUMENTS</h2>
           </div>
-          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
-            <span className="icon">◫</span> MANAGE COLUMNS
-          </button>
+          {canEdit && (
+            <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
+              <span className="icon">◫</span> MANAGE COLUMNS
+            </button>
+          )}
         </div>
 
         <div className="docs-toolbar">
-          <button className="toolbar-btn" onClick={() => setIsModalOpen(true)} title="Add Document">
+          {canEdit && <button className="toolbar-btn" onClick={() => setIsModalOpen(true)} title="Add Document">
             <span className="icon-plus">⊕</span>
-          </button>
+          </button>}
           <div className="toolbar-divider"></div>
-          <button className="toolbar-btn" onClick={handleCopy} title="Copy Selected Row">
+          {canEdit && <button className="toolbar-btn" onClick={handleCopy} title="Copy Selected Row">
             <span className="icon">📄</span>
-          </button>
-          <button className="toolbar-btn" onClick={handleCut} title="Cut Selected Row">
+          </button>}
+          {canEdit && <button className="toolbar-btn" onClick={handleCut} title="Cut Selected Row">
             <span className="icon">✂️</span>
-          </button>
-          <button className="toolbar-btn icon-delete" onClick={() => selectedRowId && handleDelete(selectedRowId)} title="Delete Selected Row">
+          </button>}
+          {canEdit && <button className="toolbar-btn icon-delete" onClick={() => selectedRowId && handleDelete(selectedRowId)} title="Delete Selected Row">
             <span className="icon">🗑️</span>
-          </button>
+          </button>}
           <div className="toolbar-divider"></div>
-          <button className="toolbar-btn" onClick={() => handleMove('up')} title="Move Up">
+          {canEdit && <button className="toolbar-btn" onClick={() => handleMove('up')} title="Move Up">
             <span className="icon">↑</span>
-          </button>
-          <button className="toolbar-btn" onClick={() => handleMove('down')} title="Move Down">
+          </button>}
+          {canEdit && <button className="toolbar-btn" onClick={() => handleMove('down')} title="Move Down">
             <span className="icon">↓</span>
-          </button>
+          </button>}
           <div className="toolbar-divider"></div>
           <button className="toolbar-btn" onClick={handlePrint} title="Print">
             <span className="icon">🖨️</span>

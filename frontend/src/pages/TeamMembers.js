@@ -36,6 +36,25 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
     setIsModalOpen(false);
   };
 
+  const handleRoleChange = async (memberId, newRole) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/teams/${memberId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+      if (response.ok) {
+        setMembers(prev => prev.map(m => m._id === memberId ? { ...m, role: newRole } : m));
+      }
+    } catch (error) {
+      console.error('Failed to update role:', error);
+    }
+  };
+
   if (!study) return null;
 
   return (
@@ -90,7 +109,38 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
                       <div className="member-name">{member.fullName}</div>
                       <div className="member-email">{member.email}</div>
                     </td>
-                    <td><span className="role-badge">{member.role}</span></td>
+                    <td>
+                      {canEdit ? (
+                        <select 
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member._id, e.target.value)}
+                          className="role-badge"
+                          style={{ border: '1px solid #ccc', cursor: 'pointer', appearance: 'auto', background: 'transparent' }}
+                        >
+                          {[
+                            'Study Leader',
+                            'Scribe',
+                            'Process Engineer',
+                            'Safety Engineer',
+                            'Instrument Engineer',
+                            'Electrical Engineer',
+                            'Mechanical Engineer',
+                            'Operations Lead',
+                            'Maintenance Lead',
+                            'Environmental Engineer',
+                            'Project Manager',
+                            'Facilitator',
+                            'Subject Matter Expert',
+                            'Observer',
+                            'Reviewer'
+                          ].map(role => (
+                            <option key={role} value={role}>{role}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="role-badge">{member.role}</span>
+                      )}
+                    </td>
                     <td>{member.discipline}</td>
                     <td>{member.company || '-'}</td>
                   </tr>

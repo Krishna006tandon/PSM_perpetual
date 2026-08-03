@@ -96,4 +96,39 @@ router.post('/:studyId', async (req, res) => {
   }
 });
 
+// PUT update a team member
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedMember = await TeamMember.findOneAndUpdate(
+      { _id: req.params.id, companyCode: req.user.companyCode },
+      { $set: req.body },
+      { new: true }
+    );
+    if (!updatedMember) return res.status(404).json({ message: 'Team member not found' });
+    
+    // If role was updated, also try to update the user account's role
+    if (req.body.role) {
+      await User.findOneAndUpdate(
+        { email: updatedMember.email, companyCode: req.user.companyCode },
+        { $set: { role: req.body.role } }
+      );
+    }
+    
+    res.json(updatedMember);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// DELETE a team member
+router.delete('/:id', async (req, res) => {
+  try {
+    const member = await TeamMember.findOneAndDelete({ _id: req.params.id, companyCode: req.user.companyCode });
+    if (!member) return res.status(404).json({ message: 'Team member not found' });
+    res.json({ message: 'Team member deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

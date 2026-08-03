@@ -55,10 +55,12 @@ const generateDefaultRiskCriteria = (studyId) => {
 // GET risk criteria for a study
 router.get('/:studyId', async (req, res) => {
   try {
-    let criteria = await RiskCriteria.findOne({ companyCode: req.user.companyCode, studyId: req.params.studyId });
+    let criteria = await RiskCriteria.findOne({ studyId: req.params.studyId });
     if (!criteria) {
       // Create defaults
-      criteria = new RiskCriteria(generateDefaultRiskCriteria(req.params.studyId));
+      const defaults = generateDefaultRiskCriteria(req.params.studyId);
+      defaults.companyCode = req.user.companyCode;
+      criteria = new RiskCriteria(defaults);
       await criteria.save();
     } else {
       // Migrate existing records that might lack consequence categories

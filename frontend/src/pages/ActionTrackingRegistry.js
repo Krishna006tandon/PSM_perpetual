@@ -3,7 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
 
-const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme }) => {
+const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit }) => {
   const [scenarios, setScenarios] = useState([]);
   const [columns, setColumns] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -243,9 +243,11 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         </div>
 
         <div className="dynamic-toolbar">
-          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
-            <span className="icon">◫</span> MANAGE COLUMNS
-          </button>
+          {canEdit && (
+            <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
+              <span className="icon">◫</span> MANAGE COLUMNS
+            </button>
+          )}
         </div>
 
         <div className="dynamic-table-wrapper">

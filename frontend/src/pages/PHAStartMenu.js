@@ -32,7 +32,7 @@ const FileIcon = () => (
   </svg>
 );
 
-const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
+const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [recentStudies, setRecentStudies] = useState([]);
@@ -135,15 +135,17 @@ const PHAStartMenu = ({ onStudyCreated, onLogout }) => {
 
       <div className="pha-content">
         <div className="pha-actions">
-          <button className="pha-action-card" onClick={() => setIsModalOpen(true)}>
-            <div className="pha-action-icon-wrapper create-icon">
-              <PlusIcon />
-            </div>
-            <div className="pha-action-text">
-              <h2>CREATE NEW UNIT</h2>
-              <p>Start a fresh PHA study</p>
-            </div>
-          </button>
+          {canEdit && (
+            <button className="pha-action-card" onClick={() => setIsModalOpen(true)}>
+              <div className="pha-action-icon-wrapper create-icon">
+                <PlusIcon />
+              </div>
+              <div className="pha-action-text">
+                <h2>CREATE NEW UNIT</h2>
+                <p>Start a fresh PHA study</p>
+              </div>
+            </button>
+          )}
 
           <button className="pha-action-card">
             <div className="pha-action-icon-wrapper open-icon">

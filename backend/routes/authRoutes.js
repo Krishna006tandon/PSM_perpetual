@@ -194,3 +194,19 @@ The Perpetual Team`
 });
 
 module.exports = router;
+
+// Get current user
+const auth = require('../middleware/auth');
+router.get('/me', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user; // handle both object and string for safety
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});

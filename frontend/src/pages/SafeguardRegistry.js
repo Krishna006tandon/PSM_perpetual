@@ -235,9 +235,11 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         </div>
 
         <div className="dynamic-toolbar">
-          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
-            <span className="icon">◫</span> MANAGE COLUMNS
-          </button>
+          {canEdit && (
+            <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
+              <span className="icon">◫</span> MANAGE COLUMNS
+            </button>
+          )}
         </div>
 
         <div className="dynamic-table-wrapper">

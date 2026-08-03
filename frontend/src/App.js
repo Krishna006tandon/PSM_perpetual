@@ -55,9 +55,10 @@ function App() {
     }
   }, [isAuthenticated]);
   
-  // The RBAC lock: Only Admins and Scribes can edit
-  const canEditGlobal = currentUser?.role === 'Admin';
-  const canEditPHA = currentUser?.role === 'Admin' || currentUser?.role === 'Scribe';
+  // The RBAC lock: Only Admins, Scribes, and Project Managers can edit
+  const userRole = currentUser?.role?.toLowerCase() || '';
+  const canEditGlobal = ['admin', 'scribe', 'project manager'].includes(userRole);
+  const canEditPHA = canEditGlobal;
 
 
   useEffect(() => {
@@ -316,7 +317,7 @@ function App() {
               Logout
             </button>
           </div>
-          <PHAStartMenu onStudyCreated={handleStudyOpened} onLogout={handleLogout} />
+          <PHAStartMenu onStudyCreated={handleStudyOpened} onLogout={handleLogout} canEdit={canEditGlobal} />
         </div>
       );
     }

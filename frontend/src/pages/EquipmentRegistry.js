@@ -126,7 +126,11 @@ const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         </div>
 
         <div className="nodes-toolbar">
-          <button className="toolbar-btn" onClick={addRow} title="Add Equipment"><span className="icon-plus">⊕</span></button>
+          {canEdit && (
+
+            <button className="toolbar-btn" onClick={addRow} title="Add Equipment"><span className="icon-plus">⊕</span></button>
+
+          )}
         </div>
 
         <div className="nodes-table-wrapper" style={{ marginTop: '0' }}>

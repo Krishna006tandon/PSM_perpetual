@@ -327,9 +327,11 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         </div>
 
         <div className="dynamic-toolbar" style={{ padding: '0 30px 10px' }}>
-          <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
-            <span className="icon">◫</span> MANAGE COLUMNS
-          </button>
+          {canEdit && (
+            <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
+              <span className="icon">◫</span> MANAGE COLUMNS
+            </button>
+          )}
         </div>
 
         <div className="dynamic-table-wrapper" style={{ maxHeight: 'calc(100vh - 200px)', margin: '0' }}>
@@ -517,13 +519,13 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                           onBlur={() => handleBlur(sc._id)}
                           style={{width:'calc(100% - 20px)'}}
                         />
-                        {i < recs.length && (
+                        {i < recs.length && canEdit && (
                           <button onClick={() => removeArrayItem(sc._id, 'recommendations', i)} style={{position:'absolute', right:'2px', top:'5px', color:'red', background:'none', border:'none', cursor:'pointer'}}>x</button>
                         )}
-                        {i === recs.length - 1 && (
+                        {i === recs.length - 1 && canEdit && (
                           <button onClick={() => addArrayItem(sc._id, 'recommendations')} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
                         )}
-                        {recs.length === 0 && i === 0 && (
+                        {recs.length === 0 && i === 0 && canEdit && (
                           <button onClick={() => addArrayItem(sc._id, 'recommendations')} style={{position:'absolute', right:'2px', bottom:'5px', color:'green', background:'none', border:'none', cursor:'pointer'}}>+</button>
                         )}
                       </td>

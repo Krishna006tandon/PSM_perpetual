@@ -4,9 +4,9 @@ import AddScenarioModal from '../components/AddScenarioModal';
 import './PHAWorksheet.css';
 
 // A custom Select component that allows adding new options
-const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder , canEdit}) => {
+const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder , disabled}) => {
   return (
-    <select disabled={!canEdit}  
+    <select disabled={disabled}  
       className={className} 
       style={{ ...style, cursor: 'pointer', appearance: 'auto' }} 
       value={value || ''} 
@@ -40,6 +40,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInitialData, setModalInitialData] = useState({ deviationId: '', causeId: '' });
   const [selectedRowIds, setSelectedRowIds] = useState([]);
+  const [allDeviations, setAllDeviations] = useState([]);
+  const [allCauses, setAllCauses] = useState([]);
 
   // Group scenarios visually by Deviation and Cause
   const processedScenarios = useMemo(() => {
@@ -178,6 +180,27 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     });
 
+    allDeviations.forEach(dev => {
+      if (dev.guidewords) guidewords.add(dev.guidewords);
+      if (dev.parameter) parameters.add(dev.parameter);
+      if (dev.processFlowMaterial) materials.add(dev.processFlowMaterial);
+      if (dev.locationFrom) equipments.add(dev.locationFrom);
+      if (dev.locationTo) instruments.add(dev.locationTo);
+    });
+
+    allCauses.forEach(cause => {
+      if (cause.equipment) equipments.add(cause.equipment);
+      if (cause.instrument) instruments.add(cause.instrument);
+    });
+
+    nodes.forEach(node => {
+      if (node.equipments) {
+        node.equipments.forEach(eq => {
+          if (eq.tagNo) equipments.add(eq.tagNo);
+        });
+      }
+    });
+
     return {
       guidewords: Array.from(guidewords).sort(),
       parameters: Array.from(parameters).sort(),
@@ -185,11 +208,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       equipments: Array.from(equipments).sort(),
       instruments: Array.from(instruments).sort()
     };
-  }, [scenarios]);
+  }, [scenarios, allDeviations, allCauses, nodes]);
 
   useEffect(() => {
     fetchNodes();
     fetchRiskCriteria();
+    fetchAllDeviations();
+    fetchAllCauses();
   }, [study._id]);
 
   const fetchRiskCriteria = async () => {
@@ -199,6 +224,30 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setRiskCriteria(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAllDeviations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setAllDeviations(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAllCauses = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setAllCauses(await res.json());
     } catch (e) {
       console.error(e);
     }
@@ -733,18 +782,22 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
         {/* Toolbar */}
         <div className="pha-toolbar-flush">
-          <button className="toolbar-btn add-btn" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
-            <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
-          </button>
+          {canEdit && (
+            <button className="toolbar-btn add-btn" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
+              <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
+            </button>
+          )}
           
-          <button 
-            className="toolbar-btn" 
-            onClick={handleDeleteSelected} 
-            disabled={selectedRowIds.length === 0}
-            style={{ color: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', borderColor: selectedRowIds.length > 0 ? '#ef4444' : 'inherit' }}
-          >
-            🗑️ Delete Selected ({selectedRowIds.length})
-          </button>
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={handleDeleteSelected} 
+              disabled={selectedRowIds.length === 0}
+              style={{ color: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', borderColor: selectedRowIds.length > 0 ? '#ef4444' : 'inherit' }}
+            >
+              🗑️ Delete Selected ({selectedRowIds.length})
+            </button>
+          )}
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
           <button className="toolbar-btn icon-only" title="Export">📥</button>
@@ -1071,10 +1124,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   </td>
                   <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                   <td className="w-remarks">
-                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                    <textarea data-gramm="false" spellcheck="false" 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
+                      placeholder="Add comment..."
                     />
                   </td>
                   <td className="w-status">

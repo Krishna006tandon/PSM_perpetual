@@ -272,7 +272,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
             <tbody>
               {!loading && scenarios.map((sc, index) => (
                 <tr key={sc._id}>
-                  <td style={{textAlign:'center'}}>{index + 1}</td>
+                  <td style={{textAlign:'center'}}>R{index + 1}</td>
                   <td className="col-node">{sc.nodeId?.description || ''}</td>
                   <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
                   <td className="col-cause">{sc.causeId?.description || ''}</td>

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddMemberModal from '../components/AddMemberModal';
+import AttendanceSheet from '../components/AttendanceSheet';
 import './TeamMembers.css';
 
 const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPrintingAttendance, setIsPrintingAttendance] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchMembers = async () => {
@@ -55,6 +57,25 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
     }
   };
 
+  const handleAttendanceChange = async (memberId, present) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/teams/${memberId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ present })
+      });
+      if (response.ok) {
+        setMembers(prev => prev.map(m => m._id === memberId ? { ...m, present } : m));
+      }
+    } catch (error) {
+      console.error('Failed to update attendance:', error);
+    }
+  };
+
   if (!study) return null;
 
   return (
@@ -65,9 +86,14 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
             <h2>TEAM MEMBERS</h2>
             <span className="team-count-badge">{members.length}</span>
           </div>
-          {canEdit && <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
-            <span className="plus-icon">+</span> ADD MEMBER
-          </button>}
+          <div style={{display: 'flex', gap: '10px'}}>
+            <button className="btn-add-member" style={{backgroundColor: '#3b82f6'}} onClick={() => setIsPrintingAttendance(true)}>
+              🖨️ PRINT ATTENDANCE SHEET
+            </button>
+            {canEdit && <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
+              <span className="plus-icon">+</span> ADD MEMBER
+            </button>}
+          </div>
         </div>
 
         <div className="team-warning-banner">
@@ -100,6 +126,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
                   <th>ROLE</th>
                   <th>DISCIPLINE</th>
                   <th>COMPANY</th>
+                  <th style={{textAlign: 'center'}}>ATTENDED</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +170,15 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
                     </td>
                     <td>{member.discipline}</td>
                     <td>{member.company || '-'}</td>
+                    <td style={{textAlign: 'center'}}>
+                      <input 
+                        type="checkbox" 
+                        checked={member.present || false} 
+                        onChange={(e) => handleAttendanceChange(member._id, e.target.checked)}
+                        disabled={!canEdit}
+                        style={{width: '20px', height: '20px', cursor: canEdit ? 'pointer' : 'default'}}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -156,6 +192,14 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
           studyId={study._id} 
           onClose={() => setIsModalOpen(false)} 
           onSuccess={handleMemberAdded} 
+        />
+      )}
+
+      {isPrintingAttendance && (
+        <AttendanceSheet 
+          study={study} 
+          members={members} 
+          onClose={() => setIsPrintingAttendance(false)} 
         />
       )}
     </StudyLayout>

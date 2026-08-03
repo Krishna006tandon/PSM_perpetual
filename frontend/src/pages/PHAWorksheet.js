@@ -1051,12 +1051,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
-                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                          <option value=""></option>
+                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.consSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
-                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                          <option value=""></option>
+                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
                       <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
@@ -1084,12 +1086,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       
                       <td className="w-risk-s" rowSpan={sc.safeSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
-                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                          <option value=""></option>
+                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.safeSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
-                          <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                          <option value=""></option>
+                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
                       <td className="w-risk-rr" rowSpan={sc.safeSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
@@ -1097,29 +1101,37 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   )}
                   
                   <td className="w-additional">
-                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      value={sc.additionalProtection || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          e.target.blur();
-                          handleQuickAddRecommendation(sc);
-                        }
-                      }}
-                    />
-                    <span className="action-link" style={{color: '#10b981', display: 'block', marginTop: '4px'}} onClick={() => handleQuickAddRecommendation(sc)}>+ ADD RECOMMENDATION</span>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                      <div style={{display: 'flex', alignItems: 'flex-start', gap: '4px'}}>
+                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#6b7280', paddingTop: '4px', minWidth: '24px'}}>R{index + 1}.</span>
+                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                          style={{flex: 1}}
+                          value={sc.additionalProtection || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                          onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.target.blur();
+                              handleQuickAddRecommendation(sc);
+                            }
+                          }}
+                        />
+                      </div>
+                      <span className="action-link" style={{color: '#10b981', display: 'block'}} onClick={() => handleQuickAddRecommendation(sc)}>+ ADD RECOMMENDATION</span>
+                    </div>
                   </td>
 
                   <td className="w-risk-s">
                     <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                      <option value=""></option>
+                      {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                     </select>
                   </td>
                   <td className="w-risk-l">
                     <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
-                      <option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                      <option value=""></option>
+                      {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                     </select>
                   </td>
                   <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>

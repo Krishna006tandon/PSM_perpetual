@@ -81,6 +81,79 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     });
   };
 
+  const addSeverityLevel = () => {
+    setCriteria(prev => {
+      const newLevel = prev.severityLevels.length + 1;
+      const newSev = [...prev.severityLevels, { level: newLevel, name: `Severity ${newLevel}`, consequences: {} }];
+      
+      const newMatrixCells = [...prev.matrixCells];
+      prev.likelihoodLevels.forEach(l => {
+        newMatrixCells.push({
+          severityLevel: newLevel,
+          likelihoodLevel: l.level,
+          score: newLevel * l.level,
+          category: prev.riskCategories.length > 0 ? prev.riskCategories[0].name : ''
+        });
+      });
+      return { ...prev, severityLevels: newSev, matrixCells: newMatrixCells };
+    });
+  };
+
+  const removeSeverityLevel = () => {
+    setCriteria(prev => {
+      if (prev.severityLevels.length <= 1) return prev;
+      const newSev = [...prev.severityLevels];
+      const removedLevel = newSev.pop().level;
+      
+      const newMatrixCells = prev.matrixCells.filter(cell => cell.severityLevel !== removedLevel);
+      return { ...prev, severityLevels: newSev, matrixCells: newMatrixCells };
+    });
+  };
+
+  const addLikelihoodLevel = () => {
+    setCriteria(prev => {
+      const newLevel = prev.likelihoodLevels.length + 1;
+      const newLik = [...prev.likelihoodLevels, { level: newLevel, name: `Likelihood ${newLevel}`, description: '', frequency: '' }];
+      
+      const newMatrixCells = [...prev.matrixCells];
+      prev.severityLevels.forEach(s => {
+        newMatrixCells.push({
+          severityLevel: s.level,
+          likelihoodLevel: newLevel,
+          score: s.level * newLevel,
+          category: prev.riskCategories.length > 0 ? prev.riskCategories[0].name : ''
+        });
+      });
+      return { ...prev, likelihoodLevels: newLik, matrixCells: newMatrixCells };
+    });
+  };
+
+  const removeLikelihoodLevel = () => {
+    setCriteria(prev => {
+      if (prev.likelihoodLevels.length <= 1) return prev;
+      const newLik = [...prev.likelihoodLevels];
+      const removedLevel = newLik.pop().level;
+      
+      const newMatrixCells = prev.matrixCells.filter(cell => cell.likelihoodLevel !== removedLevel);
+      return { ...prev, likelihoodLevels: newLik, matrixCells: newMatrixCells };
+    });
+  };
+
+  const addRiskCategory = () => {
+    setCriteria(prev => {
+      return { ...prev, riskCategories: [...prev.riskCategories, { name: 'New Category', color: '#cccccc' }] };
+    });
+  };
+
+  const removeRiskCategory = (index) => {
+    setCriteria(prev => {
+      if (prev.riskCategories.length <= 1) return prev;
+      const newCats = [...prev.riskCategories];
+      newCats.splice(index, 1);
+      return { ...prev, riskCategories: newCats };
+    });
+  };
+
   if (!study || loading || !criteria) return <StudyLayout activeTab="risk-criteria" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}><div style={{padding:'20px'}}>Loading...</div></StudyLayout>;
 
   return (
@@ -94,7 +167,15 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         <div className="risk-content">
           
           <div className="risk-section">
-            <h3>Consequence Categories (Severity Definitions)</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Consequence Categories (Severity Definitions)</h3>
+              {canEdit && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn-secondary" onClick={addSeverityLevel} style={{ padding: '5px 10px', fontSize: '12px' }}>+ ADD ROW</button>
+                  <button className="btn-secondary" onClick={removeSeverityLevel} style={{ padding: '5px 10px', fontSize: '12px', color: 'red' }}>- REMOVE LAST</button>
+                </div>
+              )}
+            </div>
             <div className="table-responsive">
               <table className="criteria-table">
                 <thead>
@@ -135,7 +216,15 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </div>
 
           <div className="risk-section">
-            <h3>Likelihood Definitions</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Likelihood Definitions</h3>
+              {canEdit && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn-secondary" onClick={addLikelihoodLevel} style={{ padding: '5px 10px', fontSize: '12px' }}>+ ADD ROW</button>
+                  <button className="btn-secondary" onClick={removeLikelihoodLevel} style={{ padding: '5px 10px', fontSize: '12px', color: 'red' }}>- REMOVE LAST</button>
+                </div>
+              )}
+            </div>
             <div className="table-responsive">
               <table className="criteria-table">
                 <thead>
@@ -167,10 +256,17 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </div>
 
           <div className="risk-section">
-            <h3>Risk Categories (Colors)</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3>Risk Categories (Colors)</h3>
+              {canEdit && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn-secondary" onClick={addRiskCategory} style={{ padding: '5px 10px', fontSize: '12px' }}>+ ADD CATEGORY</button>
+                </div>
+              )}
+            </div>
             <div className="category-cards">
               {criteria.riskCategories.map((cat, i) => (
-                <div key={i} className="category-card" style={{borderLeft: `5px solid ${cat.color}`}}>
+                <div key={i} className="category-card" style={{borderLeft: `5px solid ${cat.color}`, position: 'relative'}}>
                   <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                     value={cat.name} 
                     onChange={e => {
@@ -188,6 +284,12 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       setCriteria({...criteria, riskCategories: newCats});
                     }}
                   />
+                  {canEdit && criteria.riskCategories.length > 1 && (
+                    <button 
+                      onClick={() => removeRiskCategory(i)}
+                      style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '10px' }}
+                    >✕</button>
+                  )}
                 </div>
               ))}
             </div>
@@ -199,7 +301,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               <thead>
                 <tr>
                   <th colSpan="2" rowSpan="2"></th>
-                  <th colSpan="5">SEVERITY</th>
+                  <th colSpan={criteria.severityLevels.length}>SEVERITY</th>
                 </tr>
                 <tr>
                   {criteria.severityLevels.map(s => (
@@ -210,7 +312,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               <tbody>
                 {criteria.likelihoodLevels.map((l, i) => (
                   <tr key={l.level}>
-                    {i === 0 && <th rowSpan="5" className="likelihood-header">LIKELIHOOD</th>}
+                    {i === 0 && <th rowSpan={criteria.likelihoodLevels.length} className="likelihood-header">LIKELIHOOD</th>}
                     <th>{l.name} ({l.level})</th>
                     {criteria.severityLevels.map(s => {
                       const cell = criteria.matrixCells.find(c => c.severityLevel === s.level && c.likelihoodLevel === l.level) || {};

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
+import AutocompleteTextarea from '../components/AutocompleteTextarea';
 import './PHAWorksheet.css';
 
 // A custom Select component that allows adding new options
@@ -42,6 +43,45 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [allDeviations, setAllDeviations] = useState([]);
   const [allCauses, setAllCauses] = useState([]);
+
+  // Extract unique text from all scenarios for autocomplete
+  const uniqueSuggestions = useMemo(() => {
+    const dev = new Set();
+    const causes = new Set();
+    const consImm = new Set();
+    const consUlt = new Set();
+    const prots = new Set();
+    const recs = new Set();
+    
+    const processText = (text, set) => {
+      if (!text) return;
+      const t = text.trim();
+      set.add(t); // Add the full phrase
+      // Add individual words (length > 2)
+      const words = t.split(/[\s,.;:()]+/);
+      words.forEach(w => {
+        if (w.length > 2 && isNaN(w)) set.add(w);
+      });
+    };
+    
+    scenarios.forEach(sc => {
+      processText(sc.deviationId?.deviationAuto, dev);
+      processText(sc.causeId?.description, causes);
+      processText(sc.consequencesImmediate, consImm);
+      processText(sc.consequencesUltimate, consUlt);
+      processText(sc.presentProtection, prots);
+      processText(sc.additionalProtection, recs);
+    });
+    
+    return {
+      deviations: Array.from(dev),
+      causes: Array.from(causes),
+      consImm: Array.from(consImm),
+      consUlt: Array.from(consUlt),
+      prots: Array.from(prots),
+      recs: Array.from(recs)
+    };
+  }, [scenarios]);
 
   // Group scenarios visually by Deviation and Cause
   const processedScenarios = useMemo(() => {
@@ -1118,10 +1158,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutocompleteTextarea disabled={!canEdit} 
                           value={sc.deviationId?.deviationAuto || ''} 
                           onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
                           onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
+                          suggestions={uniqueSuggestions.deviations}
                           style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
                         />
                         <span className="action-link" onClick={() => handleQuickAddCause(sc.deviationId?._id)}>+ ADD CAUSE</span>
@@ -1132,10 +1173,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   {sc.isNewCause && (
                     <td className="w-cause bg-cause" rowSpan={sc.causeSpanCount}>
                       <span className="badge-cause">{sc.badgeCause}</span>
-                      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                      <AutocompleteTextarea disabled={!canEdit} 
                         value={sc.causeId?.description || ''} 
                         onChange={(e) => handleCauseTextChange(sc.causeId?._id, e.target.value)}
                         onBlur={(e) => handleCauseTextBlur(sc.causeId?._id, e.target.value)}
+                        suggestions={uniqueSuggestions.causes}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -1173,11 +1215,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <>
                       <td className="w-cons-imm bg-consequence" rowSpan={sc.consSpanCount}>
                         <span className="badge-cons">{sc.badgeCons}</span>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutocompleteTextarea disabled={!canEdit} 
                           style={{display:'inline-block', width:'calc(100% - 45px)', verticalAlign:'top'}}
                           value={sc.consequencesImmediate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesImmediate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesImmediate', e.target.value)}
+                          suggestions={uniqueSuggestions.consImm}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -1189,10 +1232,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         <span className="action-link" style={{color: '#10b981'}} onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
                       </td>
                       <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutocompleteTextarea disabled={!canEdit} 
                           value={sc.consequencesUltimate || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
+                          suggestions={uniqueSuggestions.consUlt}
                         />
                       </td>
                       
@@ -1216,11 +1260,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <>
                       <td className="w-protection bg-protection" rowSpan={sc.safeSpanCount}>
                         <span className="badge-safe">{sc.badgeSafe}</span>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutocompleteTextarea disabled={!canEdit} 
                           style={{display:'inline-block', width:'calc(100% - 55px)', verticalAlign:'top'}}
                           value={sc.presentProtection || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
+                          suggestions={uniqueSuggestions.prots}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -1251,11 +1296,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                       <div style={{display: 'flex', alignItems: 'flex-start', gap: '4px'}}>
                         <span style={{fontWeight: 'bold', fontSize: '11px', color: '#6b7280', paddingTop: '4px', minWidth: '24px'}}>R{index + 1}.</span>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutocompleteTextarea disabled={!canEdit} 
                           style={{flex: 1}}
                           value={sc.additionalProtection || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                          suggestions={uniqueSuggestions.recs}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();

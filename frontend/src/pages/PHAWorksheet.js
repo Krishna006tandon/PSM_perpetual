@@ -726,23 +726,28 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       alert("PDF library is still loading. Please try again in a few seconds.");
       return;
     }
-    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
-    const activeNode = nodes.find(n => n._id === selectedNodeId);
-    const nodeDesc = activeNode ? activeNode.description : 'No node selected';
-    const intentionDesc = activeNode ? activeNode.intention : 'Design Intention...';
-    
-    // Header Title
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("HAZOP WORK SHEET", 14, 25);
-    
-    // Header Info (Right aligned)
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    const pageWidth = doc.internal.pageSize.width;
-    doc.text(`DOC NO: HAZOP-${study?.projectNumber || 'Unknown'}`, pageWidth - 150, 20);
-    doc.text(`DATE: ${currentDate}`, pageWidth - 150, 30);
-    doc.text(`REV: 0`, pageWidth - 150, 40);
+    const generatePDF = (logoImg) => {
+      const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+      const activeNode = nodes.find(n => n._id === selectedNodeId);
+      const nodeDesc = activeNode ? activeNode.description : 'No node selected';
+      const intentionDesc = activeNode ? activeNode.intention : 'Design Intention...';
+      const pageWidth = doc.internal.pageSize.width;
+      
+      if (logoImg) {
+        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 40, 10, 80, 25);
+      }
+      
+      // Header Title
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("HAZOP WORK SHEET", 14, 25);
+      
+      // Header Info (Right aligned)
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`DOC NO: HAZOP-${study?.projectNumber || 'Unknown'}`, pageWidth - 150, 20);
+      doc.text(`DATE: ${currentDate}`, pageWidth - 150, 30);
+      doc.text(`REV: 0`, pageWidth - 150, 40);
 
     // Metadata Block
     doc.autoTable({
@@ -834,7 +839,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       },
       margin: { left: 10, right: 10 }
     });
-    doc.save('PHA_Worksheet.pdf');
+      doc.save(`PHA_Worksheet_${study?.studyName || 'Study'}_${currentDate}.pdf`);
+    };
+
+    const img = new Image();
+    img.src = '/logo.png';
+    img.onload = () => generatePDF(img);
+    img.onerror = () => generatePDF(null);
   };
 
   return (

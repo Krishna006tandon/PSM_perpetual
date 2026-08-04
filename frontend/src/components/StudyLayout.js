@@ -29,6 +29,7 @@ const STUDY_NAV_ITEMS = [
     subItems: [
       { id: 'overview', label: 'Overview', icon: ICONS.overview },
       { id: 'team', label: 'Team', icon: ICONS.team },
+      { id: 'mom', label: 'MOM', icon: '📝' },
       { id: 'documents', label: 'Docs', icon: ICONS.docs }
     ]
   },

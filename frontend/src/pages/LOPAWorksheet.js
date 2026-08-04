@@ -371,9 +371,17 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       alert("PDF library is still loading. Please try again in a few seconds.");
       return;
     }
-    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
-    doc.setFontSize(16);
-    doc.text(`LOPA Worksheet: ${study?.studyName || 'Unknown Study'}`, 40, 40);
+    
+    const generatePDF = (logoImg) => {
+      const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      
+      if (logoImg) {
+        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 40, 10, 80, 25);
+      }
+      
+      doc.setFontSize(16);
+      doc.text(`LOPA Worksheet: ${study?.studyName || 'Unknown Study'}`, 40, 40);
     
     const head = [
       [
@@ -451,7 +459,13 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       },
       margin: { left: 10, right: 10 }
     });
-    doc.save('LOPA_Worksheet.pdf');
+      doc.save(`LOPA_Worksheet_${study?.studyName || 'Study'}.pdf`);
+    };
+
+    const img = new Image();
+    img.src = '/logo.png';
+    img.onload = () => generatePDF(img);
+    img.onerror = () => generatePDF(null);
   };
 
   return (

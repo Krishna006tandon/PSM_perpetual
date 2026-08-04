@@ -17,6 +17,7 @@ import ChecklistRegistry from './pages/ChecklistRegistry';
 import ActionTrackingRegistry from './pages/ActionTrackingRegistry';
 import LOPAWorksheet from './pages/LOPAWorksheet';
 import EquipmentRegistry from './pages/EquipmentRegistry';
+import MomWorksheet from './pages/MomWorksheet';
 
 import Auth from './components/Auth';
 
@@ -139,6 +140,21 @@ function App() {
             onNavigate={handleStudyNav}
             theme={theme}
             toggleTheme={toggleTheme}
+            onUpdate={setActiveStudy}
+          />
+        );
+      }
+
+      if (studyTab === 'mom') {
+        return (
+          <MomWorksheet 
+            study={activeStudy} 
+            canEdit={canEditGlobal} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+            onUpdate={setActiveStudy}
           />
         );
       }

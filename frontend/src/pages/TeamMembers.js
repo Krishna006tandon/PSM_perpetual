@@ -4,7 +4,7 @@ import AddMemberModal from '../components/AddMemberModal';
 import AttendanceSheet from '../components/AttendanceSheet';
 import './TeamMembers.css';
 
-const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
+const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, onUpdate }) => {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrintingAttendance, setIsPrintingAttendance] = useState(false);
@@ -106,7 +106,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
     
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/studies/${study._id}`, {
+      const res = await fetch(`http://localhost:5000/api/studies/${study._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -114,6 +114,10 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
         },
         body: JSON.stringify({ meetingDates: newDates })
       });
+      if (res.ok && onUpdate) {
+        const updatedStudy = await res.json();
+        onUpdate(updatedStudy);
+      }
     } catch (err) {
       console.error('Failed to add date:', err);
     }

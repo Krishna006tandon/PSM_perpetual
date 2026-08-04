@@ -41,6 +41,11 @@ const studySchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  momData: {
+    type: Map,
+    of: String,
+    default: {}
+  },
   lastAccessed: {
     type: Date,
     default: Date.now,

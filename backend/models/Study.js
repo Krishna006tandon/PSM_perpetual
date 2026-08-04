@@ -37,6 +37,10 @@ const studySchema = new mongoose.Schema({
     type: String,
     default: 'Planned',
   },
+  meetingDates: {
+    type: [String],
+    default: []
+  },
   lastAccessed: {
     type: Date,
     default: Date.now,

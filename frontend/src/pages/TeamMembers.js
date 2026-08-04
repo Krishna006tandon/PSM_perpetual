@@ -9,6 +9,16 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrintingAttendance, setIsPrintingAttendance] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [meetingDates, setMeetingDates] = useState(study?.meetingDates || []);
+  const [showAddDateModal, setShowAddDateModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [dateInput, setDateInput] = useState('');
+
+  useEffect(() => {
+    if (study?.meetingDates) {
+      setMeetingDates(study.meetingDates);
+    }
+  }, [study?.meetingDates]);
 
   const fetchMembers = async () => {
     try {
@@ -57,22 +67,55 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
     }
   };
 
-  const handleAttendanceChange = async (memberId, present) => {
+  const handleAttendanceChange = async (memberId, date, present) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/teams/${memberId}`, {
+      // Optimistic update
+      setMembers(prev => prev.map(m => {
+        if (m._id === memberId) {
+          return { ...m, attendanceDates: { ...m.attendanceDates, [date]: present } };
+        }
+        return m;
+      }));
+      
+      const member = members.find(m => m._id === memberId);
+      const updatedAttendance = { ...member.attendanceDates, [date]: present };
+      
+      await fetch(`http://localhost:5000/api/teams/${memberId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ present })
+        body: JSON.stringify({ attendanceDates: updatedAttendance })
       });
-      if (response.ok) {
-        setMembers(prev => prev.map(m => m._id === memberId ? { ...m, present } : m));
-      }
     } catch (error) {
       console.error('Failed to update attendance:', error);
+    }
+  };
+
+  const submitAddDate = async () => {
+    if (!dateInput) return;
+    if (meetingDates.includes(dateInput)) {
+      alert("Date already exists!");
+      return;
+    }
+    const newDates = [...meetingDates, dateInput];
+    setMeetingDates(newDates);
+    setShowAddDateModal(false);
+    
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/studies/${study._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ meetingDates: newDates })
+      });
+    } catch (err) {
+      console.error('Failed to add date:', err);
     }
   };
 
@@ -87,7 +130,16 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
             <span className="team-count-badge">{members.length}</span>
           </div>
           <div style={{display: 'flex', gap: '10px'}}>
-            <button className="btn-add-member" style={{backgroundColor: '#3b82f6'}} onClick={() => setIsPrintingAttendance(true)}>
+            {canEdit && <button className="btn-add-member" style={{backgroundColor: '#10b981'}} onClick={() => {
+              setDateInput(new Date().toISOString().split('T')[0]);
+              setShowAddDateModal(true);
+            }}>
+              📅 ADD DATE
+            </button>}
+            <button className="btn-add-member" style={{backgroundColor: '#3b82f6'}} onClick={() => {
+              setDateInput(meetingDates[0] || new Date().toISOString().split('T')[0]);
+              setShowPrintModal(true);
+            }}>
               🖨️ PRINT ATTENDANCE SHEET
             </button>
             {canEdit && <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
@@ -126,7 +178,9 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
                   <th>ROLE</th>
                   <th>DISCIPLINE</th>
                   <th>COMPANY</th>
-                  <th style={{textAlign: 'center'}}>ATTENDED</th>
+                  {meetingDates.map(date => (
+                    <th key={date} style={{textAlign: 'center', whiteSpace: 'nowrap'}}>{date}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -170,15 +224,17 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
                     </td>
                     <td>{member.discipline}</td>
                     <td>{member.company || '-'}</td>
-                    <td style={{textAlign: 'center'}}>
-                      <input 
-                        type="checkbox" 
-                        checked={member.present || false} 
-                        onChange={(e) => handleAttendanceChange(member._id, e.target.checked)}
-                        disabled={!canEdit}
-                        style={{width: '20px', height: '20px', cursor: canEdit ? 'pointer' : 'default'}}
-                      />
-                    </td>
+                    {meetingDates.map(date => (
+                      <td key={date} style={{textAlign: 'center'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={member.attendanceDates?.[date] || false} 
+                          onChange={(e) => handleAttendanceChange(member._id, date, e.target.checked)}
+                          disabled={!canEdit}
+                          style={{width: '20px', height: '20px', cursor: canEdit ? 'pointer' : 'default'}}
+                        />
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -186,6 +242,46 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
           </div>
         )}
       </div>
+
+      {showAddDateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '400px'}}>
+            <h2>Select Meeting Date</h2>
+            <input 
+              type="date" 
+              value={dateInput} 
+              onChange={(e) => setDateInput(e.target.value)}
+              style={{width: '100%', padding: '10px', marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px'}}
+            />
+            <div className="modal-actions" style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+              <button className="btn-cancel" onClick={() => setShowAddDateModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={submitAddDate}>Add Date</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrintModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '400px'}}>
+            <h2>Print Attendance Sheet</h2>
+            <p style={{marginTop: '10px', color: '#666'}}>Select the meeting date you wish to print:</p>
+            <input 
+              type="date" 
+              value={dateInput} 
+              onChange={(e) => setDateInput(e.target.value)}
+              style={{width: '100%', padding: '10px', marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px'}}
+            />
+            <div className="modal-actions" style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+              <button className="btn-cancel" onClick={() => setShowPrintModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={() => {
+                setIsPrintingAttendance(dateInput);
+                setShowPrintModal(false);
+              }}>Print</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <AddMemberModal 
@@ -199,6 +295,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit})
         <AttendanceSheet 
           study={study} 
           members={members} 
+          printDate={isPrintingAttendance}
           onClose={() => setIsPrintingAttendance(false)} 
         />
       )}

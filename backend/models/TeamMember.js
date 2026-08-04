@@ -29,9 +29,10 @@ const teamMemberSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  present: {
-    type: Boolean,
-    default: false
+  attendanceDates: {
+    type: Map,
+    of: Boolean,
+    default: {}
   },
   createdAt: {
     type: Date,

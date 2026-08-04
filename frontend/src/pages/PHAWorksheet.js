@@ -702,6 +702,141 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
   if (!study) return null;
 
+  const exportToCSV = () => {
+    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\\n";
+    processedScenarios.forEach((sc) => {
+      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      csv += [
+        escape(sc.index + 1), escape(sc.deviationId?.parameter), escape(sc.deviationId?.processFlowMaterial), escape(sc.deviationId?.locationFrom), escape(sc.deviationId?.locationTo),
+        escape(sc.deviationId?.deviationAuto), escape(sc.causeId?.description), escape(sc.consequencesImmediate), escape(sc.consequencesUltimate),
+        escape(sc.inherentRiskS), escape(sc.inherentRiskL), escape(sc.inherentRiskRR), escape(sc.presentProtection),
+        escape(sc.mitigatedRiskS), escape(sc.mitigatedRiskL), escape(sc.mitigatedRiskRR), escape(sc.additionalProtection),
+        escape(sc.residualRiskS), escape(sc.residualRiskL), escape(sc.residualRiskRR), escape(sc.remarks), escape(sc.status)
+      ].join(',') + '\\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'PHA_Worksheet.csv';
+    link.click();
+  };
+
+  const exportToPDF = () => {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF library is still loading. Please try again in a few seconds.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+    const activeNode = nodes.find(n => n._id === selectedNodeId);
+    const nodeDesc = activeNode ? activeNode.description : 'No node selected';
+    const intentionDesc = activeNode ? activeNode.intention : 'Design Intention...';
+    
+    // Header Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("HAZOP WORK SHEET", 14, 25);
+    
+    // Header Info (Right aligned)
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const pageWidth = doc.internal.pageSize.width;
+    doc.text(`DOC NO: HAZOP-${study?.projectNumber || 'Unknown'}`, pageWidth - 150, 20);
+    doc.text(`DATE: ${currentDate}`, pageWidth - 150, 30);
+    doc.text(`REV: 0`, pageWidth - 150, 40);
+
+    // Metadata Block
+    doc.autoTable({
+      startY: 50,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 3, textColor: [50, 50, 50], lineColor: [230, 230, 230], lineWidth: 0.5 },
+      body: [
+        [{ content: 'SITE / LOCATION: ', styles: { fontStyle: 'bold', cellWidth: 80 } }, { content: study?.facilityName || 'N/A' }, { content: 'PLANT/UNIT: ', styles: { fontStyle: 'bold', cellWidth: 80 } }, { content: 'PAGE 1 OF 1' }],
+        [{ content: 'NODE: ', styles: { fontStyle: 'bold' } }, { content: nodeDesc, colSpan: 3 }],
+        [{ content: 'INTENTION: ', styles: { fontStyle: 'bold' } }, { content: intentionDesc, colSpan: 3 }]
+      ],
+      margin: { left: 10, right: 10 }
+    });
+
+    let finalY = doc.lastAutoTable.finalY + 10;
+
+    // Equipment Block
+    if (activeNode && activeNode.equipments && activeNode.equipments.length > 0) {
+      const eqHead = [['TAG NO.', 'EQUIPMENT NAME', 'OPERATION CONDITION', 'CAPACITY', 'MOC', 'DESIGN TEMP', 'DESIGN PRESSURE']];
+      const eqBody = activeNode.equipments.map(eq => [
+        eq.tagNo || '', eq.equipmentName || '', eq.operationCondition || '', 
+        eq.capacity || '', eq.moc || '', eq.designTemp || '', eq.designPressure || ''
+      ]);
+      doc.autoTable({
+        startY: finalY, head: eqHead, body: eqBody, theme: 'grid',
+        styles: { fontSize: 6.5, cellPadding: 2, textColor: [50, 50, 50], lineColor: [230, 230, 230], lineWidth: 0.5 },
+        headStyles: { fillColor: [245, 247, 250], textColor: [50, 50, 50], fontStyle: 'bold' },
+        margin: { left: 10, right: 10 }
+      });
+      finalY = doc.lastAutoTable.finalY + 15;
+    } else {
+      finalY += 5;
+    }
+
+    const head = [
+      [
+        { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'DEVIATION', colSpan: 5, styles: { halign: 'center' } },
+        { content: 'CAUSE', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'CONSEQUENCES', colSpan: 2, styles: { halign: 'center' } },
+        { content: 'I-RISK', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'PROTECTION', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'M-RISK', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'RECOMMENDATIONS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'R-RISK', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'REMARKS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'STATUS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
+      ],
+      [
+        'Param', 'Material', 'Equip', 'Inst', 'Deviation',
+        'Imm', 'Ult',
+        'S', 'L', 'RR',
+        'S', 'L', 'RR',
+        'S', 'L', 'RR'
+      ]
+    ];
+    
+    const body = processedScenarios.map((sc, i) => [
+      i + 1,
+      sc.deviationId?.parameter || '', sc.deviationId?.processFlowMaterial || '', sc.deviationId?.locationFrom || '', sc.deviationId?.locationTo || '', sc.deviationId?.deviationAuto || '',
+      sc.causeId?.description || '',
+      sc.consequencesImmediate || '', sc.consequencesUltimate || '',
+      sc.inherentRiskS || '', sc.inherentRiskL || '', sc.inherentRiskRR || '',
+      sc.presentProtection || '',
+      sc.mitigatedRiskS || '', sc.mitigatedRiskL || '', sc.mitigatedRiskRR || '',
+      sc.additionalProtection || '',
+      sc.residualRiskS || '', sc.residualRiskL || '', sc.residualRiskRR || '',
+      sc.remarks || '', sc.status || ''
+    ]);
+    
+    doc.autoTable({
+      startY: finalY, head: head, body: body, theme: 'grid',
+      styles: { fontSize: 5.5, cellPadding: 3, overflow: 'linebreak', textColor: [30, 30, 30], lineColor: [210, 214, 220], lineWidth: 0.5 },
+      headStyles: { fillColor: [30, 64, 175], textColor: 255, fontSize: 6, fontStyle: 'bold', halign: 'center', valign: 'middle' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        // Deviation cols
+        1: { cellWidth: 30 }, 2: { cellWidth: 30 }, 3: { cellWidth: 30 }, 4: { cellWidth: 30 }, 5: { cellWidth: 70 },
+        6: { cellWidth: 80 }, // Cause
+        7: { cellWidth: 60 }, 8: { cellWidth: 60 }, // Cons
+        9: { cellWidth: 15 }, 10: { cellWidth: 15 }, 11: { cellWidth: 15 }, // IR
+        12: { cellWidth: 80 }, // Protection
+        13: { cellWidth: 15 }, 14: { cellWidth: 15 }, 15: { cellWidth: 15 }, // MR
+        16: { cellWidth: 80 }, // Recs
+        17: { cellWidth: 15 }, 18: { cellWidth: 15 }, 19: { cellWidth: 15 }, // RR
+        20: { cellWidth: 50 }, // Remarks
+        21: { cellWidth: 45 } // Status
+      },
+      margin: { left: 10, right: 10 }
+    });
+    doc.save('PHA_Worksheet.pdf');
+  };
+
   return (
     <StudyLayout activeTab="pha-worksheets" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="pha-container-flush">
@@ -800,7 +935,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           )}
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
-          <button className="toolbar-btn icon-only" title="Export">📥</button>
+          <button className="toolbar-btn" onClick={exportToCSV} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
+          <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px'}}>📥 PDF</button>
           
           <div className="pha-node-selector">
             NODE: 

@@ -319,6 +319,141 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     return rrf >= 1 ? rrf.toFixed(2) : 1;
   };
 
+  const exportToCSV = () => {
+    let csv = "SR.,DEVIATION,CONSEQUENCE,CAUSE,FREQ OF INITIATING EVENT,SEVERITY,CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL NO,IPL,IPL CREDITS,TOTAL IPL CREDIT,TOLERANCE,RRF,REQUIRED SIL,RECOMMENDATION,REC CREDIT,TOTAL REC CREDIT,REC TOLERANCE,REC RRF,REC REQUIRED SIL\\n";
+    formattedScenarios.forEach((sc) => {
+      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      
+      const freqi = parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0;
+      const pfd = parseFloat(sc.lopaData?.cmPfd) || 1;
+      const time = parseFloat(sc.lopaData?.cmTimeAtRisk) || 1;
+      const occ = parseFloat(sc.lopaData?.cmOccupancy) || 1;
+      
+      let siblingProduct = 1;
+      let siblingRecProduct = 1;
+      for(let s of formattedScenarios) {
+        if (s.badgeCons === sc.badgeCons) {
+           siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
+           const srecs = s.lopaData?.recommendations || [];
+           if (srecs.length > 0) {
+             srecs.forEach(r => { siblingRecProduct *= (parseFloat(r.credit) || 1); });
+           }
+        }
+      }
+      const totalIplCredit = (freqi * pfd * time * occ * siblingProduct).toFixed(6);
+      const totalRecCredit = (freqi * pfd * time * occ * siblingProduct * siblingRecProduct).toFixed(6);
+      const rrf1 = calculateRRF(totalIplCredit, sc.lopaData?.tolerance);
+      const rrf2 = calculateRRF(totalRecCredit, sc.lopaData?.tolerance);
+
+      const recs = sc.lopaData?.recommendations || [];
+      const recText = recs.map(r => r.text || '').join(' | ');
+      const recCreditText = recs.map(r => r.credit || '').join(' | ');
+
+      csv += [
+        escape(sc.badgeCons), escape(sc.deviationId?.deviationAuto), escape(sc.consequencesImmediate), escape(sc.causeId?.description),
+        escape(sc.lopaData?.freqOfInitiatingEvent), escape(sc.lopaData?.severity),
+        escape(sc.lopaData?.cmPfd), escape(sc.lopaData?.cmTimeAtRisk), escape(sc.lopaData?.cmOccupancy),
+        escape(sc.lopaData?.iplNo), escape(sc.lopaData?.ipl), escape(sc.lopaData?.iplCredit),
+        escape(totalIplCredit), escape(sc.lopaData?.tolerance), escape(rrf1), escape(sc.lopaData?.recommendationRequiredSil),
+        escape(recText), escape(recCreditText),
+        escape(totalRecCredit), escape(sc.lopaData?.tolerance), escape(rrf2), escape(sc.lopaData?.recommendationRequiredSil)
+      ].join(',') + '\\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'LOPA_Worksheet.csv';
+    link.click();
+  };
+
+  const exportToPDF = () => {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF library is still loading. Please try again in a few seconds.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+    doc.setFontSize(16);
+    doc.text(`LOPA Worksheet: ${study?.studyName || 'Unknown Study'}`, 40, 40);
+    
+    const head = [
+      [
+        { content: 'SN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Deviation', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Consequence', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Cause', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Freq', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Sev', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Cond. Modifiers', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'Independent Protection Layers (IPL)', colSpan: 4, styles: { halign: 'center' } },
+        { content: 'RRF & SIL', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'Recommendations & Mitigated Risk', colSpan: 6, styles: { halign: 'center' } }
+      ],
+      [
+        'PFD', 'Time', 'Occ',
+        'No', 'IPL', 'Credit', 'Total',
+        'Tol', 'RRF', 'SIL',
+        'Rec', 'Credit', 'Total', 'Tol', 'RRF', 'SIL'
+      ]
+    ];
+
+    const body = formattedScenarios.map((sc) => {
+      const freqi = parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0;
+      const pfd = parseFloat(sc.lopaData?.cmPfd) || 1;
+      const time = parseFloat(sc.lopaData?.cmTimeAtRisk) || 1;
+      const occ = parseFloat(sc.lopaData?.cmOccupancy) || 1;
+      
+      let siblingProduct = 1;
+      let siblingRecProduct = 1;
+      for(let s of formattedScenarios) {
+        if (s.badgeCons === sc.badgeCons) {
+           siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
+           const srecs = s.lopaData?.recommendations || [];
+           if (srecs.length > 0) {
+             srecs.forEach(r => { siblingRecProduct *= (parseFloat(r.credit) || 1); });
+           }
+        }
+      }
+      const totalIplCredit = (freqi * pfd * time * occ * siblingProduct).toFixed(6);
+      const totalRecCredit = (freqi * pfd * time * occ * siblingProduct * siblingRecProduct).toFixed(6);
+      const rrf1 = calculateRRF(totalIplCredit, sc.lopaData?.tolerance);
+      const rrf2 = calculateRRF(totalRecCredit, sc.lopaData?.tolerance);
+
+      const recs = sc.lopaData?.recommendations || [];
+      const recText = recs.map(r => r.text || '').join(' \\n ');
+      const recCreditText = recs.map(r => r.credit || '').join(' \\n ');
+
+      return [
+        sc.badgeCons || '', sc.deviationId?.deviationAuto || '', sc.consequencesImmediate || '', sc.causeId?.description || '',
+        sc.lopaData?.freqOfInitiatingEvent || '', sc.lopaData?.severity || '', 
+        sc.lopaData?.cmPfd || '', sc.lopaData?.cmTimeAtRisk || '', sc.lopaData?.cmOccupancy || '',
+        sc.lopaData?.iplNo || '', sc.lopaData?.ipl || '', sc.lopaData?.iplCredit || '', totalIplCredit,
+        sc.lopaData?.tolerance || '', rrf1, sc.lopaData?.recommendationRequiredSil || '',
+        recText, recCreditText, totalRecCredit, sc.lopaData?.tolerance || '', rrf2, sc.lopaData?.recommendationRequiredSil || ''
+      ];
+    });
+    
+    doc.autoTable({
+      startY: 60, head: head, body: body, theme: 'grid',
+      styles: { fontSize: 4.5, cellPadding: 3, overflow: 'linebreak', textColor: [30, 30, 30], lineColor: [210, 214, 220], lineWidth: 0.5 },
+      headStyles: { fillColor: [6, 95, 70], textColor: 255, fontSize: 5, fontStyle: 'bold', halign: 'center', valign: 'middle' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 15 }, // SN
+        1: { cellWidth: 40 }, // Dev
+        2: { cellWidth: 50 }, // Cons
+        3: { cellWidth: 50 }, // Cause
+        4: { cellWidth: 20 }, // Freq
+        5: { cellWidth: 15 }, // Sev
+        6: { cellWidth: 15 }, 7: { cellWidth: 15 }, 8: { cellWidth: 15 }, // CMs
+        9: { cellWidth: 15 }, 10: { cellWidth: 60 }, 11: { cellWidth: 20 }, 12: { cellWidth: 25 }, // IPL
+        13: { cellWidth: 20 }, 14: { cellWidth: 20 }, 15: { cellWidth: 15 }, // RRF
+        16: { cellWidth: 60 }, 17: { cellWidth: 20 }, 18: { cellWidth: 25 }, 19: { cellWidth: 20 }, 20: { cellWidth: 20 }, 21: { cellWidth: 15 } // Rec
+      },
+      margin: { left: 10, right: 10 }
+    });
+    doc.save('LOPA_Worksheet.pdf');
+  };
+
   return (
     <StudyLayout activeTab="lopa" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="dynamic-container" style={{ padding: '0px' }}>
@@ -326,12 +461,18 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
           <h2>LOPA WORKSHEET</h2>
         </div>
 
-        <div className="dynamic-toolbar" style={{ padding: '0 30px 10px' }}>
+        <div className="dynamic-toolbar" style={{ padding: '0 30px 10px', display: 'flex', gap: '10px' }}>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
             </button>
           )}
+          <button className="btn-manage-columns" onClick={exportToCSV} style={{backgroundColor: '#3b82f6', color: 'white', border: 'none'}}>
+            <span className="icon">📥</span> EXPORT CSV
+          </button>
+          <button className="btn-manage-columns" onClick={exportToPDF} style={{backgroundColor: '#ef4444', color: 'white', border: 'none'}}>
+            <span className="icon">📥</span> EXPORT PDF
+          </button>
         </div>
 
         <div className="dynamic-table-wrapper" style={{ maxHeight: 'calc(100vh - 200px)', margin: '0' }}>

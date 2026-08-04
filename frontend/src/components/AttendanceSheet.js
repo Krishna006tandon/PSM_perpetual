@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import './AttendanceSheet.css';
 
-const AttendanceSheet = ({ study, members, onClose }) => {
+const AttendanceSheet = ({ study, members, printDate, onClose }) => {
   
   // Pad members to minimum 14 rows as requested by screenshot
   const paddedMembers = [...members];
@@ -49,7 +49,7 @@ const AttendanceSheet = ({ study, members, onClose }) => {
           <div className="detail-row">
             <div className="detail-item" style={{flex: 2}}>
               <span>2. Name of the Client:</span>
-              <input type="text" className="attendance-input" />
+              <input type="text" className="attendance-input" defaultValue={study?.clientName || ''} />
             </div>
           </div>
           <div className="detail-row">
@@ -61,7 +61,7 @@ const AttendanceSheet = ({ study, members, onClose }) => {
           <div className="detail-row">
             <div className="detail-item">
               <span>4. Date of Meeting:</span>
-              <input type="text" className="attendance-input" />
+              <input type="date" className="attendance-input" defaultValue={printDate || ''} />
             </div>
             <div className="detail-item">
               <span>Place of Meeting:</span>

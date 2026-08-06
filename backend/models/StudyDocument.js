@@ -38,8 +38,9 @@ const studyDocumentSchema = new mongoose.Schema({
   order: {
     type: Number,
     default: 0
-  }
-,
+  },
+  comment: { type: String },
+  placesUsed: { type: String },
   customData: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 

@@ -27,7 +27,7 @@ router.use(requireSuperAdmin);
 router.get('/analytics', async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const totalAdmins = await User.countDocuments({ companyCode: req.user.companyCode, role: 'Admin' });
+    const totalAdmins = await User.countDocuments({ role: 'Admin' });
     const totalProjects = await Study.countDocuments();
     
     const revenueAgg = await Transaction.aggregate([
@@ -37,7 +37,7 @@ router.get('/analytics', async (req, res) => {
 
     
     // Recent projects
-    const recentProjects = await Study.find({ companyCode: req.user.companyCode, companyCode: req.user.companyCode }).sort({ createdAt: -1 }).limit(5);
+    const recentProjects = await Study.find({}).sort({ createdAt: -1 }).limit(5);
 
     res.json({
       totalUsers,
@@ -54,7 +54,7 @@ router.get('/analytics', async (req, res) => {
 // Packages CRUD
 router.get('/packages', async (req, res) => {
   try {
-    const packages = await SubscriptionPackage.find({ companyCode: req.user.companyCode, companyCode: req.user.companyCode }).sort({ createdAt: -1 });
+    const packages = await SubscriptionPackage.find({}).sort({ createdAt: -1 });
     res.json(packages);
   } catch (err) {
     res.status(500).json({ error: err.message });

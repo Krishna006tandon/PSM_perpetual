@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
+import ReportSettingsModal from '../components/ReportSettingsModal';
 import './PHAWorksheet.css';
 
 // A custom Select component that allows adding new options
@@ -43,6 +44,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [allDeviations, setAllDeviations] = useState([]);
   const [allCauses, setAllCauses] = useState([]);
+  const [showReportSettings, setShowReportSettings] = useState(false);
 
   // Extract unique text from all scenarios for autocomplete
   const uniqueSuggestions = useMemo(() => {
@@ -761,131 +763,482 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     link.click();
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert("PDF library is still loading. Please try again in a few seconds.");
+      alert("PDF library is still loading.");
       return;
     }
-    const generatePDF = (logoImg) => {
-      const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
-      const activeNode = nodes.find(n => n._id === selectedNodeId);
-      const nodeDesc = activeNode ? activeNode.description : 'No node selected';
-      const intentionDesc = activeNode ? activeNode.intention : 'Design Intention...';
-      const pageWidth = doc.internal.pageSize.width;
-      
-      if (logoImg) {
-        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 40, 10, 80, 25);
-      }
-      
-      // Header Title
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("HAZOP WORK SHEET", 14, 25);
-      
-      // Header Info (Right aligned)
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text(`DOC NO: HAZOP-${study?.projectNumber || 'Unknown'}`, pageWidth - 150, 20);
-      doc.text(`DATE: ${currentDate}`, pageWidth - 150, 30);
-      doc.text(`REV: 0`, pageWidth - 150, 40);
-
-    // Metadata Block
-    doc.autoTable({
-      startY: 50,
-      theme: 'grid',
-      styles: { fontSize: 7, cellPadding: 3, textColor: [50, 50, 50], lineColor: [230, 230, 230], lineWidth: 0.5 },
-      body: [
-        [{ content: 'SITE / LOCATION: ', styles: { fontStyle: 'bold', cellWidth: 80 } }, { content: study?.facilityName || 'N/A' }, { content: 'PLANT/UNIT: ', styles: { fontStyle: 'bold', cellWidth: 80 } }, { content: 'PAGE 1 OF 1' }],
-        [{ content: 'NODE: ', styles: { fontStyle: 'bold' } }, { content: nodeDesc, colSpan: 3 }],
-        [{ content: 'INTENTION: ', styles: { fontStyle: 'bold' } }, { content: intentionDesc, colSpan: 3 }]
-      ],
-      margin: { left: 10, right: 10 }
-    });
-
-    let finalY = doc.lastAutoTable.finalY + 10;
-
-    // Equipment Block
-    if (activeNode && activeNode.equipments && activeNode.equipments.length > 0) {
-      const eqHead = [['TAG NO.', 'EQUIPMENT NAME', 'OPERATION CONDITION', 'CAPACITY', 'MOC', 'DESIGN TEMP', 'DESIGN PRESSURE']];
-      const eqBody = activeNode.equipments.map(eq => [
-        eq.tagNo || '', eq.equipmentName || '', eq.operationCondition || '', 
-        eq.capacity || '', eq.moc || '', eq.designTemp || '', eq.designPressure || ''
-      ]);
-      doc.autoTable({
-        startY: finalY, head: eqHead, body: eqBody, theme: 'grid',
-        styles: { fontSize: 6.5, cellPadding: 2, textColor: [50, 50, 50], lineColor: [230, 230, 230], lineWidth: 0.5 },
-        headStyles: { fillColor: [245, 247, 250], textColor: [50, 50, 50], fontStyle: 'bold' },
-        margin: { left: 10, right: 10 }
-      });
-      finalY = doc.lastAutoTable.finalY + 15;
-    } else {
-      finalY += 5;
+    
+    if (!study || !study._id) {
+        alert("Study not found.");
+        return;
     }
 
-    const head = [
-      [
-        { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'DEVIATION', colSpan: 5, styles: { halign: 'center' } },
-        { content: 'CAUSE', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'CONSEQUENCES', colSpan: 2, styles: { halign: 'center' } },
-        { content: 'I-RISK', colSpan: 3, styles: { halign: 'center' } },
-        { content: 'PROTECTION', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'M-RISK', colSpan: 3, styles: { halign: 'center' } },
-        { content: 'RECOMMENDATIONS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'R-RISK', colSpan: 3, styles: { halign: 'center' } },
-        { content: 'REMARKS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'STATUS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
-      ],
-      [
-        'Param', 'Material', 'Equip', 'Inst', 'Deviation',
-        'Imm', 'Ult',
-        'S', 'L', 'RR',
-        'S', 'L', 'RR',
-        'S', 'L', 'RR'
-      ]
-    ];
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}/full-export-data`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      
+      const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      
+      const primaryDark = [15, 23, 42]; 
+      const primaryTeal = [13, 148, 136]; 
+      const headerText = 255;
+      const rowLight = [248, 250, 252];
+      
+      // Page 1: General Info
+      doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
+      doc.rect(0, 0, pageWidth, 60, 'F');
+      
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("HAZOP Study Report", 40, 38);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      
+      doc.autoTable({
+        startY: 80,
+        theme: 'grid',
+        head: [['Facility Information', 'Study Duration']],
+        body: [
+          [
+            `Company: ${data.study.companyCode || ''}\nFacility: ${data.study.facility || ''}\nPlant Unit: ${data.study.plantUnit || ''}`, 
+            `Start Date: ${data.study.createdAt ? new Date(data.study.createdAt).toLocaleDateString() : ''}`
+          ]
+        ],
+        headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+        styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
+      });
+
+      doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 20,
+        theme: 'grid',
+        head: [['Scope and Objective']],
+        body: [[`Scope: ${data.study.scope || ''}\nObjective: ${data.study.objective || ''}`]],
+        headStyles: { fillColor: primaryTeal, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+        styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
+      });
+
+      if (data.study.assumptions && data.study.assumptions.length > 0) {
+        doc.autoTable({
+          startY: doc.lastAutoTable.finalY + 20,
+          theme: 'grid',
+          head: [['Assumption', 'Valid?', 'Comments']],
+          body: data.study.assumptions.map(a => [a.assumption || '', a.valid || '', a.comments || '']),
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+          styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      // Page 2: Team Members & Sessions
+      doc.addPage();
+      doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
+      doc.rect(0, 0, pageWidth, 60, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("Team Members & Sessions", 40, 38);
+      
+      if (data.teamMembers && data.teamMembers.length > 0) {
+        doc.autoTable({
+          startY: 80,
+          theme: 'grid',
+          head: [['Name', 'Title', 'Department', 'Expertise']],
+          body: data.teamMembers.map(t => [t.name || '', t.title || '', t.department || '', t.expertise || '']),
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      if (data.sessions && data.sessions.length > 0) {
+        doc.autoTable({
+          startY: doc.lastAutoTable.finalY + 20,
+          theme: 'grid',
+          head: [['Date', 'Duration', 'Description', 'Places Used']],
+          body: data.sessions.map(s => [s.date || '', s.duration || '', s.description || '', s.placesUsed || '']),
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      if (data.documents && data.documents.length > 0) {
+        doc.addPage();
+        doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
+        doc.rect(0, 0, pageWidth, 60, 'F');
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Drawings / References", 40, 38);
+        doc.autoTable({
+          startY: 80,
+          theme: 'grid',
+          head: [['Document Type', 'Rev', 'File', 'Places Used']],
+          body: data.documents.map(d => [d.documentType || '', d.revisionNumber || '', d.originalFileName || '', d.placesUsed || '']),
+          headStyles: { fillColor: primaryTeal, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      if (data.revisions && data.revisions.length > 0) {
+        doc.autoTable({
+          startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 80,
+          theme: 'grid',
+          head: [['Rev', 'Start Date', 'End Date', 'Changes Made', 'Changed By', 'Reviewed By', 'Approved By']],
+          body: data.revisions.map(r => [r.revision || '', r.startDate || '', r.endDate || '', r.changesMade || '', r.changedBy || '', r.reviewBy || '', r.approvedBy || '']),
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      if (data.nodes && data.nodes.length > 0) {
+        doc.addPage();
+        doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
+        doc.rect(0, 0, pageWidth, 60, 'F');
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Study Nodes", 40, 38);
+        doc.autoTable({
+          startY: 80,
+          theme: 'grid',
+          head: [['Node #', 'Title', 'Description', 'Intention', 'Drawings / References']],
+          body: data.nodes.map(n => [n.nodeNumber || '', n.nodeTitle || '', n.description || '', n.intention || '', n.drawings || '']),
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      }
+
+      // Page N: Worksheet
+      if (data.nodes && data.nodes.length > 0) {
+        data.nodes.forEach((node, nIdx) => {
+          doc.addPage();
+          doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
+          doc.rect(0, 0, pageWidth, 60, 'F');
+          doc.setFontSize(20);
+          doc.setTextColor(255, 255, 255);
+          doc.text(`HAZOP Worksheet (Node ${node.nodeNumber}: ${node.nodeTitle || ''})`, 40, 38);
+          
+          const head = [[
+            { content: '#', rowSpan: 2 },
+            { content: 'DEVIATION', colSpan: 1 },
+            { content: 'CAUSE', rowSpan: 2 },
+            { content: 'CONSEQUENCES', rowSpan: 2 },
+            { content: 'I-RISK', colSpan: 3 },
+            { content: 'PROTECTION', rowSpan: 2 },
+            { content: 'M-RISK', colSpan: 3 },
+            { content: 'RECOMMENDATIONS', rowSpan: 2 },
+            { content: 'R-RISK', colSpan: 3 }
+          ], [
+            'Deviation', 'S', 'L', 'RR', 'S', 'L', 'RR', 'S', 'L', 'RR'
+          ]];
+
+          const nodeScenarios = data.scenarios.filter(s => s.nodeId && s.nodeId._id === node._id);
+          
+          const body = nodeScenarios.map((s, idx) => {
+            const dev = s.deviationId ? s.deviationId.deviationAuto : '';
+            const cause = s.causeId ? s.causeId.description : '';
+            // Since our old CSV export just used s.consequencesImmediate and s.consequencesUltimate, let's use those
+            const cons = [s.consequencesImmediate, s.consequencesUltimate].filter(c=>c).join('\n');
+            const safe = [s.presentProtection, s.additionalProtection].filter(c=>c).join('\n');
+            const rec = s.remarks || '';
+            
+            return [
+              (idx+1).toString(), dev, cause, cons,
+              s.inherentRiskS || '', s.inherentRiskL || '', s.inherentRiskRR || '',
+              safe,
+              s.mitigatedRiskS || '', s.mitigatedRiskL || '', s.mitigatedRiskRR || '',
+              rec,
+              s.residualRiskS || '', s.residualRiskL || '', s.residualRiskRR || ''
+            ];
+          });
+
+          if (body.length === 0) {
+            body.push(['-', 'No scenarios defined for this node', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+          }
+
+          doc.autoTable({
+            startY: 80, 
+            head: head, 
+            body: body, 
+            theme: 'grid',
+            styles: { fontSize: 7.5, cellPadding: 4, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
+            headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: rowLight },
+            didDrawCell: function(cellData) {
+              if (cellData.section === 'body' && (cellData.column.index === 6 || cellData.column.index === 10 || cellData.column.index === 15)) {
+                const val = parseInt(cellData.cell.raw);
+                if (!isNaN(val) && val > 0) {
+                  let color = [34, 197, 94];
+                  if (val > 10) color = [239, 68, 68];
+                  else if (val >= 4) color = [234, 179, 8];
+                  
+                  doc.setFillColor(color[0], color[1], color[2]);
+                  const dim = cellData.cell;
+                  const w = 18; const h = 12;
+                  const x = dim.x + (dim.width / 2) - (w / 2);
+                  const y = dim.y + (dim.height / 2) - (h / 2);
+                  doc.roundedRect(x, y, w, h, 3, 3, 'F');
+                  doc.setTextColor(val > 10 ? 255 : 0);
+                  doc.setFont("helvetica", "bold");
+                  doc.text(val.toString(), dim.x + dim.width / 2, dim.y + dim.height / 2 + 3, { align: 'center' });
+                }
+              }
+            },
+            didParseCell: function(cellData) {
+               if (cellData.section === 'body' && (cellData.column.index === 6 || cellData.column.index === 10 || cellData.column.index === 15)) {
+                  if(cellData.cell.raw && cellData.cell.raw !== '') {
+                      cellData.cell.text = ''; 
+                  }
+               }
+            }
+          });
+        });
+      }
+
+      // Page N: Manage Recommendations
+      doc.addPage();
+      doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
+      doc.rect(0, 0, pageWidth, 60, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Manage Recommendations", 40, 38);
+      
+      const allRecs = [];
+      data.scenarios.forEach(s => {
+        if (s.recommendations && s.recommendations.length > 0) {
+           s.recommendations.forEach(r => {
+             allRecs.push([
+               r.recommendation || '',
+               r.type || 'Generic',
+               r.personResponsible || '',
+               r.targetDate || '',
+               `Node ${s.nodeId?.nodeNumber || ''}`
+             ]);
+           });
+        } else if (s.remarks) {
+           allRecs.push([
+             s.remarks,
+             'Generic',
+             '',
+             '',
+             `Node ${s.nodeId?.nodeNumber || ''}`
+           ]);
+        }
+      });
+
+      if (allRecs.length > 0) {
+        doc.autoTable({
+          startY: 80,
+          theme: 'grid',
+          head: [['Recommendation', 'Type', 'Person Responsible', 'Target Date', 'Node']],
+          body: allRecs,
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight }
+        });
+      } else {
+        doc.setTextColor(0);
+        doc.setFontSize(12);
+        doc.text("No recommendations found in this study.", 40, 100);
+      }
+
+      doc.save(`Full_HAZOP_Report_${data.study.studyName || 'Study'}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Error generating full PDF: " + e.message);
+    }
+  };
+
+  const generateMockPDF = () => {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF library is still loading.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.width;
     
-    const body = processedScenarios.map((sc, i) => [
-      i + 1,
-      sc.deviationId?.parameter || '', sc.deviationId?.processFlowMaterial || '', sc.deviationId?.locationFrom || '', sc.deviationId?.locationTo || '', sc.deviationId?.deviationAuto || '',
-      sc.causeId?.description || '',
-      sc.consequencesImmediate || '', sc.consequencesUltimate || '',
-      sc.inherentRiskS || '', sc.inherentRiskL || '', sc.inherentRiskRR || '',
-      sc.presentProtection || '',
-      sc.mitigatedRiskS || '', sc.mitigatedRiskL || '', sc.mitigatedRiskRR || '',
-      sc.additionalProtection || '',
-      sc.residualRiskS || '', sc.residualRiskL || '', sc.residualRiskRR || '',
-      sc.remarks || '', sc.status || ''
-    ]);
+    // Modern Vibrant Colors
+    const primaryDark = [15, 23, 42]; // Slate 900
+    const primaryTeal = [13, 148, 136]; // Teal 600
+    const headerText = 255;
+    const rowLight = [248, 250, 252];
+    
+    // Page 1: General Info
+    doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
+    doc.rect(0, 0, pageWidth, 60, 'F');
+    
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("HAZOP Study Report", 40, 38);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
     
     doc.autoTable({
-      startY: finalY, head: head, body: body, theme: 'grid',
-      styles: { fontSize: 5.5, cellPadding: 3, overflow: 'linebreak', textColor: [30, 30, 30], lineColor: [210, 214, 220], lineWidth: 0.5 },
-      headStyles: { fillColor: [30, 64, 175], textColor: 255, fontSize: 6, fontStyle: 'bold', halign: 'center', valign: 'middle' },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        // Deviation cols
-        1: { cellWidth: 30 }, 2: { cellWidth: 30 }, 3: { cellWidth: 30 }, 4: { cellWidth: 30 }, 5: { cellWidth: 70 },
-        6: { cellWidth: 80 }, // Cause
-        7: { cellWidth: 60 }, 8: { cellWidth: 60 }, // Cons
-        9: { cellWidth: 15 }, 10: { cellWidth: 15 }, 11: { cellWidth: 15 }, // IR
-        12: { cellWidth: 80 }, // Protection
-        13: { cellWidth: 15 }, 14: { cellWidth: 15 }, 15: { cellWidth: 15 }, // MR
-        16: { cellWidth: 80 }, // Recs
-        17: { cellWidth: 15 }, 18: { cellWidth: 15 }, 19: { cellWidth: 15 }, // RR
-        20: { cellWidth: 50 }, // Remarks
-        21: { cellWidth: 45 } // Status
-      },
-      margin: { left: 10, right: 10 }
+      startY: 80,
+      theme: 'grid',
+      head: [['Facility Information', 'Study Duration']],
+      body: [
+        [
+          'Company: Indorama\nSite: IDPI Egypt\nStudy Path: Indorama/PET/IDPI', 
+          'Start Date: 23-Apr-25\nExpected Completion: 23-Jun-25'
+        ]
+      ],
+      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
     });
-      doc.save(`PHA_Worksheet_${study?.studyName || 'Study'}_${currentDate}.pdf`);
-    };
 
-    const img = new Image();
-    img.src = '/logo.png';
-    img.onload = () => generatePDF(img);
-    img.onerror = () => generatePDF(null);
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 20,
+      theme: 'grid',
+      head: [['Scope and Objective']],
+      body: [['Scope: Complete HAZOP study of Plant 1\nObjective: Systematically identify potential hazards and operability issues...']],
+      headStyles: { fillColor: primaryTeal, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
+    });
+
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 20,
+      theme: 'grid',
+      head: [['Assumptions / Basis']],
+      body: [
+        ['1. The process will work in accordance to its design.', 'Y', 'Equipment works as expected.'],
+        ['2. Operators are competent and well trained.', 'Y', 'Training is provided to all new personnel.']
+      ],
+      columns: [
+        { header: 'Assumption', dataKey: 0 },
+        { header: 'Valid?', dataKey: 1 },
+        { header: 'Comments', dataKey: 2 }
+      ],
+      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
+      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] },
+      alternateRowStyles: { fillColor: rowLight }
+    });
+
+    // Page 2: Team Members & Sessions
+    doc.addPage();
+    doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
+    doc.rect(0, 0, pageWidth, 60, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Team Members & Sessions", 40, 38);
+    
+    doc.autoTable({
+      startY: 80,
+      theme: 'grid',
+      head: [['First Name', 'Last Name', 'Title', 'Department', 'Expertise']],
+      body: [
+        ['Avinash', 'Gore', 'HAZOP Chairman', 'PSM', 'PSM'],
+        ['Yogesh', 'Galaft', 'Deputy Manager', 'Production', 'Process/Production']
+      ],
+      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+      styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+      alternateRowStyles: { fillColor: rowLight }
+    });
+
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 20,
+      theme: 'grid',
+      head: [['Date', 'Duration', 'Description', 'Places Used']],
+      body: [
+        ['23-Apr-25', '7.75 hrs', 'Initiated with corresponding P&ID, 5 nodes completed.', 'Session: 1.1, 2.1'],
+        ['24-Apr-25', '8.50 hrs', 'Continued with Node 6.', 'Session: 6.1, 7.1']
+      ],
+      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+      styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+      alternateRowStyles: { fillColor: rowLight }
+    });
+
+    // Page 3: HAZOP Worksheet
+    doc.addPage();
+    doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
+    doc.rect(0, 0, pageWidth, 60, 'F');
+    doc.setFontSize(20);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("HAZOP Study Worksheet (Node 1: EG Tankfarm)", 40, 38);
+    
+    const head = [[
+      { content: '#', rowSpan: 2 },
+      { content: 'DEVIATION', colSpan: 1 },
+      { content: 'CAUSE', rowSpan: 2 },
+      { content: 'CONSEQUENCES', rowSpan: 2 },
+      { content: 'I-RISK', colSpan: 3 },
+      { content: 'PROTECTION', rowSpan: 2 },
+      { content: 'M-RISK', colSpan: 3 },
+      { content: 'RECOMMENDATIONS', rowSpan: 2 },
+      { content: 'R-RISK', colSpan: 3 }
+    ], [
+      'Deviation', 'S', 'L', 'RR', 'S', 'L', 'RR', 'S', 'L', 'RR'
+    ]];
+
+    const body = [
+      [
+        '1', 'No or less flow of EGF from Tankers', 'Pump P0101A/B failure', 'High level in tanker leading to overflow of MEG',
+        '4', '4', '16', 'PPEs mandatory, Eye shower provided', '2', '2', '4', 'Check valve is provided at pump discharge line', '1', '1', '1'
+      ],
+      [
+        '2', 'High pressure', 'Inadvertent valve closure', 'Pump damage due to dead head',
+        '3', '5', '15', 'PSV-0101 is available', '2', '3', '6', 'Install high pressure alarm', '1', '2', '2'
+      ],
+      [
+        '3', 'Reverse Flow', 'Pump P-0102A/B failure', 'No safety concern for this cause',
+        '2', '1', '2', 'None', '2', '1', '2', 'None needed', '1', '1', '1'
+      ]
+    ];
+
+    doc.autoTable({
+      startY: 80, 
+      head: head, 
+      body: body, 
+      theme: 'grid',
+      styles: { fontSize: 7.5, cellPadding: 4, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
+      headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: rowLight },
+      didDrawCell: function(data) {
+        // Draw colored badges for the "RR" (Risk Ranking) columns
+        // RR columns are index 6 (I-Risk), 10 (M-Risk), 15 (R-Risk)
+        if (data.section === 'body' && (data.column.index === 6 || data.column.index === 10 || data.column.index === 15)) {
+          const val = parseInt(data.cell.raw);
+          if (!isNaN(val)) {
+            let color = [34, 197, 94]; // Green
+            if (val > 10) color = [239, 68, 68]; // Red
+            else if (val >= 4) color = [234, 179, 8]; // Yellow
+            
+            doc.setFillColor(color[0], color[1], color[2]);
+            // Draw a pill shape
+            const dim = data.cell;
+            const w = 18;
+            const h = 12;
+            const x = dim.x + (dim.width / 2) - (w / 2);
+            const y = dim.y + (dim.height / 2) - (h / 2);
+            doc.roundedRect(x, y, w, h, 3, 3, 'F');
+            
+            // Re-draw text in white/black depending on color
+            doc.setTextColor(val > 10 ? 255 : 0);
+            doc.setFont("helvetica", "bold");
+            doc.text(val.toString(), dim.x + dim.width / 2, dim.y + dim.height / 2 + 3, { align: 'center' });
+          }
+        }
+      },
+      didParseCell: function(data) {
+         if (data.section === 'body' && (data.column.index === 6 || data.column.index === 10 || data.column.index === 15)) {
+            data.cell.text = ''; // Clear original text since we draw it in didDrawCell
+         }
+      }
+    });
+
+    doc.save('Mock_Vibrant_HAZOP_Report.pdf');
   };
 
   return (
@@ -986,8 +1339,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           )}
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
+          <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
           <button className="toolbar-btn" onClick={exportToCSV} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
           <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px'}}>📥 PDF</button>
+          <button className="toolbar-btn" onClick={generateMockPDF} title="Mock Full Report" style={{fontSize: '12px', backgroundColor: '#eab308', color: 'white'}}>📄 Test Full Mock PDF</button>
           
           <div className="pha-node-selector">
             NODE: 
@@ -1399,6 +1754,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       <datalist id="list-instruments">
         {uniqueDropdownOptions.instruments.map(i => <option key={i} value={i} />)}
       </datalist>
+
+      {showReportSettings && (
+        <ReportSettingsModal
+          study={study}
+          onClose={() => setShowReportSettings(false)}
+          onSave={() => {
+            // Re-fetch or rely on next PDF export picking up changes
+          }}
+        />
+      )}
     </StudyLayout>
   );
 };

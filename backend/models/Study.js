@@ -37,6 +37,14 @@ const studySchema = new mongoose.Schema({
     type: String,
     default: 'Planned',
   },
+  scope: { type: String },
+  objective: { type: String },
+  executiveSummary: { type: String },
+  assumptions: [{
+    assumption: String,
+    valid: String,
+    comments: String
+  }],
   meetingDates: {
     type: [String],
     default: []

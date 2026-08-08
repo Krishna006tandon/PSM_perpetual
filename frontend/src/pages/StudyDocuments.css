@@ -1,0 +1,243 @@
+.docs-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.docs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0 16px 0;
+}
+
+.docs-header-left h2 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary, #1a2b3c);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.btn-manage-columns {
+  margin-left: auto;
+  margin-left: auto;
+  background-color: var(--bg-paper, white);
+  color: var(--text-primary, #1a2b3c);
+  border: 1px solid var(--divider, #cbd5e1);
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.5px;
+}
+
+.docs-toolbar {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-default);
+  border: 1px solid var(--divider);
+  border-bottom: none;
+  padding: 8px 16px;
+  gap: 16px;
+}
+
+.toolbar-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.toolbar-btn:hover {
+  color: var(--primary-main);
+}
+
+.icon-plus {
+  color: var(--primary-main);
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.icon-delete {
+  color: #ef4444;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--divider);
+}
+
+.docs-table-wrapper {
+  flex: 1;
+  border: 1px solid var(--divider);
+  background-color: var(--bg-paper);
+  overflow-y: auto;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.docs-table th {
+  background-color: var(--primary-main);
+  color: var(--bg-paper);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  padding: 12px 8px;
+  border: 1px solid var(--primary-main);
+  letter-spacing: 0.5px;
+}
+
+.docs-table td {
+  border: 1px solid var(--divider);
+  padding: 0;
+  height: 40px;
+  vertical-align: middle;
+}
+
+.docs-table tr.selected-row td {
+  background-color: #bae6fd;
+}
+
+.docs-table td input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.docs-table td input:focus {
+  outline: 2px solid var(--primary-main);
+  outline-offset: -2px;
+  background-color: var(--bg-default);
+}
+
+.col-num {
+  width: 40px;
+  background-color: var(--bg-default);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center !important;
+}
+
+.col-drawing { width: 15%; }
+.col-rev { width: 8%; }
+.col-type { width: 15%; }
+.col-desc { width: 25%; }
+.col-link { width: 20%; }
+.col-attach { width: 12%; }
+.col-action { width: 40px; }
+
+.attachment-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px !important;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.attach-icon {
+  color: var(--text-secondary);
+}
+
+.action-cell {
+  text-align: center;
+  background-color: var(--bg-paper);
+}
+
+.btn-delete-row {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 14px;
+}
+
+.btn-delete-row:hover {
+  opacity: 1;
+}
+
+/* ================= PRINT STYLES ================= */
+@media print {
+  /* Hide unwanted UI elements */
+  .study-top-nav, 
+  .study-sidebar, 
+  .docs-toolbar, 
+  .btn-manage-columns, 
+  .col-action, 
+  .action-cell {
+    display: none !important;
+  }
+
+  /* Reset layout constraints to allow natural printing flow */
+  .study-layout-container, 
+  .study-main-layout,
+  .study-content,
+  .docs-container,
+  .docs-table-wrapper {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background-color: var(--bg-paper) !important;
+  }
+
+  /* Make sure table expands full width */
+  .docs-table {
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  /* Prevent row breaks across pages */
+  .docs-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Clean up inputs and selects to look like normal text on paper */
+  .docs-table td input, 
+  .docs-table td select {
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+  }
+  
+  /* Reset colors to save ink and look clean */
+  .docs-table th {
+    background-color: var(--bg-default) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--divider) !important;
+  }
+  
+  .docs-table td, .col-num {
+    background-color: var(--bg-paper) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--divider) !important;
+  }
+}

@@ -11,7 +11,7 @@ const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
   const fetchNodes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -81,7 +81,7 @@ const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
     if (!selectedNodeId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/nodes/${selectedNodeId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${selectedNodeId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

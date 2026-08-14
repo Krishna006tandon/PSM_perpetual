@@ -18,7 +18,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
     try {
       const token = localStorage.getItem('token');
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/documents`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/documents`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -26,7 +26,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -79,7 +79,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
         payload[field] = value;
       }
 
-      await fetch(`http://localhost:5000/api/documents/${id}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/documents/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/documents/${id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -149,7 +149,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
       const { _id, createdAt, updatedAt, order, ...copyData } = docToCopy;
       
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/documents`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/documents`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -157,7 +157,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${study._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +203,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
     // Sync with backend
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/documents/reorder`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/documents/reorder`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +254,7 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/documents/${id}/upload`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${id}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

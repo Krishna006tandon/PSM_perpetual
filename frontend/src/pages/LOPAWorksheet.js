@@ -21,7 +21,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     try {
       const token = localStorage.getItem('token');
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/lopa`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/lopa`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -29,7 +29,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         setColumns(colData.columns || []);
       }
 
-      const scRes = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {
@@ -63,17 +63,17 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         setScenarios(scData);
       }
 
-      const nodeRes = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const nodeRes = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (nodeRes.ok) setNodes(await nodeRes.json());
 
-      const devRes = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (devRes.ok) setDeviations(await devRes.json());
 
-      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (causeRes.ok) setCauses(await causeRes.json());
@@ -144,7 +144,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     if (!sc) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

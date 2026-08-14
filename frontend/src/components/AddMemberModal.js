@@ -56,7 +56,7 @@ const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/teams/${studyId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${studyId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

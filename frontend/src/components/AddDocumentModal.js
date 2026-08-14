@@ -22,7 +22,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/documents/${studyId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${studyId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

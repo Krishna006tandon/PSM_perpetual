@@ -56,7 +56,7 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const res = await fetch('http://localhost:5000/api/auth/me', {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -75,7 +75,7 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
   const fetchRecentStudies = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/studies/recent', {
+      const response = await fetch('https://api.perpetualsolutions.co.in/api/studies/recent', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -98,7 +98,7 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
   const handleCreateStudy = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/studies', {
+      const response = await fetch('https://api.perpetualsolutions.co.in/api/studies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

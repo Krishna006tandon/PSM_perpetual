@@ -25,7 +25,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       const token = localStorage.getItem('token');
       
       // Fetch Custom Columns
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/checklists`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/checklists`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -40,7 +40,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
           ];
           // Auto-save these defaults to the backend so they persist
           const token = localStorage.getItem('token');
-          fetch(`http://localhost:5000/api/columns/${study._id}/checklists`, {
+          fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/checklists`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Scenarios
-      const scRes = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {
@@ -62,7 +62,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Team Members
-      const teamRes = await fetch(`http://localhost:5000/api/teams/${study._id}`, {
+      const teamRes = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (teamRes.ok) {
@@ -71,7 +71,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Nodes
-      const nodeRes = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const nodeRes = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (nodeRes.ok) {
@@ -80,25 +80,25 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Deviations
-      const devRes = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (devRes.ok) setDeviations(await devRes.json());
 
       // Fetch Causes
-      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (causeRes.ok) setCauses(await causeRes.json());
 
       // Fetch Documents
-      const docRes = await fetch(`http://localhost:5000/api/documents/${study._id}`, {
+      const docRes = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (docRes.ok) setDocuments(await docRes.json());
 
       // Fetch Studies
-      const studyRes = await fetch(`http://localhost:5000/api/studies/recent`, {
+      const studyRes = await fetch(`https://api.perpetualsolutions.co.in/api/studies/recent`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (studyRes.ok) setAllStudies(await studyRes.json());
@@ -138,7 +138,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         payload[field] = value;
       }
 
-      await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

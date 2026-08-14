@@ -14,7 +14,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -30,7 +30,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(criteria)

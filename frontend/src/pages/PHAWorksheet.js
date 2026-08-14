@@ -262,7 +262,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchRiskCriteria = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setRiskCriteria(await res.json());
@@ -274,7 +274,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchAllDeviations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setAllDeviations(await res.json());
@@ -286,7 +286,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchAllCauses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setAllCauses(await res.json());
@@ -307,7 +307,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchNodes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -329,7 +329,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}?nodeId=${nodeId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}?nodeId=${nodeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -423,7 +423,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       else if (targetSafeGroupId) scenariosToUpdate = scenarios.filter(s => s.safeguardGroupId === targetSafeGroupId);
 
       await Promise.all(scenariosToUpdate.map(sc => 
-        fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+        fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -440,7 +440,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/scenarios/${id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -490,7 +490,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId || !causeId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -514,7 +514,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       // 1. Create a blank cause
-      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description: '' })
@@ -522,7 +522,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const newCause = await causeRes.json();
       
       // 2. Create scenario with existing deviation and new cause
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -546,7 +546,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       // 1. Create a blank deviation
-      const devRes = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ deviationAuto: '', guidewords: '', parameter: '' })
@@ -554,7 +554,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const newDev = await devRes.json();
       
       // 2. Create a blank cause
-      const causeRes = await fetch(`http://localhost:5000/api/causes/${study._id}`, {
+      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description: '' })
@@ -562,7 +562,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const newCause = await causeRes.json();
       
       // 3. Create scenario
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -593,14 +593,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         groupId = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         
         // Update the current scenario in the backend
-        await fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ consequenceGroupId: groupId })
         });
       }
 
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -637,14 +637,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       if (!groupId) {
         groupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         
-        await fetch(`http://localhost:5000/api/scenarios/${sc._id}`, {
+        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ safeguardGroupId: groupId })
         });
       }
 
-      const response = await fetch(`http://localhost:5000/api/scenarios/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -688,7 +688,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/deviations/${deviationId}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${deviationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ [field]: value })
@@ -720,7 +720,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!causeId) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/causes/${causeId}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/causes/${causeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ [field]: value })
@@ -775,7 +775,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}/full-export-data`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}/full-export-data`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await response.json();

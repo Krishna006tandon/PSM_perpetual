@@ -12,7 +12,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
   const fetchColumns = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/columns/${studyId}/${registryType}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${studyId}/${registryType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -65,7 +65,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
       });
 
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/columns/${studyId}/${registryType}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${studyId}/${registryType}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ columns: processedCols })

@@ -1,0 +1,176 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(30, 41, 59, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.member-modal {
+  background-color: var(--bg-paper, white);
+  border-radius: 16px;
+  width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.member-modal-header {
+  background-color: #004d80;
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.member-modal-title {
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 1px;
+}
+
+.member-modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.member-modal-close:hover {
+  opacity: 1;
+}
+
+.member-modal-body {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--divider, #edf2f7);
+  padding-bottom: 8px;
+}
+
+.form-group-row:last-of-type {
+  border-bottom: none;
+}
+
+.form-group-row label {
+  width: 180px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 1px;
+  text-align: right;
+  padding-right: 16px;
+}
+
+.form-group-row input,
+.form-group-row select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--divider, #e2e8f0);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: var(--text-primary, #1e293b);
+  background-color: var(--bg-default, #f8fafc);
+}
+
+.form-group-row input:focus,
+.form-group-row select:focus {
+  outline: none;
+  border-color: #00a896;
+  background-color: var(--bg-paper, white);
+}
+
+.form-group-row select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="%2364748b" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position-x: 96%;
+  background-position-y: center;
+}
+
+/* Specific styling for Role and Discipline to match screenshot */
+.form-group-row select[name="role"],
+.form-group-row select[name="discipline"] {
+  border: 1px solid #00a896;
+  font-weight: 700;
+  border-radius: 20px;
+  padding-left: 16px;
+}
+
+.member-modal-footer {
+  padding: 0 32px 32px 32px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.btn-cancel {
+  padding: 10px 24px;
+  border: 1px solid #cbd5e1;
+  background-color: transparent;
+  color: #64748b;
+  border-radius: 24px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.btn-cancel:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-save {
+  padding: 10px 32px;
+  border: none;
+  background-color: #004d80;
+  color: white;
+  border-radius: 24px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.btn-save:hover {
+  background-color: #003a61;
+}
+
+/* Dark Theme Overrides */
+[data-theme='dark'] .form-group-row label {
+  color: #64748b;
+}
+
+[data-theme='dark'] .btn-cancel {
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .btn-cancel:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}

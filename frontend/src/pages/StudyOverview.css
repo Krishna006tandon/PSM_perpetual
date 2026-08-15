@@ -1,0 +1,195 @@
+/* =========================================
+   STUDY OVERVIEW SPECIFIC STYLES
+   ========================================= */
+.overview-container {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 32px;
+}
+
+.content-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-export {
+  padding: 8px 16px;
+  border-radius: 4px; /* Formal rectangular button */
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: var(--bg-paper);
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-export:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-export.save {
+  background-color: var(--primary-main);
+}
+
+.btn-export.csv {
+  background-color: var(--bg-paper);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+}
+
+.btn-export.csv:hover {
+  background-color: var(--bg-default);
+}
+
+.btn-export.json {
+  background-color: var(--bg-paper);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+}
+
+.btn-export.json:hover {
+  background-color: var(--bg-default);
+}
+
+/* Details Card */
+.study-details-card {
+  background-color: var(--bg-paper);
+  border-radius: 4px; /* Less rounded, more formal */
+  width: 100%;
+  max-width: 900px;
+  box-shadow: var(--shadow-md);
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border: 1px solid var(--divider);
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+}
+
+.detail-label {
+  width: 180px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-align: right;
+  margin-right: 24px;
+  text-transform: uppercase;
+}
+
+.detail-value-input {
+  flex: 1;
+  background-color: transparent;
+  padding: 8px 12px;
+  border-radius: 4px; /* Rectangular inputs */
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  transition: all 0.2s;
+  outline: none;
+  font-family: inherit;
+}
+
+.detail-value-input:hover {
+  border-color: var(--text-secondary);
+}
+
+.detail-value-input:focus {
+  background-color: var(--bg-paper);
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); /* Formal blue glow */
+}
+
+/* Stats Row */
+.stats-row {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 32px;
+}
+
+.stat-card {
+  flex: 1;
+  background-color: var(--bg-paper);
+  border-radius: 4px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  border: 1px solid var(--divider);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: 4px; /* Square icons */
+  background-color: var(--bg-default);
+  color: var(--primary-main);
+  border: 1px solid var(--divider);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}

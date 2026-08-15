@@ -117,65 +117,71 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
   // Modern Light Theme UI matching the rest of the application
   if (isCheckoutRegistration) {
     return (
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', zIndex: 10000, padding: '40px 0' }}>
-        <div style={{ background: 'white', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '500px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-          <button onClick={onCancel} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#888' }}>&times;</button>
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', zIndex: 10000, padding: '60px 20px', backdropFilter: 'blur(4px)' }}>
+        <div style={{ backgroundColor: 'var(--bg-paper)', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '540px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)' }}>
+          <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
           
-          <h1 style={{ color: '#1a1a2e', margin: '0 0 30px 0', fontSize: '2.5rem', fontWeight: '800', textAlign: 'center' }}>Checkout</h1>
+          <h1 style={{ color: 'var(--text-primary)', margin: '0 0 32px 0', fontSize: '2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '-0.02em' }}>Checkout & Setup</h1>
           
-          {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
+          {error && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Company Name</label>
-              <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Enter company name" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Name</label>
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Enter company name" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Admin Username</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Admin username" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Admin Username</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Enter admin username" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Enter company email" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Company Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Enter company email" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Address</label>
+              <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} required placeholder="Enter company address" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Company Address</label>
-              <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} required placeholder="Enter company address" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Contact</label>
+                <input type="text" value={contact} onChange={e => setContact(e.target.value)} required placeholder="Contact info" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Number of Users</label>
+                <input type="number" value={numberOfUsers} onChange={e => setNumberOfUsers(e.target.value)} required placeholder="# of users" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Company Contact</label>
-              <input type="text" value={contact} onChange={e => setContact(e.target.value)} required placeholder="Enter company contact" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Number of Users</label>
-              <input type="number" value={numberOfUsers} onChange={e => setNumberOfUsers(e.target.value)} required placeholder="Enter number of users" style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#fff', color: '#333', fontSize: '1rem', outline: 'none' }} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ color: '#444', fontSize: '0.9rem', fontWeight: 'bold' }}>Select Package</label>
-              <select disabled style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', background: '#f9f9f9', color: '#555', fontSize: '1rem', outline: 'none', appearance: 'none', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Select Package</label>
+              <select disabled style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--primary-main)', backgroundColor: 'rgba(59,130,246,0.05)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', appearance: 'none', fontWeight: '700' }}>
                 <option>{selectedPackage.name} - ₹{(selectedPackage.price).toLocaleString('en-IN')}</option>
               </select>
             </div>
 
-            <div style={{ marginTop: '10px' }}>
+            <div style={{ marginTop: '16px' }}>
               <button 
                 type="submit" 
                 disabled={loading}
-                style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(0,168,150,0.3)', opacity: loading ? 0.7 : 1 }}
+                style={{ width: '100%', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-md)', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1 }}
+                onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }}
+                onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}
               >
                 {loading ? 'Processing...' : `Pay ₹${(selectedPackage.price).toLocaleString('en-IN')} & Checkout`}
               </button>
             </div>
             
-            <p style={{ textAlign: 'center', color: '#666', fontSize: '0.85rem', marginTop: '5px' }}>
-              Your password will be securely generated and sent to <strong>{email || 'your email'}</strong> after checkout.
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '8px', lineHeight: '1.5' }}>
+              Your password will be securely generated and sent to<br/><strong>{email || 'your email'}</strong> after checkout.
             </p>
 
           </form>
@@ -186,16 +192,22 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
 
   // Standard Login (Light mode or generic)
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
-      <div style={{ background: 'white', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '400px', position: 'relative' }}>
-        <button onClick={onCancel} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#888' }}>&times;</button>
-        <h2 style={{ color: '#1a1a2e', marginBottom: '20px', textAlign: 'center' }}>Sign In</h2>
-        {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Email" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }} />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Password" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }} />
-          <button type="submit" disabled={loading} style={{ marginTop: '10px', padding: '14px', background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-            {loading ? 'Processing...' : 'Sign In'}
+    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' }}>
+      <div style={{ backgroundColor: 'var(--bg-paper)', padding: '48px', borderRadius: '16px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)' }}>
+        <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
+        <h2 style={{ color: 'var(--text-primary)', marginBottom: '32px', textAlign: 'center', fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Sign In</h2>
+        {error && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+          </div>
+          <button type="submit" disabled={loading} style={{ marginTop: '16px', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1 }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
       </div>

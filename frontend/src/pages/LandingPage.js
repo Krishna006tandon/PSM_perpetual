@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import './PHAStartMenu.css';
 
 const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
   const [packages, setPackages] = useState([]);
@@ -29,65 +28,72 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
     });
   };
 
-    const handlePurchase = async (pkg) => {
-    // Simply pass the package to the checkout auth modal
+  const handlePurchase = async (pkg) => {
     onCheckoutSuccess(pkg);
   };
 
   return (
-    <div style={{ width: '100%', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', background: 'white' }}>
+    <div style={{ width: '100%', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)' }}>
+      {/* Navigation */}
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 60px', backgroundColor: 'var(--bg-paper)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 100 }}>
+        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '800', color: 'var(--primary-main)' }}>Perpetual PSM</h1>
+        <button onClick={onLogin} style={{ padding: '10px 28px', backgroundColor: 'transparent', border: '2px solid var(--primary-main)', color: 'var(--primary-main)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '1rem' }}
+                onMouseOver={(e) => { e.target.style.backgroundColor = 'var(--primary-main)'; e.target.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = 'var(--primary-main)'; }}>
+          Sign In
+        </button>
+      </nav>
+
       {/* Hero Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 60px', borderBottom: '1px solid var(--divider, #eee)', background: 'white' }}>
-        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '700', color: 'var(--primary, #00a896)' }}>Perpetual PSM</h1>
-        <button onClick={onLogin} style={{ padding: '10px 24px', background: 'transparent', border: '2px solid var(--primary, #00a896)', color: 'var(--primary, #00a896)', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Sign In</button>
-      </div>
-
-      <div className="hero-section" style={{ textAlign: 'center', padding: '120px 20px', width: '100%', background: 'radial-gradient(circle at top right, rgba(0,168,150,0.08) 0%, transparent 50%), radial-gradient(circle at bottom left, rgba(94,114,228,0.08) 0%, transparent 50%)', borderBottom: '1px solid #f0f0f0' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '4rem', marginBottom: '24px', color: '#1a1a2e', fontWeight: '800', lineHeight: '1.2' }}>
-          <span className="text-gradient">Elevate Process Safety.</span> <br/> Empower Your Engineering Team.
-        </h1>
-        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '40px' }}>
-          The ultimate suite for HAZOP, LOPA, MOC, and PSSR. Conduct risk assessments faster, track action items effortlessly, and ensure absolute compliance across all your facilities.
-        </p>
-      </div>
-    </div>
-
-    {/* Pricing Section */}
-      <div className="dashboard-content">
-        <div className="dashboard-header" style={{ justifyContent: 'center', marginBottom: '40px' }}>
-          <h2 style={{ textAlign: 'center', fontSize: '2.5rem', marginBottom: '40px', color: '#1a1a2e' }}>Select Your Subscription</h2>
+      <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '100px 20px', minHeight: '60vh', background: 'radial-gradient(circle at top right, rgba(59,130,246,0.08) 0%, transparent 50%), radial-gradient(circle at bottom left, rgba(59,130,246,0.08) 0%, transparent 50%)', borderBottom: '1px solid var(--divider)' }}>
+        <div style={{ maxWidth: '800px' }}>
+          <h1 style={{ fontSize: '4.5rem', marginBottom: '24px', fontWeight: '800', lineHeight: '1.1', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            Elevate Process Safety.<br/>
+            <span style={{ background: 'linear-gradient(135deg, var(--primary-main) 0%, #38bdf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Empower Your Engineering Team.
+            </span>
+          </h1>
+          <p style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', marginBottom: '40px', lineHeight: '1.6' }}>
+            The ultimate suite for HAZOP, LOPA, MOC, and PSSR. Conduct risk assessments faster, track action items effortlessly, and ensure absolute compliance across all your facilities.
+          </p>
         </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section style={{ padding: '80px 20px', backgroundColor: 'var(--bg-default)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <h2 style={{ textAlign: 'center', fontSize: '2.5rem', marginBottom: '60px', color: 'var(--text-primary)', fontWeight: '700' }}>Select Your Subscription</h2>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px', maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px', width: '100%', maxWidth: '1200px' }}>
           {packages.map(pkg => (
-            <div key={pkg._id} style={{ background: 'white', borderRadius: '16px', border: '1px solid #e1e4e8', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
+            <div key={pkg._id} style={{ backgroundColor: 'var(--bg-paper)', borderRadius: '16px', border: '1px solid var(--divider)', overflow: 'hidden', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', transition: 'transform 0.3s ease', cursor: 'pointer' }}
+                 onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}
+                 onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}>
               
-              <div style={{ padding: '30px', borderBottom: '1px solid #f0f0f0', background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)', textAlign: 'center' }}>
-                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5rem', color: '#1a1a2e', fontWeight: '800' }}>{pkg.name}</h3>
+              <div style={{ padding: '40px 30px', borderBottom: '1px solid var(--divider)', textAlign: 'center' }}>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5rem', color: 'var(--text-primary)', fontWeight: '700' }}>{pkg.name}</h3>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '2.8rem', fontWeight: '900', color: '#00a896' }}>₹{(pkg.price).toLocaleString('en-IN')}</span>
-                  <span style={{ color: '#666', fontWeight: '600' }}>/{pkg.billingCycle === 'One-time' ? 'one-time' : pkg.billingCycle === 'Yearly' ? 'yr' : 'mo'}</span>
+                  <span style={{ fontSize: '3rem', fontWeight: '800', color: 'var(--primary-main)' }}>₹{(pkg.price).toLocaleString('en-IN')}</span>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>/{pkg.billingCycle === 'One-time' ? 'one-time' : pkg.billingCycle === 'Yearly' ? 'yr' : 'mo'}</span>
                 </div>
               </div>
 
-              <div style={{ padding: '30px', flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '25px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(0,168,150,0.1)', color: '#00a896', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
-                    <span style={{ color: '#4a4a68', fontWeight: '500' }}><strong>{pkg.maxProjects === -1 ? 'Unlimited' : pkg.maxProjects}</strong> Active Projects</span>
+              <div style={{ padding: '30px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--primary-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>✓</div>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}><strong>{pkg.maxProjects === -1 ? 'Unlimited' : pkg.maxProjects}</strong> Active Projects</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(0,168,150,0.1)', color: '#00a896', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
-                    <span style={{ color: '#4a4a68', fontWeight: '500' }}><strong>{pkg.maxUsers === -1 ? 'Unlimited' : pkg.maxUsers}</strong> Team Members</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--primary-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>✓</div>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}><strong>{pkg.maxUsers === -1 ? 'Unlimited' : pkg.maxUsers}</strong> Team Members</span>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '25px' }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Included Modules</p>
+                <div style={{ marginBottom: '32px' }}>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700' }}>Included Modules</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {pkg.features.map(f => (
-                      <span key={f} style={{ background: 'rgba(0,168,150,0.1)', color: '#00a896', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <span key={f} style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--primary-main)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
                         {f}
                       </span>
                     ))}
@@ -97,20 +103,21 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
                 <button 
                   onClick={() => handlePurchase(pkg)}
                   disabled={loadingRazorpay}
-                  style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: loadingRazorpay ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(0,168,150,0.3)', opacity: loadingRazorpay ? 0.7 : 1 }}
-                >
-                  {loadingRazorpay ? 'Processing...' : 'Subscribe Now'}
+                  style={{ width: '100%', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: loadingRazorpay ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease', opacity: loadingRazorpay ? 0.7 : 1 }}
+                  onMouseOver={(e) => { if(!loadingRazorpay) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }}
+                  onMouseOut={(e) => { if(!loadingRazorpay) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+                  {loadingRazorpay ? 'Please wait...' : 'Select Plan'}
                 </button>
               </div>
             </div>
           ))}
         </div>
-      </div>
-      
+      </section>
+
       {/* Footer / Trust Section */}
-      <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#f9f9fc', marginTop: '60px' }}>
-        <h2 style={{ color: '#1a1a2e', marginBottom: '20px' }}>Trusted by Process Safety Leaders</h2>
-        <p style={{ color: '#666' }}>Built for rigorous compliance standards and seamless engineering collaboration.</p>
+      <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: 'var(--bg-paper)', borderTop: '1px solid var(--divider)', marginTop: '40px' }}>
+        <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>Trusted by Process Safety Leaders</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>Built for rigorous compliance standards and seamless engineering collaboration.</p>
       </div>
     </div>
   );

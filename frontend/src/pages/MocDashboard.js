@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import ChecklistModule from './components/sub-elements/ChecklistModule';
-import CreateMocForm from './components/sub-elements/CreateMocForm';
-import AreaHeadApproval from './components/sub-elements/AreaHeadApproval';
-import ReviewGroupStage from './components/sub-elements/ReviewGroupStage';
-import CostEstimationStage from './components/sub-elements/CostEstimationStage';
-import SecondaryApprovalStage from './components/sub-elements/SecondaryApprovalStage';
-import SiteHeadApproval from './components/sub-elements/SiteHeadApproval';
-import ProjectManagerStage from './components/sub-elements/ProjectManagerStage';
-import DocumentationStage from './components/sub-elements/DocumentationStage';
-import ClosureStage from './components/sub-elements/ClosureStage';
-import { mocService } from './api/mocService';
+// import Sidebar from '../components/Sidebar'; // Sidebar is handled by main App.js
+import ChecklistModule from '../components/sub-elements/ChecklistModule';
+import CreateMocForm from '../components/sub-elements/CreateMocForm';
+import AreaHeadApproval from '../components/sub-elements/AreaHeadApproval';
+import ReviewGroupStage from '../components/sub-elements/ReviewGroupStage';
+import CostEstimationStage from '../components/sub-elements/CostEstimationStage';
+import SecondaryApprovalStage from '../components/sub-elements/SecondaryApprovalStage';
+import SiteHeadApproval from '../components/sub-elements/SiteHeadApproval';
+import ProjectManagerStage from '../components/sub-elements/ProjectManagerStage';
+import DocumentationStage from '../components/sub-elements/DocumentationStage';
+import ClosureStage from '../components/sub-elements/ClosureStage';
+import { mocService } from '../api/mocService';
 const WORKFLOW_STAGES = [
   "MOC Creation",           // 0
   "Area Head Approval",     // 1
@@ -352,17 +352,7 @@ export default function MocDashboard() {
       border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.4)',
       transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
     },
-    authToggle: {
-      display: 'flex', backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-      borderRadius: '30px', padding: '4px', marginBottom: '32px', position: 'relative'
-    },
-    authToggleBtn: (active) => ({
-      flex: 1, padding: '10px 0', border: 'none', borderRadius: '26px', cursor: 'pointer',
-      fontSize: '14px', fontWeight: '600', transition: 'all 0.3s ease',
-      backgroundColor: active ? (theme === 'dark' ? '#ffffff' : '#1a73e8') : 'transparent',
-      color: active ? (theme === 'dark' ? '#000000' : '#ffffff') : (theme === 'dark' ? '#888' : '#666'),
-      boxShadow: active ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
-    }),
+
     inputGroup: { display: 'flex', flexDirection: 'column', marginBottom: '20px' },
     label: { marginBottom: '8px', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: theme === 'dark' ? '#a0a0b0' : '#666666' },
     input: { 
@@ -375,20 +365,42 @@ export default function MocDashboard() {
     },
     select: { 
       width: '100%', boxSizing: 'border-box',
-      padding: '12px 16px', borderRadius: '12px', 
-      border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', 
-      backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.8)', 
-      color: theme === 'dark' ? '#ffffff' : '#333333', fontSize: '15px', outline: 'none', cursor: 'pointer',
-      transition: 'all 0.2s ease',
+      padding: '14px 16px', borderRadius: '8px', 
+      border: '1px solid var(--divider)', 
+      backgroundColor: 'var(--bg-default)', 
+      color: 'var(--text-primary)', 
+      fontSize: '1rem', outline: 'none', cursor: 'pointer', appearance: 'none',
+      transition: 'border-color 0.2s ease'
     },
+    authToggle: { display: 'flex', backgroundColor: 'var(--bg-default)', borderRadius: '12px', padding: '6px', marginBottom: '32px' },
+    authToggleBtn: (active) => ({
+      flex: 1, padding: '10px', border: 'none', borderRadius: '8px',
+      backgroundColor: active ? 'var(--bg-paper)' : 'transparent', 
+      color: active ? 'var(--text-primary)' : 'var(--text-secondary)', 
+      fontSize: '0.95rem', fontWeight: active ? '700' : '500', 
+      outline: 'none', cursor: 'pointer',
+      boxShadow: active ? 'var(--shadow-sm)' : 'none',
+      transition: 'all 0.2s ease',
+    }),
     primaryBtn: { 
-      width: '100%', padding: '14px', marginTop: '12px',
-      background: theme === 'dark' ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' : 'linear-gradient(135deg, #1a73e8 0%, #2892f0 100%)', 
-      color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: '700', 
-      cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 4px 16px rgba(26,115,232,0.3)'
+      width: '100%', padding: '16px', marginTop: '16px',
+      backgroundColor: 'var(--primary-main)', 
+      color: '#ffffff', border: 'none', borderRadius: '8px', 
+      fontSize: '1.05rem', fontWeight: '700', 
+      cursor: 'pointer', transition: 'all 0.2s ease', 
+      boxShadow: 'var(--shadow-md)'
     },
     gridContainer: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', marginTop: '20px' },
-    dashboardCard: { backgroundColor: theme === 'dark' ? '#2d2d2d' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#333333', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', border: theme === 'dark' ? '1px solid #444444' : '1px solid #eaeaea', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', height: '120px', transition: 'all 0.2s ease', }
+    dashboardCard: { 
+      backgroundColor: 'var(--bg-paper)', 
+      color: 'var(--text-primary)', 
+      borderRadius: '12px', padding: '24px', 
+      boxShadow: 'var(--shadow-md)', 
+      border: '1px solid var(--divider)', 
+      cursor: 'pointer', display: 'flex', flexDirection: 'column', 
+      justifyContent: 'center', alignItems: 'center', textAlign: 'center', 
+      height: '140px', transition: 'all 0.2s ease' 
+    }
   };
 
   if (!isAuthenticated) {
@@ -476,13 +488,12 @@ export default function MocDashboard() {
   }
 
   return (
-    <div className="app-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="main-content">
-        <header className="header">
+    <>
+      <main className="main-content" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 40px', borderBottom: '1px solid var(--divider)', backgroundColor: 'var(--bg-paper)' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px' }}>{activeTab === 'Dashboard' ? 'Enterprise Dashboard' : activeTab === 'Analytics' ? 'Analytics Overview' : activeTab === 'Settings' ? 'Application Settings' : `MOC Workflow: ${ticketData ? ticketData.title : 'New Ticket'}`}</h1>
-            <div style={{ fontSize: '13px', color: theme === 'dark' ? '#aaaaaa' : '#666666', marginTop: '4px' }}>Logged in as: <strong>{authData.name}</strong> ({authData.designation})</div>
+            <h1 style={{ margin: 0, fontSize: '24px', color: 'var(--text-primary)' }}>{activeTab === 'Dashboard' ? 'Enterprise Dashboard' : activeTab === 'Analytics' ? 'Analytics Overview' : activeTab === 'Settings' ? 'Application Settings' : `MOC Workflow: ${ticketData ? ticketData.title : 'New Ticket'}`}</h1>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Logged in as: <strong>{authData.name}</strong> ({authData.designation})</div>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {/* Profile Icon Button */}
@@ -1403,6 +1414,6 @@ export default function MocDashboard() {
           );
         })()}
       </main>
-    </div>
+    </>
   );
 }

@@ -88,7 +88,7 @@ function App() {
   const handleAuthSuccess = (token) => {
     setIsAuthenticated(true);
     setShowAuth(false);
-    setCurrentView('pha');
+    setCurrentView('dashboard');
   };
 
   const handleLogout = () => {
@@ -323,7 +323,7 @@ function App() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <button 
               onClick={() => setCurrentView('dashboard')}
-              style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--divider)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}
+              style={{ padding: '10px 20px', backgroundColor: 'var(--primary-main, #1e3a8a)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
             >
               &larr; Back to Dashboard
             </button>

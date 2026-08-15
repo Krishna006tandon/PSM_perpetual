@@ -40,7 +40,7 @@ const ReportSettingsModal = ({ study, onClose, onSave }) => {
     const fetchExtraData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}/full-export-data`, {
+        const res = await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}/full-export-data`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -82,7 +82,7 @@ const ReportSettingsModal = ({ study, onClose, onSave }) => {
       const token = localStorage.getItem('token');
       
       // Save general info and assumptions (part of Study model)
-      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}`, {
+      await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -94,14 +94,14 @@ const ReportSettingsModal = ({ study, onClose, onSave }) => {
       });
 
       // Save Sessions
-      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}/sessions`, {
+      await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ sessions })
       });
 
       // Save Revisions
-      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/studies/${study._id}/revisions`, {
+      await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}/revisions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ revisions })

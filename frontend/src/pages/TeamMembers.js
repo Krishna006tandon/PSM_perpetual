@@ -23,7 +23,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
   const fetchMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/teams/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -51,7 +51,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
   const handleRoleChange = async (memberId, newRole) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/teams/${memberId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${memberId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
       const member = members.find(m => m._id === memberId);
       const updatedAttendance = { ...member.attendanceDates, [date]: present };
       
-      await fetch(`http://localhost:5000/api/teams/${memberId}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/teams/${memberId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
     
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/studies/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -16,7 +16,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
     try {
       const token = localStorage.getItem('token');
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/deviations`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/deviations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -24,7 +24,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -74,7 +74,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         payload[field] = value;
       }
 
-      await fetch(`http://localhost:5000/api/deviations/${id}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/deviations/${id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -149,7 +149,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       const { _id, createdAt, updatedAt, order, ...copyData } = devToCopy;
       
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/deviations`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/deviations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -157,7 +157,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/deviations/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
 
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/deviations/reorder`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/deviations/reorder`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

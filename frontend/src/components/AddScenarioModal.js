@@ -18,8 +18,8 @@ const AddScenarioModal = ({ studyId, nodeId, initialDeviationId, initialCauseId,
       try {
         const token = localStorage.getItem('token');
         const [devRes, causeRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/deviations/${studyId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-          fetch(`http://localhost:5000/api/causes/${studyId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+          fetch(`https://api.perpetualsolutions.co.in/api/deviations/${studyId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`https://api.perpetualsolutions.co.in/api/causes/${studyId}`, { headers: { 'Authorization': `Bearer ${token}` } })
         ]);
         
         if (devRes.ok && causeRes.ok) {
@@ -57,7 +57,7 @@ const AddScenarioModal = ({ studyId, nodeId, initialDeviationId, initialCauseId,
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/scenarios/${studyId}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${studyId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -16,7 +16,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/nodes`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/nodes`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -24,7 +24,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -72,7 +72,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         payload[field] = value;
       }
 
-      await fetch(`http://localhost:5000/api/nodes/${id}`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/nodes/${id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -147,7 +147,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const { _id, createdAt, updatedAt, order, ...copyData } = nodeToCopy;
       
       
-      const colRes = await fetch(`http://localhost:5000/api/columns/${study._id}/nodes`, {
+      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/nodes`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -155,7 +155,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         setColumns(colData.columns || []);
       }
 
-      const response = await fetch(`http://localhost:5000/api/nodes/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +198,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/nodes/reorder`, {
+      await fetch(`https://api.perpetualsolutions.co.in/api/nodes/reorder`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

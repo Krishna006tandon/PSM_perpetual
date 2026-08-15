@@ -52,7 +52,7 @@ const NodeEquipmentManager = ({ studyId, node, onClose, onSave }) => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/nodes/${node._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${node._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

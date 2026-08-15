@@ -35,7 +35,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/studies/${study._id}`, {
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

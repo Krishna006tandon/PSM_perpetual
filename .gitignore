@@ -1,0 +1,12 @@
+# Production environment files
+backend/.env
+backend/credentials.txt
+frontend/.env.production
+
+# Generated files
+frontend/build/
+
+# Local backups
+backend/.env.backup
+frontend/package-lock.json.backup
+frontend/src.backup/

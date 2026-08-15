@@ -24,7 +24,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
   const initiateRazorpayPayment = async (orderData) => {
     return new Promise(async (resolve, reject) => {
       try {
-        const configRes = await fetch('http://localhost:5000/api/payments/config');
+        const configRes = await fetch('https://api.perpetualsolutions.co.in/api/payments/config');
         const configData = await configRes.json();
         
         const options = {
@@ -59,7 +59,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
       if (isCheckoutRegistration && !isLogin && selectedPackage) {
         // FLOW: REGISTRATION WITH PURCHASE (No password field, sent via email)
         
-        const orderRes = await fetch('http://localhost:5000/api/payments/create-order', {
+        const orderRes = await fetch('https://api.perpetualsolutions.co.in/api/payments/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: selectedPackage.price, currency: 'INR' })
@@ -68,7 +68,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
 
         const paymentResponse = await initiateRazorpayPayment(orderData);
         
-        const registerRes = await fetch('http://localhost:5000/api/auth/register-with-payment', {
+        const registerRes = await fetch('https://api.perpetualsolutions.co.in/api/auth/register-with-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -95,7 +95,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
       } else {
         // FLOW: STANDARD LOGIN
         const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        const response = await fetch(`http://localhost:5000${endpoint}`, {
+        const response = await fetch(`https://api.perpetualsolutions.co.in${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, role: isLogin ? undefined : 'Admin' })

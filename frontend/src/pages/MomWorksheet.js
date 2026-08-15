@@ -23,7 +23,7 @@ const MomWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, 
       const fetchMembers = async () => {
         try {
           const token = localStorage.getItem('token');
-          const res = await fetch(`http://localhost:5000/api/teams/${study._id}`, {
+          const res = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${study._id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.ok) {
@@ -75,7 +75,7 @@ const MomWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, 
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/studies/${study._id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

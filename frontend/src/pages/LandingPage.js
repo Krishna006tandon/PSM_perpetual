@@ -11,7 +11,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/public/packages');
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/public/packages');
       if (res.ok) {
         setPackages(await res.json());
       }

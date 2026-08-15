@@ -18,7 +18,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/analytics', {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/analytics', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setAnalytics(await res.json());
@@ -27,7 +27,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/packages', {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/packages', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setPackages(await res.json());
@@ -46,7 +46,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
   const handleSavePackage = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:5000/api/admin/packages', {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/packages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const handleDeletePackage = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/packages/${id}`, {
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/admin/packages/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });

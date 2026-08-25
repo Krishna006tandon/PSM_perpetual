@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
@@ -40,7 +40,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalInitialData, setModalInitialData] = useState({ deviationId: '', causeId: '' });
+  const [modalInitialData] = useState({ deviationId: '', causeId: '' });
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [allDeviations, setAllDeviations] = useState([]);
   const [allCauses, setAllCauses] = useState([]);
@@ -257,6 +257,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     fetchRiskCriteria();
     fetchAllDeviations();
     fetchAllCauses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
 
   const fetchRiskCriteria = async () => {
@@ -302,6 +303,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       setScenarios([]);
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId]);
 
   const fetchNodes = async () => {
@@ -314,7 +316,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const data = await response.json();
         setNodes(data);
         if (data.length > 0) {
-          setSelectedNodeId(data[0]._id);
+          const targetNodeId = localStorage.getItem('targetNodeId');
+          if (targetNodeId && data.some(n => n._id === targetNodeId)) {
+            setSelectedNodeId(targetNodeId);
+          } else {
+            setSelectedNodeId(data[0]._id);
+          }
         } else {
           setLoading(false);
         }
@@ -335,6 +342,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       if (response.ok) {
         const data = await response.json();
         setScenarios(data);
+
+        const targetScenarioId = localStorage.getItem('targetScenarioId');
+        if (targetScenarioId) {
+          setSelectedRowIds([targetScenarioId]);
+          setTimeout(() => {
+            const row = document.getElementById(`scenario-row-${targetScenarioId}`);
+            if (row) {
+               row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            localStorage.removeItem('targetNodeId');
+            localStorage.removeItem('targetScenarioId');
+          }, 300);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch scenarios:', error);
@@ -356,8 +376,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleCellChange = (id, field, value) => {
     setScenarios(prev => {
       const targetSc = prev.find(s => s._id === id);
-      const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
-      const isSafeGroupField = ['presentProtection', 'mitigatedRiskS', 'mitigatedRiskL'].includes(field);
+      const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
+      const isSafeGroupField = ['presentProtection'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
 
@@ -374,7 +394,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           };
 
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+            if (field === 'inherentRiskS') {
+              updatedSc.mitigatedRiskS = value;
+              updatedSc.residualRiskS = value;
+            }
+            if (field === 'inherentRiskL') {
+              if (!updatedSc.mitigatedRiskL) updatedSc.mitigatedRiskL = value;
+              if (!updatedSc.residualRiskL) updatedSc.residualRiskL = value;
+            }
             updatedSc.inherentRiskRR = calcRisk(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
+            updatedSc.mitigatedRiskRR = calcRisk(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
+            updatedSc.residualRiskRR = calcRisk(updatedSc.residualRiskS, updatedSc.residualRiskL);
           }
           if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
             updatedSc.mitigatedRiskRR = calcRisk(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
@@ -401,6 +431,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const s = field === 'inherentRiskS' ? parseInt(value) : parseInt(targetSc.inherentRiskS);
         const l = field === 'inherentRiskL' ? parseInt(value) : parseInt(targetSc.inherentRiskL);
         payload.inherentRiskRR = s && l ? s * l : '';
+        
+        if (field === 'inherentRiskS') {
+          payload.mitigatedRiskS = value;
+          payload.residualRiskS = value;
+        }
+        if (field === 'inherentRiskL') {
+          if (!targetSc.mitigatedRiskL) payload.mitigatedRiskL = value;
+          if (!targetSc.residualRiskL) payload.residualRiskL = value;
+        }
+        
+        const mS = parseInt(payload.mitigatedRiskS || targetSc.mitigatedRiskS);
+        const mL = parseInt(payload.mitigatedRiskL || targetSc.mitigatedRiskL);
+        payload.mitigatedRiskRR = mS && mL ? mS * mL : '';
+        
+        const rS = parseInt(payload.residualRiskS || targetSc.residualRiskS);
+        const rL = parseInt(payload.residualRiskL || targetSc.residualRiskL);
+        payload.residualRiskRR = rS && rL ? rS * rL : '';
       }
       if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
         const s = field === 'mitigatedRiskS' ? parseInt(value) : parseInt(targetSc.mitigatedRiskS);
@@ -413,8 +460,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         payload.residualRiskRR = s && l ? s * l : '';
       }
 
-      const isConsGroupField = ['consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL'].includes(field);
-      const isSafeGroupField = ['presentProtection', 'mitigatedRiskS', 'mitigatedRiskL'].includes(field);
+      const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
+      const isSafeGroupField = ['presentProtection'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
 
@@ -541,6 +588,34 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
+  const handleQuickAddNode = async () => {
+    const desc = window.prompt("Enter new Node description:");
+    if (!desc || !desc.trim()) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ description: desc.trim(), intention: '', boundary: '', eqCount: '' })
+      });
+      
+      if (response.ok) {
+        const newNode = await response.json();
+        setNodes(prev => [...prev, newNode]);
+        setSelectedNodeId(newNode._id);
+      } else {
+        alert("Failed to create node. Please try again.");
+      }
+    } catch (error) {
+      console.error('Failed to create node:', error);
+      alert("Failed to create node. Please try again.");
+    }
+  };
+
   const handleQuickAddDeviation = async () => {
     if (!selectedNodeId) return;
     try {
@@ -610,6 +685,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           consequenceGroupId: groupId,
           consequencesImmediate: sc.consequencesImmediate,
           consequencesUltimate: sc.consequencesUltimate,
+          consequenceCategory: sc.consequenceCategory,
           inherentRiskS: sc.inherentRiskS,
           inherentRiskL: sc.inherentRiskL
         })
@@ -654,6 +730,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           consequenceGroupId: sc.consequenceGroupId,
           consequencesImmediate: sc.consequencesImmediate,
           consequencesUltimate: sc.consequencesUltimate,
+          consequenceCategory: sc.consequenceCategory,
           inherentRiskS: sc.inherentRiskS,
           inherentRiskL: sc.inherentRiskL,
           safeguardGroupId: groupId,
@@ -745,12 +822,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   if (!study) return null;
 
   const exportToCSV = () => {
-    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\\n";
+    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\\n";
     processedScenarios.forEach((sc) => {
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
       csv += [
         escape(sc.index + 1), escape(sc.deviationId?.parameter), escape(sc.deviationId?.processFlowMaterial), escape(sc.deviationId?.locationFrom), escape(sc.deviationId?.locationTo),
-        escape(sc.deviationId?.deviationAuto), escape(sc.causeId?.description), escape(sc.consequencesImmediate), escape(sc.consequencesUltimate),
+        escape(sc.deviationId?.deviationAuto), escape(sc.causeId?.description), escape(sc.consequencesImmediate), escape(sc.consequencesUltimate), escape(sc.consequenceCategory),
         escape(sc.inherentRiskS), escape(sc.inherentRiskL), escape(sc.inherentRiskRR), escape(sc.presentProtection),
         escape(sc.mitigatedRiskS), escape(sc.mitigatedRiskL), escape(sc.mitigatedRiskRR), escape(sc.additionalProtection),
         escape(sc.residualRiskS), escape(sc.residualRiskL), escape(sc.residualRiskRR), escape(sc.remarks), escape(sc.status)
@@ -931,6 +1008,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             { content: 'DEVIATION', colSpan: 1 },
             { content: 'CAUSE', rowSpan: 2 },
             { content: 'CONSEQUENCES', rowSpan: 2 },
+            { content: 'CAT', rowSpan: 2 },
             { content: 'I-RISK', colSpan: 3 },
             { content: 'PROTECTION', rowSpan: 2 },
             { content: 'M-RISK', colSpan: 3 },
@@ -943,15 +1021,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const nodeScenarios = data.scenarios.filter(s => s.nodeId && s.nodeId._id === node._id);
           
           const body = nodeScenarios.map((s, idx) => {
-            const dev = s.deviationId ? s.deviationId.deviationAuto : '';
-            const cause = s.causeId ? s.causeId.description : '';
-            // Since our old CSV export just used s.consequencesImmediate and s.consequencesUltimate, let's use those
             const cons = [s.consequencesImmediate, s.consequencesUltimate].filter(c=>c).join('\n');
             const safe = [s.presentProtection, s.additionalProtection].filter(c=>c).join('\n');
             const rec = s.remarks || '';
             
             return [
-              (idx+1).toString(), dev, cause, cons,
+              s.badgeCons || '', 
+              s.deviationId?.deviationAuto || '', 
+              s.causeId?.description || '',
+              cons,
+              s.consequenceCategory || '',
               s.inherentRiskS || '', s.inherentRiskL || '', s.inherentRiskRR || '',
               safe,
               s.mitigatedRiskS || '', s.mitigatedRiskL || '', s.mitigatedRiskRR || '',
@@ -972,30 +1051,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             styles: { fontSize: 7.5, cellPadding: 4, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
             headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
             alternateRowStyles: { fillColor: rowLight },
-            didDrawCell: function(cellData) {
-              if (cellData.section === 'body' && (cellData.column.index === 6 || cellData.column.index === 10 || cellData.column.index === 15)) {
-                const val = parseInt(cellData.cell.raw);
-                if (!isNaN(val) && val > 0) {
-                  let color = [34, 197, 94];
-                  if (val > 10) color = [239, 68, 68];
-                  else if (val >= 4) color = [234, 179, 8];
-                  
-                  doc.setFillColor(color[0], color[1], color[2]);
-                  const dim = cellData.cell;
-                  const w = 18; const h = 12;
-                  const x = dim.x + (dim.width / 2) - (w / 2);
-                  const y = dim.y + (dim.height / 2) - (h / 2);
-                  doc.roundedRect(x, y, w, h, 3, 3, 'F');
-                  doc.setTextColor(val > 10 ? 255 : 0);
-                  doc.setFont("helvetica", "bold");
-                  doc.text(val.toString(), dim.x + dim.width / 2, dim.y + dim.height / 2 + 3, { align: 'center' });
-                }
-              }
-            },
             didParseCell: function(cellData) {
-               if (cellData.section === 'body' && (cellData.column.index === 6 || cellData.column.index === 10 || cellData.column.index === 15)) {
-                  if(cellData.cell.raw && cellData.cell.raw !== '') {
-                      cellData.cell.text = ''; 
+               if (cellData.section === 'body' && (cellData.column.index === 7 || cellData.column.index === 11 || cellData.column.index === 15)) {
+                  const val = parseInt(cellData.cell.raw);
+                  if (!isNaN(val) && val > 0) {
+                     let color = [34, 197, 94];
+                     if (val > 10) color = [239, 68, 68];
+                     else if (val >= 4) color = [234, 179, 8];
+                     
+                     cellData.cell.styles.fillColor = color;
+                     cellData.cell.styles.textColor = val > 10 ? 255 : 0;
+                     cellData.cell.styles.fontStyle = 'bold';
+                     cellData.cell.styles.halign = 'center';
+                     cellData.cell.styles.valign = 'middle';
                   }
                }
             }
@@ -1055,190 +1123,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       console.error(e);
       alert("Error generating full PDF: " + e.message);
     }
-  };
-
-  const generateMockPDF = () => {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert("PDF library is still loading.");
-      return;
-    }
-    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
-    const pageWidth = doc.internal.pageSize.width;
-    
-    // Modern Vibrant Colors
-    const primaryDark = [15, 23, 42]; // Slate 900
-    const primaryTeal = [13, 148, 136]; // Teal 600
-    const headerText = 255;
-    const rowLight = [248, 250, 252];
-    
-    // Page 1: General Info
-    doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.rect(0, 0, pageWidth, 60, 'F');
-    
-    doc.setFontSize(22);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text("HAZOP Study Report", 40, 38);
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    
-    doc.autoTable({
-      startY: 80,
-      theme: 'grid',
-      head: [['Facility Information', 'Study Duration']],
-      body: [
-        [
-          'Company: Indorama\nSite: IDPI Egypt\nStudy Path: Indorama/PET/IDPI', 
-          'Start Date: 23-Apr-25\nExpected Completion: 23-Jun-25'
-        ]
-      ],
-      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
-      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
-    });
-
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 20,
-      theme: 'grid',
-      head: [['Scope and Objective']],
-      body: [['Scope: Complete HAZOP study of Plant 1\nObjective: Systematically identify potential hazards and operability issues...']],
-      headStyles: { fillColor: primaryTeal, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
-      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] }
-    });
-
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 20,
-      theme: 'grid',
-      head: [['Assumptions / Basis']],
-      body: [
-        ['1. The process will work in accordance to its design.', 'Y', 'Equipment works as expected.'],
-        ['2. Operators are competent and well trained.', 'Y', 'Training is provided to all new personnel.']
-      ],
-      columns: [
-        { header: 'Assumption', dataKey: 0 },
-        { header: 'Valid?', dataKey: 1 },
-        { header: 'Comments', dataKey: 2 }
-      ],
-      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 11 },
-      styles: { fontSize: 9.5, cellPadding: 8, lineColor: [200, 200, 200] },
-      alternateRowStyles: { fillColor: rowLight }
-    });
-
-    // Page 2: Team Members & Sessions
-    doc.addPage();
-    doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
-    doc.rect(0, 0, pageWidth, 60, 'F');
-    doc.setFontSize(22);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text("Team Members & Sessions", 40, 38);
-    
-    doc.autoTable({
-      startY: 80,
-      theme: 'grid',
-      head: [['First Name', 'Last Name', 'Title', 'Department', 'Expertise']],
-      body: [
-        ['Avinash', 'Gore', 'HAZOP Chairman', 'PSM', 'PSM'],
-        ['Yogesh', 'Galaft', 'Deputy Manager', 'Production', 'Process/Production']
-      ],
-      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-      styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-      alternateRowStyles: { fillColor: rowLight }
-    });
-
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 20,
-      theme: 'grid',
-      head: [['Date', 'Duration', 'Description', 'Places Used']],
-      body: [
-        ['23-Apr-25', '7.75 hrs', 'Initiated with corresponding P&ID, 5 nodes completed.', 'Session: 1.1, 2.1'],
-        ['24-Apr-25', '8.50 hrs', 'Continued with Node 6.', 'Session: 6.1, 7.1']
-      ],
-      headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-      styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-      alternateRowStyles: { fillColor: rowLight }
-    });
-
-    // Page 3: HAZOP Worksheet
-    doc.addPage();
-    doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.rect(0, 0, pageWidth, 60, 'F');
-    doc.setFontSize(20);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text("HAZOP Study Worksheet (Node 1: EG Tankfarm)", 40, 38);
-    
-    const head = [[
-      { content: '#', rowSpan: 2 },
-      { content: 'DEVIATION', colSpan: 1 },
-      { content: 'CAUSE', rowSpan: 2 },
-      { content: 'CONSEQUENCES', rowSpan: 2 },
-      { content: 'I-RISK', colSpan: 3 },
-      { content: 'PROTECTION', rowSpan: 2 },
-      { content: 'M-RISK', colSpan: 3 },
-      { content: 'RECOMMENDATIONS', rowSpan: 2 },
-      { content: 'R-RISK', colSpan: 3 }
-    ], [
-      'Deviation', 'S', 'L', 'RR', 'S', 'L', 'RR', 'S', 'L', 'RR'
-    ]];
-
-    const body = [
-      [
-        '1', 'No or less flow of EGF from Tankers', 'Pump P0101A/B failure', 'High level in tanker leading to overflow of MEG',
-        '4', '4', '16', 'PPEs mandatory, Eye shower provided', '2', '2', '4', 'Check valve is provided at pump discharge line', '1', '1', '1'
-      ],
-      [
-        '2', 'High pressure', 'Inadvertent valve closure', 'Pump damage due to dead head',
-        '3', '5', '15', 'PSV-0101 is available', '2', '3', '6', 'Install high pressure alarm', '1', '2', '2'
-      ],
-      [
-        '3', 'Reverse Flow', 'Pump P-0102A/B failure', 'No safety concern for this cause',
-        '2', '1', '2', 'None', '2', '1', '2', 'None needed', '1', '1', '1'
-      ]
-    ];
-
-    doc.autoTable({
-      startY: 80, 
-      head: head, 
-      body: body, 
-      theme: 'grid',
-      styles: { fontSize: 7.5, cellPadding: 4, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
-      headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: rowLight },
-      didDrawCell: function(data) {
-        // Draw colored badges for the "RR" (Risk Ranking) columns
-        // RR columns are index 6 (I-Risk), 10 (M-Risk), 15 (R-Risk)
-        if (data.section === 'body' && (data.column.index === 6 || data.column.index === 10 || data.column.index === 15)) {
-          const val = parseInt(data.cell.raw);
-          if (!isNaN(val)) {
-            let color = [34, 197, 94]; // Green
-            if (val > 10) color = [239, 68, 68]; // Red
-            else if (val >= 4) color = [234, 179, 8]; // Yellow
-            
-            doc.setFillColor(color[0], color[1], color[2]);
-            // Draw a pill shape
-            const dim = data.cell;
-            const w = 18;
-            const h = 12;
-            const x = dim.x + (dim.width / 2) - (w / 2);
-            const y = dim.y + (dim.height / 2) - (h / 2);
-            doc.roundedRect(x, y, w, h, 3, 3, 'F');
-            
-            // Re-draw text in white/black depending on color
-            doc.setTextColor(val > 10 ? 255 : 0);
-            doc.setFont("helvetica", "bold");
-            doc.text(val.toString(), dim.x + dim.width / 2, dim.y + dim.height / 2 + 3, { align: 'center' });
-          }
-        }
-      },
-      didParseCell: function(data) {
-         if (data.section === 'body' && (data.column.index === 6 || data.column.index === 10 || data.column.index === 15)) {
-            data.cell.text = ''; // Clear original text since we draw it in didDrawCell
-         }
-      }
-    });
-
-    doc.save('Mock_Vibrant_HAZOP_Report.pdf');
   };
 
   return (
@@ -1342,15 +1226,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
           <button className="toolbar-btn" onClick={exportToCSV} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
           <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px'}}>📥 PDF</button>
-          <button className="toolbar-btn" onClick={generateMockPDF} title="Mock Full Report" style={{fontSize: '12px', backgroundColor: '#eab308', color: 'white'}}>📄 Test Full Mock PDF</button>
           
           <div className="pha-node-selector">
             NODE: 
-            <select disabled={!canEdit}  value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
+            <select disabled={!canEdit} value={selectedNodeId} onChange={(e) => {
+              if (e.target.value === '__ADD_NEW_NODE__') {
+                handleQuickAddNode();
+              } else {
+                setSelectedNodeId(e.target.value);
+              }
+            }}>
               {nodes.length === 0 && <option value="">No nodes</option>}
               {nodes.map((n, i) => (
                 <option key={n._id} value={n._id}>{i + 1}. {n.description}</option>
               ))}
+              {canEdit && <option value="__ADD_NEW_NODE__" style={{fontStyle: 'italic', color: '#2563eb'}}>+ Add New Node...</option>}
             </select>
           </div>
           
@@ -1387,6 +1277,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary w-cause" rowSpan={2}>CAUSE</th>
                 
                 <th className="th-primary" colSpan={2} style={{borderBottom: 'none'}}>CONSEQUENCES</th>
+                <th className="th-primary w-cat" rowSpan={2}>CAT</th>
                 
                 <th className="th-primary th-risk-inherent" colSpan={3} style={{borderBottom: 'none'}}>INHERENT RISK</th>
                 
@@ -1441,6 +1332,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               {!loading && processedScenarios.map((sc, index) => (
                 <tr 
                   key={sc._id}
+                  id={`scenario-row-${sc._id}`}
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
                   <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
@@ -1594,6 +1486,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           suggestions={uniqueSuggestions.consUlt}
                         />
                       </td>
+                      <td className="w-cat bg-consequence" rowSpan={sc.consSpanCount}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.consequenceCategory || ''} onChange={(e) => handleCellChange(sc._id, 'consequenceCategory', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'consequenceCategory', e.target.value)}>
+                          <option value=""></option>
+                          {riskCriteria?.consequenceCategories?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                      </td>
                       
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
@@ -1630,27 +1528,31 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           }}
                         />
                       </td>
-                      
-                      <td className="w-risk-s" rowSpan={sc.safeSpanCount}>
+                    </>
+                  )}
+                  
+                  {sc.isNewCons && (
+                    <>
+                      <td className="w-risk-s" rowSpan={sc.consSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
                           <option value=""></option>
                           {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
-                      <td className="w-risk-l" rowSpan={sc.safeSpanCount}>
+                      <td className="w-risk-l" rowSpan={sc.consSpanCount}>
                         <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
                           <option value=""></option>
                           {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.safeSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
                   <td className="w-additional">
                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                       <div style={{display: 'flex', alignItems: 'flex-start', gap: '4px'}}>
-                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#6b7280', paddingTop: '4px', minWidth: '24px'}}>R{index + 1}.</span>
+                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#6b7280', paddingTop: '4px', minWidth: '24px'}}>{sc.additionalProtection ? `R${index + 1}.` : ''}</span>
                         <AutocompleteTextarea disabled={!canEdit} 
                           style={{flex: 1}}
                           value={sc.additionalProtection || ''} 
@@ -1670,19 +1572,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     </div>
                   </td>
 
-                  <td className="w-risk-s">
-                    <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
-                      <option value=""></option>
-                      {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
-                    </select>
-                  </td>
-                  <td className="w-risk-l">
-                    <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
-                      <option value=""></option>
-                      {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
-                    </select>
-                  </td>
-                  <td className="w-risk-rr" style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                  {sc.isNewCons && (
+                    <>
+                      <td className="w-risk-s" rowSpan={sc.consSpanCount}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                          <option value=""></option>
+                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        </select>
+                      </td>
+                      <td className="w-risk-l" rowSpan={sc.consSpanCount}>
+                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                          <option value=""></option>
+                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                    </>
+                  )}
                   <td className="w-remarks">
                     <textarea data-gramm="false" spellcheck="false" 
                       value={sc.remarks || ''} 

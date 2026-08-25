@@ -17,6 +17,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
 
   const fetchData = async () => {
@@ -247,30 +248,44 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
             <thead>
               <tr>
                 <th style={{width:'50px'}}>#</th>
+                <th className="col-custom">RECOMMENDATION STATEMENT</th>
                 <th className="col-node">NODE</th>
                 <th className="col-dev">DEVIATION</th>
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
-                <th className="col-custom">ADDITIONAL PROTECTION (RECOMMENDATIONS)</th>
+                <th style={{width: '60px', textAlign: 'center'}}>LINK</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {!loading && scenarios.map((sc, index) => (
+              {!loading && scenarios.filter(sc => sc.additionalProtection && sc.additionalProtection.trim() !== '').map((sc, index) => (
                 <tr key={sc._id}>
                   <td style={{textAlign:'center'}}>R{index + 1}</td>
-                  <td className="col-node">{sc.nodeId?.description || ''}</td>
-                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-cause">{sc.causeId?.description || ''}</td>
-                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
                     <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                       value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                     />
+                  </td>
+                  <td className="col-node">{sc.nodeId?.description || ''}</td>
+                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
+                  <td className="col-cause">{sc.causeId?.description || ''}</td>
+                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
+                  <td style={{textAlign: 'center'}}>
+                    <span 
+                      title="Go to Worksheet" 
+                      onClick={() => {
+                        if (sc.nodeId?._id) localStorage.setItem('targetNodeId', sc.nodeId._id);
+                        if (sc._id) localStorage.setItem('targetScenarioId', sc._id);
+                        onNavigate('pha-worksheets');
+                      }} 
+                      style={{cursor: 'pointer', color: '#0ea5e9', fontSize: '16px', textDecoration: 'underline'}}
+                    >
+                      View
+                    </span>
                   </td>
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">

@@ -11,6 +11,7 @@ const scenarioSchema = new mongoose.Schema({
   causeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cause' },
   
   consequenceGroupId: { type: String },
+  consequenceCategory: { type: String, default: '' },
   safeguardGroupId: { type: String },
   consequencesImmediate: { type: String, default: '' },
   consequencesUltimate: { type: String, default: '' },

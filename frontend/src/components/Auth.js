@@ -14,12 +14,32 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Forgot Password States
+  const [authStep, setAuthStep] = useState('LOGIN'); // 'LOGIN', 'FORGOT_EMAIL'
+  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     if (isCheckoutRegistration) {
       setIsLogin(false);
     }
   }, [isCheckoutRegistration]);
+
+  const handleForgotSendLink = async (e) => {
+    e.preventDefault();
+    setError(''); setSuccessMsg(''); setLoading(true);
+    try {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/auth/forgot-password-link', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      setSuccessMsg(data.message);
+    } catch (err) {
+      setError(err.message);
+    } finally { setLoading(false); }
+  };
 
   const initiateRazorpayPayment = async (orderData) => {
     return new Promise(async (resolve, reject) => {
@@ -190,26 +210,66 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
     );
   }
 
-  // Standard Login (Light mode or generic)
+  // Shared input style
+  const inputStyle = { padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' };
+  const btnStyle = { padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1, width: '100%' };
+
+  // Standard Login / Forgot Password Wrapper (Light mode or generic)
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' }}>
-      <div style={{ backgroundColor: 'var(--bg-paper)', padding: '48px', borderRadius: '16px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)' }}>
-        <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
-        <h2 style={{ color: 'var(--text-primary)', marginBottom: '32px', textAlign: 'center', fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Sign In</h2>
-        {error && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+      <div style={{ backgroundColor: 'var(--bg-paper)', borderRadius: '16px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)', overflow: 'hidden' }}>
+        <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease', zIndex: 10 }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
+        
+        {/* Animated Container */}
+        <div style={{ display: 'flex', width: '200%', transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)', transform: `translateX(-${['LOGIN', 'FORGOT_EMAIL'].indexOf(authStep) * 50}%)` }}>
+          
+          {/* STEP 1: LOGIN */}
+          <div style={{ width: '50%', padding: '48px', boxSizing: 'border-box' }}>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '32px', textAlign: 'center', fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Sign In</h2>
+            {error && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
+            {successMsg && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(16, 185, 129, 0.2)' }}>{successMsg}</div>}
+            
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
+              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+                {loading ? 'Authenticating...' : 'Sign In'}
+              </button>
+            </form>
+            <div style={{ textAlign: 'center', marginTop: '24px' }}>
+              <span onClick={() => { setAuthStep('FORGOT_EMAIL'); setError(''); setSuccessMsg(''); }} style={{ color: 'var(--primary-main)', fontSize: '0.9rem', cursor: 'pointer', fontWeight: '600', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-dark)'} onMouseOut={(e) => e.target.style.color = 'var(--primary-main)'}>Forgot Password?</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+
+          {/* STEP 2: FORGOT_EMAIL */}
+          <div style={{ width: '50%', padding: '48px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+              <button onClick={() => { setAuthStep('LOGIN'); setError(''); setSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 10px 0 0' }}>&larr;</button>
+              <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', flex: 1, textAlign: 'center', paddingRight: '20px' }}>Reset Password</h2>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '24px', textAlign: 'center' }}>Enter your email address to receive a password reset link.</p>
+            {error && authStep === 'FORGOT_EMAIL' && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
+            {successMsg && authStep === 'FORGOT_EMAIL' && <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(16, 185, 129, 0.2)' }}>{successMsg}</div>}
+            
+            <form onSubmit={handleForgotSendLink} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              </div>
+              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+                {loading ? 'Sending...' : 'Send Link'}
+              </button>
+            </form>
           </div>
-          <button type="submit" disabled={loading} style={{ marginTop: '16px', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1 }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
-            {loading ? 'Authenticating...' : 'Sign In'}
-          </button>
-        </form>
+
+
+        </div>
       </div>
     </div>
   );

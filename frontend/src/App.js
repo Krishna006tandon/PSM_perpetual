@@ -19,6 +19,7 @@ import LOPAWorksheet from './pages/LOPAWorksheet';
 import EquipmentRegistry from './pages/EquipmentRegistry';
 import MomWorksheet from './pages/MomWorksheet';
 import MocDashboard from './pages/MocDashboard';
+import ResetPassword from './pages/ResetPassword';
 
 import Auth from './components/Auth';
 
@@ -395,6 +396,10 @@ function App() {
       </main>
     );
   };
+
+  if (window.location.pathname.startsWith('/reset-password')) {
+    return <ResetPassword />;
+  }
 
   return (
     <div className="app-container">

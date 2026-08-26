@@ -242,7 +242,8 @@ router.post('/forgot-password-link', async (req, res) => {
     }
 
     // Securely encode the email in the link
-    const resetUrl = `http://localhost:3000/reset-password?email=${encodeURIComponent(email)}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://psm.perpetualsolutions.co.in';
+    const resetUrl = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}`;
 
     try {
       const transporter = nodemailer.createTransport({

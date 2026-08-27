@@ -553,6 +553,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     } catch (error) {
       console.error('Error adding quick consequence:', error);
+      alert("Network error: Could not add consequence. Please check your connection.");
     }
   };
 
@@ -585,6 +586,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     } catch (error) {
       console.error('Error adding quick cause:', error);
+      alert("Network error: Could not add cause. Please check your connection.");
     }
   };
 
@@ -653,6 +655,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     } catch (error) {
       console.error('Error adding quick deviation:', error);
+      alert("Network error: Could not add deviation. Please check your connection.");
     }
   };
 
@@ -700,6 +703,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     } catch (error) {
       console.error('Error adding quick safeguard:', error);
+      alert("Network error: Could not add safeguard. Please check your connection.");
     }
   };
 
@@ -748,6 +752,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
     } catch (error) {
       console.error('Error adding quick recommendation:', error);
+      alert("Network error: Could not add recommendation. Please check your connection.");
     }
   };
 

@@ -1,6 +1,6 @@
 .pha-container-flush {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -221,6 +221,7 @@
 .pha-table-wrapper-flush {
   flex: 1;
   width: 100%;
+  min-height: 650px;
   background-color: var(--bg-paper);
   overflow-x: auto;
   overflow-y: auto;
@@ -300,12 +301,12 @@
 }
 
 .pha-table td {
-  padding: 12px 10px;
-  font-size: 13px;
+  padding: 14px 12px;
+  font-size: 14px;
   color: var(--text-primary);
   border: 1px solid var(--divider); /* Elegant light slate borders */
   vertical-align: top;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .pha-table tbody tr {
@@ -388,7 +389,7 @@
 }
 
 .pha-table td textarea {
-  min-height: 48px;
+  min-height: 72px;
 }
 
 /* Empty State */

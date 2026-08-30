@@ -3,6 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
+import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
 
 // A custom Select component that allows adding new options
@@ -45,6 +46,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [allDeviations, setAllDeviations] = useState([]);
   const [allCauses, setAllCauses] = useState([]);
   const [showReportSettings, setShowReportSettings] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importMode, setImportMode] = useState('append');
+  const [newNodeName, setNewNodeName] = useState('');
 
   // Extract unique text from all scenarios for autocomplete
   const uniqueSuggestions = useMemo(() => {
@@ -826,8 +830,177 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
   if (!study) return null;
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!selectedNodeId && importMode !== 'new') {
+      alert("Please select a Node first to import scenarios.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+      const token = localStorage.getItem('token');
+      
+      let targetNodeId = selectedNodeId;
+      if (importMode === 'new') {
+        if (!newNodeName.trim()) {
+          alert("Please enter a name for the new node.");
+          setLoading(false);
+          return;
+        }
+        const res = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ description: newNodeName })
+        });
+        if (res.ok) {
+          const newNode = await res.json();
+          targetNodeId = newNode._id;
+        } else {
+          throw new Error('Failed to create new node');
+        }
+      } else if (importMode === 'overwrite' && targetNodeId) {
+        // Delete existing scenarios for the selected node
+        const scenariosToDelete = scenarios.filter(s => (s.nodeId?._id === targetNodeId) || (s.nodeId === targetNodeId));
+        for (const s of scenariosToDelete) {
+          await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${s._id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+      }
+
+      let localDeviations = [...allDeviations];
+      let localCauses = [...allCauses];
+
+      for (const row of rows) {
+        // Skip if row is mostly empty
+        if (!row['DEVIATION'] && !row['CAUSE'] && !row['CONSEQUENCE (IMMEDIATE)']) continue;
+
+        const param = row['DEVIATION (PARAM)'] || '';
+        const mat = row['DEVIATION (MATERIAL)'] || '';
+        const eq = row['DEVIATION (EQUIPMENT)'] || '';
+        const ins = row['DEVIATION (INSTRUMENT)'] || '';
+        const devAuto = row['DEVIATION'] || '';
+        
+        let devId = null;
+        let existingDev = localDeviations.find(d => 
+          (d.deviationAuto && devAuto && d.deviationAuto === devAuto) ||
+          (d.parameter === param && d.processFlowMaterial === mat && d.locationFrom === eq && d.locationTo === ins)
+        );
+
+        if (existingDev) {
+          devId = existingDev._id;
+        } else if (devAuto || param || mat) {
+          // Create deviation
+          const res = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ parameter: param, processFlowMaterial: mat, locationFrom: eq, locationTo: ins, deviationAuto: devAuto })
+          });
+          if (res.ok) {
+            const newDev = await res.json();
+            localDeviations.push(newDev);
+            devId = newDev._id;
+          }
+        }
+
+        const causeDesc = row['CAUSE'] || '';
+        let causeId = null;
+        if (causeDesc) {
+          let existingCause = localCauses.find(c => c.description === causeDesc);
+          if (existingCause) {
+            causeId = existingCause._id;
+          } else {
+            // Create cause
+            const res = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ description: causeDesc })
+            });
+            if (res.ok) {
+              const newCause = await res.json();
+              localCauses.push(newCause);
+              causeId = newCause._id;
+            }
+          }
+        }
+
+        // Calculate RRs if not provided but S and L are
+        const calcRisk = (sVal, lVal) => {
+          const s = parseInt(sVal) || 0;
+          const l = parseInt(lVal) || 0;
+          if (!s || !l || !riskCriteria) return '';
+          const cell = riskCriteria.matrixCells.find(c => c.severityLevel === s && c.likelihoodLevel === l);
+          return cell ? cell.score : s * l;
+        };
+        const inRiskRR = row['INHERENT RISK RR'] || calcRisk(row['INHERENT RISK S'], row['INHERENT RISK L']);
+        const mitRiskRR = row['MITIGATED RISK RR'] || calcRisk(row['MITIGATED RISK S'], row['MITIGATED RISK L']);
+        const resRiskRR = row['RESIDUAL RISK RR'] || calcRisk(row['RESIDUAL RISK S'], row['RESIDUAL RISK L']);
+
+        // Create scenario
+        const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            nodeId: targetNodeId,
+            ...(devId ? { deviationId: devId } : {}),
+            ...(causeId ? { causeId: causeId } : {}),
+            consequencesImmediate: row['CONSEQUENCE (IMMEDIATE)'] || '',
+            consequencesUltimate: row['CONSEQUENCE (ULTIMATE)'] || '',
+            consequenceCategory: row['CAT'] || '',
+            inherentRiskS: row['INHERENT RISK S'] || '',
+            inherentRiskL: row['INHERENT RISK L'] || '',
+            inherentRiskRR: inRiskRR,
+            presentProtection: row['PRESENT/PLANNED PROTECTION'] || '',
+            mitigatedRiskS: row['MITIGATED RISK S'] || '',
+            mitigatedRiskL: row['MITIGATED RISK L'] || '',
+            mitigatedRiskRR: mitRiskRR,
+            additionalProtection: row['ADDITIONAL PROTECTION'] || '',
+            residualRiskS: row['RESIDUAL RISK S'] || '',
+            residualRiskL: row['RESIDUAL RISK L'] || '',
+            residualRiskRR: resRiskRR,
+            remarks: row['REMARKS'] || '',
+            status: row['STATUS'] || 'Open'
+          })
+        });
+
+        if (!scRes.ok) {
+          const errText = await scRes.text();
+          throw new Error(`Failed to save scenario: ${errText}`);
+        }
+      }
+
+      setAllDeviations(localDeviations);
+      setAllCauses(localCauses);
+      
+      if (importMode === 'new') {
+        await fetchNodes();
+        setSelectedNodeId(targetNodeId);
+      } else {
+        fetchScenarios(targetNodeId);
+      }
+      setShowImportModal(false);
+      alert('Import completed successfully.');
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Failed to import data. Please ensure it matches the template.');
+      setLoading(false); // Make sure to disable loading on error
+    }
+    
+    // Reset file input
+    e.target.value = '';
+  };
+
   const exportToCSV = () => {
-    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\\n";
+    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n";
     processedScenarios.forEach((sc) => {
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
       csv += [
@@ -836,7 +1009,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         escape(sc.inherentRiskS), escape(sc.inherentRiskL), escape(sc.inherentRiskRR), escape(sc.presentProtection),
         escape(sc.mitigatedRiskS), escape(sc.mitigatedRiskL), escape(sc.mitigatedRiskRR), escape(sc.additionalProtection),
         escape(sc.residualRiskS), escape(sc.residualRiskL), escape(sc.residualRiskRR), escape(sc.remarks), escape(sc.status)
-      ].join(',') + '\\n';
+      ].join(',') + '\n';
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -1229,6 +1402,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
           <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
+          <button className="toolbar-btn" onClick={() => setShowImportModal(true)} title="Import Data" style={{fontSize: '12px'}}>📤 Import</button>
+          <input id="file-upload-input" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style={{display: 'none'}} onChange={handleFileUpload} />
           <button className="toolbar-btn" onClick={exportToCSV} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
           <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px'}}>📥 PDF</button>
           
@@ -1674,6 +1849,67 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             // Re-fetch or rely on next PDF export picking up changes
           }}
         />
+      )}
+
+      {showImportModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'var(--bg-paper, #fff)', padding: '24px', borderRadius: '8px', 
+            width: '450px', boxShadow: '0 10px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{marginTop: 0, color: 'var(--primary-main, #3b82f6)'}}>Import Options</h3>
+            <p style={{fontSize: '13px', color: 'var(--text-secondary, #6b7280)', marginBottom: '16px'}}>
+              How would you like to import the file data?
+            </p>
+            
+            <div style={{marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+              <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px'}}>
+                <input type="radio" name="importMode" checked={importMode === 'append'} onChange={() => setImportMode('append')} /> 
+                Append to Existing (Add to current Node)
+              </label>
+              <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px'}}>
+                <input type="radio" name="importMode" checked={importMode === 'overwrite'} onChange={() => setImportMode('overwrite')} /> 
+                Overwrite Existing (Replace current Node's scenarios)
+              </label>
+              <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px'}}>
+                <input type="radio" name="importMode" checked={importMode === 'new'} onChange={() => setImportMode('new')} /> 
+                Add New (Create a new Node)
+              </label>
+            </div>
+            
+            {importMode === 'new' && (
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', fontSize: '12px', marginBottom: '6px', fontWeight: 'bold'}}>New Node Name/Description</label>
+                <input 
+                  type="text" 
+                  value={newNodeName} 
+                  onChange={e => setNewNodeName(e.target.value)} 
+                  style={{width: '95%', padding: '10px', borderRadius: '4px', border: '1px solid #d1d5db'}} 
+                  placeholder="E.g., Node 2: Feed System" 
+                />
+              </div>
+            )}
+
+            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px'}}>
+              <button 
+                onClick={() => setShowImportModal(false)} 
+                style={{padding: '8px 16px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => document.getElementById('file-upload-input').click()} 
+                style={{padding: '8px 16px', background: 'var(--primary-main, #3b82f6)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}
+              >
+                Select File & Import
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </StudyLayout>
   );

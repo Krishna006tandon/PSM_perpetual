@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import './PHAStartMenu.css';
 
 const PlusIcon = () => (
@@ -46,6 +47,7 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
     phaType: 'HAZOP',
     studyStatus: 'Planned'
   });
+  const [isImporting, setIsImporting] = useState(false);
 
   
   useEffect(() => {
@@ -124,6 +126,168 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+      console.log("DEBUG: Parsed rows from file:", rows);
+
+      const token = localStorage.getItem('token');
+      
+      // Use REACT_APP_API_URL for local/deployed switching
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      // 1. Create a new Study using the file name
+      const fileNameStr = file.name.replace(/\.[^/.]+$/, "");
+      const studyRes = await fetch(`${baseUrl}/api/studies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          studyName: fileNameStr,
+          studyCoordinator: 'Imported',
+          facility: 'Imported',
+          plantUnit: 'Imported',
+          phaType: 'HAZOP',
+          studyStatus: 'Planned'
+        })
+      });
+      
+      if (!studyRes.ok) throw new Error('Failed to create study');
+      const newStudy = await studyRes.json();
+      
+      // 2. Create an initial Node
+      const nodeRes = await fetch(`${baseUrl}/api/nodes/${newStudy._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: 'Imported Node 1' })
+      });
+      if (!nodeRes.ok) throw new Error('Failed to create node');
+      const newNode = await nodeRes.json();
+      const targetNodeId = newNode._id;
+
+      // 3. Keep track of created deviations and causes in memory to avoid duplicates
+      let localDeviations = [];
+      let localCauses = [];
+      
+      let importedCount = 0;
+
+      for (const row of rows) {
+        if (!row['DEVIATION'] && !row['DEVIATION (PARAM)'] && !row['CAUSE'] && !row['CONSEQUENCE (IMMEDIATE)']) {
+          console.log("DEBUG: Skipping empty row", row);
+          continue;
+        }
+        
+        console.log("DEBUG: Importing row", row);
+
+        const param = row['DEVIATION (PARAM)'] || '';
+        const mat = row['DEVIATION (MATERIAL)'] || '';
+        const eq = row['DEVIATION (EQUIPMENT)'] || '';
+        const ins = row['DEVIATION (INSTRUMENT)'] || '';
+        const devAuto = row['DEVIATION'] || '';
+        
+        let devId = null;
+        let existingDev = localDeviations.find(d => 
+          (d.deviationAuto && devAuto && d.deviationAuto === devAuto) ||
+          (d.parameter === param && d.processFlowMaterial === mat && d.locationFrom === eq && d.locationTo === ins)
+        );
+
+        if (existingDev) {
+          devId = existingDev._id;
+        } else if (devAuto || param || mat) {
+          const res = await fetch(`${baseUrl}/api/deviations/${newStudy._id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ parameter: param, processFlowMaterial: mat, locationFrom: eq, locationTo: ins, deviationAuto: devAuto })
+          });
+          if (res.ok) {
+            const newDev = await res.json();
+            localDeviations.push(newDev);
+            devId = newDev._id;
+          }
+        }
+
+        const causeDesc = row['CAUSE'] || '';
+        let causeId = null;
+        if (causeDesc) {
+          let existingCause = localCauses.find(c => c.description === causeDesc);
+          if (existingCause) {
+            causeId = existingCause._id;
+          } else {
+            const res = await fetch(`${baseUrl}/api/causes/${newStudy._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ description: causeDesc })
+            });
+            if (res.ok) {
+              const newCause = await res.json();
+              localCauses.push(newCause);
+              causeId = newCause._id;
+            }
+          }
+        }
+
+        const calcRisk = (sVal, lVal) => {
+          const s = parseInt(sVal) || 0;
+          const l = parseInt(lVal) || 0;
+          return (s && l) ? (s * l) : '';
+        };
+        const inRiskRR = row['INHERENT RISK RR'] || calcRisk(row['INHERENT RISK S'], row['INHERENT RISK L']);
+        const mitRiskRR = row['MITIGATED RISK RR'] || calcRisk(row['MITIGATED RISK S'], row['MITIGATED RISK L']);
+        const resRiskRR = row['RESIDUAL RISK RR'] || calcRisk(row['RESIDUAL RISK S'], row['RESIDUAL RISK L']);
+
+        const scRes = await fetch(`${baseUrl}/api/scenarios/${newStudy._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            nodeId: targetNodeId,
+            ...(devId ? { deviationId: devId } : {}),
+            ...(causeId ? { causeId: causeId } : {}),
+            consequencesImmediate: row['CONSEQUENCE (IMMEDIATE)'] || '',
+            consequencesUltimate: row['CONSEQUENCE (ULTIMATE)'] || '',
+            consequenceCategory: row['CAT'] || '',
+            inherentRiskS: row['INHERENT RISK S'] || '',
+            inherentRiskL: row['INHERENT RISK L'] || '',
+            inherentRiskRR: inRiskRR,
+            presentProtection: row['PRESENT/PLANNED PROTECTION'] || '',
+            mitigatedRiskS: row['MITIGATED RISK S'] || '',
+            mitigatedRiskL: row['MITIGATED RISK L'] || '',
+            mitigatedRiskRR: mitRiskRR,
+            additionalProtection: row['ADDITIONAL PROTECTION'] || '',
+            residualRiskS: row['RESIDUAL RISK S'] || '',
+            residualRiskL: row['RESIDUAL RISK L'] || '',
+            residualRiskRR: resRiskRR,
+            remarks: row['REMARKS'] || '',
+            status: row['STATUS'] || 'Open'
+          })
+        });
+        
+        if (!scRes.ok) {
+          const errText = await scRes.text();
+          throw new Error(`Failed to save scenario: ${errText}`);
+        }
+        importedCount++;
+      }
+
+      console.log(`DEBUG: Successfully imported ${importedCount} scenarios`);
+      alert(`File imported successfully! Imported ${importedCount} scenarios. Opening new study...`);
+      if (onStudyCreated) {
+        onStudyCreated(newStudy);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Failed to import study from file.');
+    } finally {
+      setIsImporting(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="pha-container">
       <div className="pha-header">
@@ -147,7 +311,7 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
             </button>
           )}
 
-          <button className="pha-action-card">
+          <button className="pha-action-card" onClick={() => document.getElementById('dashboard-file-upload').click()}>
             <div className="pha-action-icon-wrapper open-icon">
               <FolderIcon />
             </div>
@@ -156,6 +320,13 @@ const PHAStartMenu = ({ onStudyCreated, onLogout, canEdit }) => {
               <p>Load study from disk</p>
             </div>
           </button>
+          <input 
+            id="dashboard-file-upload" 
+            type="file" 
+            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+            style={{display: 'none'}} 
+            onChange={handleFileUpload} 
+          />
         </div>
 
         <div className="pha-recent-studies">

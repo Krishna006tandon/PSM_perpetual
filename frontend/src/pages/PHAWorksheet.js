@@ -49,6 +49,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [showImportModal, setShowImportModal] = useState(false);
   const [importMode, setImportMode] = useState('append');
   const [newNodeName, setNewNodeName] = useState('');
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Extract unique text from all scenarios for autocomplete
   const uniqueSuggestions = useMemo(() => {
@@ -263,6 +264,119 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     fetchAllCauses();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
+
+  useEffect(() => {
+    if (isFocusMode) {
+      document.body.classList.add('crazy-focus-mode');
+    } else {
+      document.body.classList.remove('crazy-focus-mode');
+    }
+  }, [isFocusMode]);
+
+  useEffect(() => {
+    const styleId = 'crazy-focus-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        /* Crazy Focus Mode Animations */
+        .study-radial-sidebar, .pha-metadata-flush, .pha-toolbar-flush {
+          transition: all 0.8s cubic-bezier(0.68, -0.6, 0.32, 1.6) !important;
+          transform-origin: top left;
+        }
+
+        body.crazy-focus-mode .study-radial-sidebar {
+          transform: translateX(-200%) rotate(-45deg) scale(0.2) !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: absolute !important;
+        }
+
+        body.crazy-focus-mode .pha-metadata-flush {
+          transform: translateY(-200%) scale(0.5) rotate(10deg) !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: absolute !important;
+        }
+
+        body.crazy-focus-mode .pha-toolbar-flush {
+          transform: translateY(-200%) scale(0.5) rotate(-10deg) !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: absolute !important;
+        }
+
+        .pha-container-flush {
+          transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1) !important;
+        }
+
+        body.crazy-focus-mode .study-main-layout {
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        body.crazy-focus-mode .study-layout-container {
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        body.crazy-focus-mode .pha-container-flush {
+          padding: 0 !important;
+          margin: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          max-width: 100vw !important;
+        }
+
+        body.crazy-focus-mode .pha-worksheet-scroll-container {
+          height: 100vh !important;
+          max-height: 100vh !important;
+          border-radius: 0 !important;
+          border: none !important;
+        }
+
+        /* Floating Focus Toggle Button */
+        .focus-toggle-fab {
+          position: fixed;
+          bottom: 40px;
+          right: 40px;
+          width: 70px;
+          height: 70px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1, #ec4899, #8b5cf6);
+          background-size: 200% 200%;
+          color: white;
+          border: none;
+          box-shadow: 0 10px 25px rgba(99, 102, 241, 0.5);
+          cursor: pointer;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          animation: crazy-gradient-shift 3s ease infinite;
+        }
+
+        .focus-toggle-fab:hover {
+          transform: scale(1.15) rotate(25deg);
+          box-shadow: 0 15px 35px rgba(236, 72, 153, 0.6);
+        }
+
+        .focus-toggle-fab.active {
+          background: linear-gradient(135deg, #10b981, #3b82f6);
+          transform: scale(0.9) rotate(-360deg);
+        }
+
+        @keyframes crazy-gradient-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      \`;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   const fetchRiskCriteria = async () => {
     try {
@@ -1911,6 +2025,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </div>
         </div>
       )}
+
+      {/* Focus Mode FAB */}
+      <button 
+        className={`focus-toggle-fab ${isFocusMode ? 'active' : ''}`} 
+        onClick={() => setIsFocusMode(!isFocusMode)}
+        title={isFocusMode ? "Exit Crazy Focus Mode" : "Enter Crazy Focus Mode"}
+      >
+        {isFocusMode ? '❌' : '🚀'}
+      </button>
+
     </StudyLayout>
   );
 };

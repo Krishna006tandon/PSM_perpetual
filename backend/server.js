@@ -68,29 +68,7 @@ mongoose.connect(MONGODB_URI)
     process.exit(1);
   });
 
-// ---- TEMPORARY SCRIPT TO GENERATE OWNER LOGIN ----
-const User = require('./models/User');
-const bcrypt = require('bcryptjs');
-const fs = require('fs');
 
-mongoose.connection.once('open', async () => {
-  try {
-    const users = await User.find({});
-    if (users.length > 0) {
-      const ownerUser = users[users.length - 1]; // get any user
-      const plainPassword = 'Owner@123!';
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(plainPassword, salt);
-      ownerUser.password = hashedPassword;
-      await ownerUser.save();
-      fs.writeFileSync('credentials.txt', `Email: ${ownerUser.email}\nPassword: ${plainPassword}`);
-      console.log('Wrote credentials to credentials.txt');
-    }
-  } catch(e) {
-    console.log('Error writing credentials', e);
-  }
-});
-// ------------------------------------------------
 
 // ---- TEMPORARY SCRIPT TO SEED MOCK REVENUE & PACKAGES ----
 const Transaction = require('./models/Transaction');

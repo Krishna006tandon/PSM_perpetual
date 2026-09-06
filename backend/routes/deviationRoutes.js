@@ -2,9 +2,13 @@ const express = require('express');
 const router = express.Router();
 const Deviation = require('../models/Deviation');
 const auth = require('../middleware/auth');
+const checkStudyAccess = require('../middleware/checkStudyAccess');
 
 // Apply auth middleware
 router.use(auth);
+
+// Apply checkStudyAccess middleware to routes targeting a specific study
+router.use('/:studyId', checkStudyAccess);
 
 // GET all deviations for a specific study
 router.get('/:studyId', async (req, res) => {

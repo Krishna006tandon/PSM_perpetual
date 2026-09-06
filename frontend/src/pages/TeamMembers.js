@@ -14,6 +14,10 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [dateInput, setDateInput] = useState('');
 
+  // Delete Member State
+  const [memberToDelete, setMemberToDelete] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+
   useEffect(() => {
     if (study?.meetingDates) {
       setMeetingDates(study.meetingDates);
@@ -123,6 +127,35 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
     }
   };
 
+  const confirmDeleteMember = async () => {
+    if (!memberToDelete || !deleteReason.trim()) {
+      alert("Please provide a reason for deletion.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${memberToDelete._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: deleteReason })
+      });
+
+      if (response.ok) {
+        setMembers(prev => prev.filter(m => m._id !== memberToDelete._id));
+        setMemberToDelete(null);
+        setDeleteReason('');
+      } else {
+        console.error('Failed to delete member');
+      }
+    } catch (error) {
+      console.error('Failed to delete member:', error);
+    }
+  };
+
   if (!study) return null;
 
   return (
@@ -185,6 +218,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
                   {meetingDates.map(date => (
                     <th key={date} style={{textAlign: 'center', whiteSpace: 'nowrap'}}>{date}</th>
                   ))}
+                  {canEdit && <th>ACTIONS</th>}
                 </tr>
               </thead>
               <tbody>
@@ -239,6 +273,23 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
                         />
                       </td>
                     ))}
+                    {canEdit && (
+                      <td style={{textAlign: 'center'}}>
+                        <button 
+                          onClick={() => setMemberToDelete(member)}
+                          style={{
+                            background: 'none', 
+                            border: 'none', 
+                            color: '#ef4444', 
+                            cursor: 'pointer',
+                            fontSize: '16px'
+                          }}
+                          title="Delete Member"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -282,6 +333,46 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
                 setIsPrintingAttendance(dateInput);
                 setShowPrintModal(false);
               }}>Print</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Member Modal */}
+      {memberToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '400px'}}>
+            <h2>Remove Team Member</h2>
+            <p style={{marginTop: '10px', color: '#666'}}>
+              Are you sure you want to remove <strong>{memberToDelete.fullName}</strong> from this study?
+            </p>
+            <textarea
+              placeholder="Reason for removal (required)"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              style={{
+                width: '100%', 
+                padding: '10px', 
+                marginTop: '15px', 
+                border: '1px solid #ccc', 
+                borderRadius: '4px',
+                minHeight: '80px',
+                fontFamily: 'inherit'
+              }}
+            />
+            <div className="modal-actions" style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+              <button className="btn-cancel" onClick={() => {
+                setMemberToDelete(null);
+                setDeleteReason('');
+              }}>Cancel</button>
+              <button 
+                className="btn-save" 
+                style={{backgroundColor: '#ef4444'}} 
+                onClick={confirmDeleteMember}
+                disabled={!deleteReason.trim()}
+              >
+                Remove Member
+              </button>
             </div>
           </div>
         </div>

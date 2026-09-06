@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Study = require('../models/Study');
 const auth = require('../middleware/auth');
+const checkStudyAccess = require('../middleware/checkStudyAccess');
 
 // Apply auth middleware to all study routes
 router.use(auth);
@@ -66,6 +67,9 @@ router.post('/', async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+
+// Apply checkStudyAccess middleware to routes targeting a specific study by ID
+router.use('/:id', checkStudyAccess);
 
 // PUT update study
 router.put('/:id', async (req, res) => {

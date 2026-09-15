@@ -13,7 +13,8 @@ echo "======================================"
 cd "$PROJECT_DIR"
 
 echo ""
-echo "[1/6] Pulling latest code..."
+echo "[1/6] Discarding server-side build artifacts & pulling latest code..."
+git reset --hard HEAD
 git pull origin main
 
 echo ""

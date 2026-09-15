@@ -20,12 +20,12 @@ git pull origin main
 echo ""
 echo "[2/6] Installing backend dependencies..."
 cd "$BACKEND_DIR"
-npm ci
+npm install
 
 echo ""
 echo "[3/6] Installing frontend dependencies..."
 cd "$FRONTEND_DIR"
-npm ci
+npm install
 
 echo ""
 echo "[4/6] Building frontend..."

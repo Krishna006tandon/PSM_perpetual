@@ -3,6 +3,7 @@ import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
+import AddRecommendationModal from '../components/AddRecommendationModal';
 import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
 
@@ -50,6 +51,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [importMode, setImportMode] = useState('append');
   const [newNodeName, setNewNodeName] = useState('');
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
+  const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
+  const [clipboardRowIds, setClipboardRowIds] = useState([]);
 
   // Extract unique text from all scenarios for autocomplete
   const uniqueSuggestions = useMemo(() => {
@@ -203,8 +207,43 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
     }
     
+    // Dynamic sequential recommendation numbering (Issue 11 & 12)
+    let recCounter = 1;
+    for (let i = 0; i < result.length; i++) {
+      const sc = result[i];
+      if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
+        if (sc.recommendationNo) {
+          sc.displayRecNo = sc.recommendationNo;
+        } else {
+          sc.displayRecNo = `R${recCounter++}`;
+        }
+      } else {
+        sc.displayRecNo = '';
+      }
+    }
+
     return result;
   }, [scenarios]);
+
+  // Compute next recommendation number across the study
+  const nextRecNo = useMemo(() => {
+    let max = 0;
+    (allStudyRecommendations || []).forEach(r => {
+      const m = (r.recommendationNo || '').match(/^R(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    (scenarios || []).forEach(s => {
+      const m = (s.recommendationNo || s.displayRecNo || '').match(/^R(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    return `R${max + 1}`;
+  }, [allStudyRecommendations, scenarios]);
 
   const uniqueDropdownOptions = useMemo(() => {
     const guidewords = new Set();
@@ -368,6 +407,39 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
+  const fetchStudyRecommendations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const scs = await res.json();
+        const recList = [];
+        const seen = new Set();
+        scs.forEach(s => {
+          const txt = (s.additionalProtection || '').trim();
+          if (txt && !seen.has(txt)) {
+            seen.add(txt);
+            recList.push({
+              text: txt,
+              recommendationNo: s.recommendationNo || '',
+              nodeName: s.nodeId?.description || ''
+            });
+          }
+        });
+        setAllStudyRecommendations(recList);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all study recommendations:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudyRecommendations();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [study._id]);
+
   useEffect(() => {
     if (selectedNodeId) {
       fetchScenarios(selectedNodeId);
@@ -443,6 +515,40 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!cell) return 'transparent';
     const cat = riskCriteria.riskCategories.find(c => c.name === cell.category);
     return cat ? cat.color : 'transparent';
+  };
+
+  const renderSeverityOptions = (currentVal) => {
+    const levels = (riskCriteria?.severityLevels && riskCriteria.severityLevels.length > 0)
+      ? riskCriteria.severityLevels.map(l => l.level)
+      : [1, 2, 3, 4, 5];
+    return (
+      <>
+        <option value=""></option>
+        {currentVal && !levels.includes(Number(currentVal)) && !levels.includes(String(currentVal)) && (
+          <option value={currentVal}>{currentVal}</option>
+        )}
+        {levels.map(lvl => (
+          <option key={lvl} value={lvl}>{lvl}</option>
+        ))}
+      </>
+    );
+  };
+
+  const renderLikelihoodOptions = (currentVal) => {
+    const levels = (riskCriteria?.likelihoodLevels && riskCriteria.likelihoodLevels.length > 0)
+      ? riskCriteria.likelihoodLevels.map(l => l.level)
+      : [1, 2, 3, 4, 5];
+    return (
+      <>
+        <option value=""></option>
+        {currentVal && !levels.includes(Number(currentVal)) && !levels.includes(String(currentVal)) && (
+          <option value={currentVal}>{currentVal}</option>
+        )}
+        {levels.map(lvl => (
+          <option key={lvl} value={lvl}>{lvl}</option>
+        ))}
+      </>
+    );
   };
 
   const handleCellChange = (id, field, value) => {
@@ -574,12 +680,103 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
   const handleDeleteSelected = async () => {
     if (selectedRowIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedRowIds.length} selected row(s)?`)) return;
+    const hasRecs = scenarios.filter(s => selectedRowIds.includes(s._id) && s.additionalProtection && s.additionalProtection.trim());
+    let warningMsg = `Are you sure you want to delete ${selectedRowIds.length} selected row(s)?`;
+    if (hasRecs.length > 0) {
+      warningMsg += ` Note: ${hasRecs.length} recommendation(s) will also be deleted, and remaining recommendations will be re-numbered.`;
+    }
+    if (!window.confirm(warningMsg)) return;
     
     for (const id of selectedRowIds) {
       await handleDelete(id);
     }
     setSelectedRowIds([]);
+    fetchStudyRecommendations();
+  };
+
+  // Duplicate selected row(s) (Issue 10)
+  const handleDuplicateRows = async (rowIds = selectedRowIds) => {
+    if (!rowIds || rowIds.length === 0) {
+      alert('Please select at least one row to duplicate.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}/bulk-duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          scenarioIds: rowIds,
+          targetNodeId: selectedNodeId
+        })
+      });
+
+      if (response.ok) {
+        const cloned = await response.json();
+        setScenarios(prev => [...prev, ...cloned]);
+        setSelectedRowIds([]);
+        fetchStudyRecommendations();
+        alert(`Successfully duplicated ${cloned.length} row(s).`);
+      } else {
+        const err = await response.json();
+        alert('Failed to duplicate rows: ' + (err.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error duplicating rows:', error);
+      alert('Failed to duplicate rows.');
+    }
+  };
+
+  // Copy rows to clipboard (Issue 10)
+  const handleCopyRows = () => {
+    if (selectedRowIds.length === 0) {
+      alert('Please select at least one row to copy.');
+      return;
+    }
+    setClipboardRowIds([...selectedRowIds]);
+    alert(`Copied ${selectedRowIds.length} row(s) to clipboard. You can paste them into this worksheet or another node.`);
+  };
+
+  // Paste rows from clipboard (Issue 10)
+  const handlePasteRows = () => {
+    if (clipboardRowIds.length === 0) {
+      alert('Clipboard is empty. Select rows and click "Copy Rows" first.');
+      return;
+    }
+    handleDuplicateRows(clipboardRowIds);
+  };
+
+  // Duplicate entire worksheet / node (Issue 3)
+  const handleDuplicateWorksheet = async () => {
+    if (!selectedNodeId) return;
+    const currentNode = nodes.find(n => n._id === selectedNodeId);
+    const nodeName = currentNode ? currentNode.description : 'current node';
+
+    const newName = window.prompt(`Enter description for duplicated worksheet / node:`, `${nodeName} (Copy)`);
+    if (!newName) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}/${selectedNodeId}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: newName })
+      });
+
+      if (res.ok) {
+        const newNode = await res.json();
+        await fetchNodes();
+        setSelectedNodeId(newNode._id);
+        alert('Worksheet duplicated successfully! Switched to new worksheet.');
+      } else {
+        const err = await res.json();
+        alert('Failed to duplicate worksheet: ' + (err.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error duplicating worksheet:', err);
+      alert('Failed to duplicate worksheet.');
+    }
   };
 
   const handleSelectRow = (id, isSelected) => {
@@ -779,7 +976,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  const handleQuickAddRecommendation = async (sc) => {
+  const handleQuickAddRecommendation = async (sc, recText = '', recNo = '') => {
     if (!sc.deviationId || !sc.causeId) return;
     try {
       const token = localStorage.getItem('token');
@@ -812,7 +1009,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           safeguardGroupId: groupId,
           presentProtection: sc.presentProtection,
           mitigatedRiskS: sc.mitigatedRiskS,
-          mitigatedRiskL: sc.mitigatedRiskL
+          mitigatedRiskL: sc.mitigatedRiskL,
+          additionalProtection: recText,
+          recommendationNo: recNo
         })
       });
       if (response.ok) {
@@ -821,10 +1020,64 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const updatedPrev = prev.map(s => s._id === sc._id ? { ...s, safeguardGroupId: groupId } : s);
           return [...updatedPrev, newScenario];
         });
+        fetchStudyRecommendations();
       }
     } catch (error) {
       console.error('Error adding quick recommendation:', error);
       alert("Network error: Could not add recommendation. Please check your connection.");
+    }
+  };
+
+  const openAddRecModal = (sc) => {
+    setRecModalConfig({
+      isOpen: true,
+      targetScenario: sc
+    });
+  };
+
+  const handleConfirmAddRec = async ({ text, recommendationNo, isExactCopy }) => {
+    const sc = recModalConfig.targetScenario;
+    if (!sc) return;
+
+    if (!sc.additionalProtection || !sc.additionalProtection.trim()) {
+      handleCellChange(sc._id, 'additionalProtection', text);
+      handleCellChange(sc._id, 'recommendationNo', recommendationNo);
+      await handleBlur(sc._id, 'additionalProtection', text);
+      await handleBlur(sc._id, 'recommendationNo', recommendationNo);
+      fetchStudyRecommendations();
+    } else {
+      await handleQuickAddRecommendation(sc, text, recommendationNo);
+    }
+  };
+
+  // Delete Recommendation with warning and auto-renumber (Issue 11)
+  const handleDeleteRecommendation = async (sc) => {
+    const recNo = sc.displayRecNo || 'this recommendation';
+    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? This action cannot be undone and will reset recommendation numbering.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const siblingsInSafeguardGroup = scenarios.filter(s => s.safeguardGroupId && s.safeguardGroupId === sc.safeguardGroupId);
+      if (siblingsInSafeguardGroup.length > 1) {
+        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        setScenarios(prev => prev.filter(s => s._id !== sc._id));
+      } else {
+        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
+        });
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
+      }
+      fetchStudyRecommendations();
+    } catch (err) {
+      console.error('Error deleting recommendation:', err);
+      alert('Failed to delete recommendation.');
     }
   };
 
@@ -1067,25 +1320,305 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     e.target.value = '';
   };
 
-  const exportToCSV = () => {
-    let csv = "SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION,RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n";
-    processedScenarios.forEach((sc) => {
+  const exportToCSV = async (exportAll = false) => {
+    try {
+      let rowsToExport = [];
+      if (exportAll) {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch full study data');
+        const fullData = await res.json();
+        rowsToExport = fullData.scenarios || [];
+      } else {
+        rowsToExport = processedScenarios;
+      }
+
+      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n`;
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
-      csv += [
-        escape(sc.index + 1), escape(sc.deviationId?.parameter), escape(sc.deviationId?.processFlowMaterial), escape(sc.deviationId?.locationFrom), escape(sc.deviationId?.locationTo),
-        escape(sc.deviationId?.deviationAuto), escape(sc.causeId?.description), escape(sc.consequencesImmediate), escape(sc.consequencesUltimate), escape(sc.consequenceCategory),
-        escape(sc.inherentRiskS), escape(sc.inherentRiskL), escape(sc.inherentRiskRR), escape(sc.presentProtection),
-        escape(sc.mitigatedRiskS), escape(sc.mitigatedRiskL), escape(sc.mitigatedRiskRR), escape(sc.additionalProtection),
-        escape(sc.residualRiskS), escape(sc.residualRiskL), escape(sc.residualRiskRR), escape(sc.remarks), escape(sc.status)
-      ].join(',') + '\n';
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'PHA_Worksheet.csv';
-    link.click();
+
+      rowsToExport.forEach((sc, idx) => {
+        const rowData = [
+          escape(sc.index !== undefined ? sc.index + 1 : idx + 1),
+          escape(sc.deviationId?.parameter),
+          escape(sc.deviationId?.processFlowMaterial),
+          escape(sc.deviationId?.locationFrom),
+          escape(sc.deviationId?.locationTo),
+          escape(sc.deviationId?.deviationAuto),
+          escape(sc.causeId?.description),
+          escape(sc.consequencesImmediate),
+          escape(sc.consequencesUltimate),
+          escape(sc.consequenceCategory),
+          escape(sc.inherentRiskS),
+          escape(sc.inherentRiskL),
+          escape(sc.inherentRiskRR),
+          escape(sc.presentProtection),
+          escape(sc.mitigatedRiskS),
+          escape(sc.mitigatedRiskL),
+          escape(sc.mitigatedRiskRR),
+          escape(sc.additionalProtection ? `${sc.recommendationNo || sc.displayRecNo ? (sc.recommendationNo || sc.displayRecNo) + ': ' : ''}${sc.additionalProtection}` : ''),
+          escape(sc.residualRiskS),
+          escape(sc.residualRiskL),
+          escape(sc.residualRiskRR),
+          escape(sc.remarks),
+          escape(sc.status)
+        ];
+
+        if (exportAll) {
+          rowData.unshift(escape(sc.nodeId?.description || 'Node'));
+        }
+
+        csv += rowData.join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `PHA_Worksheet_${exportAll ? 'All_Nodes' : (selectedNode?.description || 'Node').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
+      link.click();
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert('Failed to export CSV: ' + err.message);
+    }
   };
 
+  // Export to Excel with Matrix Rating Colors and Merged Cells (Issues 1, 4, 8, 9)
+  const exportToExcel = async (exportAll = false) => {
+    try {
+      let exportData = [];
+      let studyNodes = nodes;
+
+      if (exportAll) {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch full study data');
+        const full = await res.json();
+        exportData = full.scenarios || [];
+        studyNodes = full.nodes || nodes;
+      } else {
+        exportData = processedScenarios;
+      }
+
+      const getCellColor = (s, l) => {
+        if (!s || !l || !riskCriteria) return 'transparent';
+        const cell = riskCriteria.matrixCells?.find(c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l));
+        if (!cell) return 'transparent';
+        const cat = riskCriteria.riskCategories?.find(c => c.name === cell.category);
+        return cat ? cat.color : 'transparent';
+      };
+
+      let tableHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>${exportAll ? 'HAZOP All Nodes' : (selectedNode?.description?.substring(0, 30) || 'HAZOP Worksheet')}</x:Name>
+                  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+          <style>
+            th { background-color: #0f172a; color: #ffffff; font-weight: bold; border: 1px solid #94a3b8; padding: 6px; font-size: 11px; text-align: center; }
+            td { border: 1px solid #cbd5e1; padding: 5px; font-size: 11px; vertical-align: top; }
+            .th-sub { background-color: #1e293b; color: #e2e8f0; font-size: 10px; }
+            .node-banner { background-color: #0284c7; color: #ffffff; font-size: 13px; font-weight: bold; padding: 8px; }
+          </style>
+        </head>
+        <body>
+          <h2>HAZOP WORKSHEET - ${study.studyName || ''}</h2>
+          <p>Project: ${study.projectName || ''} | Facility: ${study.facilityName || study.siteLocation || ''} | Date: ${new Date().toLocaleDateString()}</p>
+          <table border="1">
+            <thead>
+              <tr>
+                <th rowspan="2">SR.</th>
+                <th colspan="5">DECOMPOSITION OF DEVIATION</th>
+                <th rowspan="2">DEVIATION</th>
+                <th rowspan="2">CAUSE</th>
+                <th colspan="2">CONSEQUENCES</th>
+                <th rowspan="2">CAT</th>
+                <th colspan="3">INHERENT RISK</th>
+                <th rowspan="2">PRESENT / PLANNED PROTECTION (SAFEGUARDS)</th>
+                <th colspan="3">MITIGATED RISK</th>
+                <th rowspan="2">ADDITIONAL PROTECTION (RECOMMENDATIONS)</th>
+                <th colspan="3">RESIDUAL RISK</th>
+                <th rowspan="2">REMARKS</th>
+                <th rowspan="2">STATUS</th>
+              </tr>
+              <tr>
+                <th class="th-sub">DEVIATION</th>
+                <th class="th-sub">PARAMETER</th>
+                <th class="th-sub">MATERIAL</th>
+                <th class="th-sub">EQUIPMENT</th>
+                <th class="th-sub">INSTRUMENT</th>
+                <th class="th-sub">Immediate</th>
+                <th class="th-sub">Ultimate</th>
+                <th class="th-sub">S</th><th class="th-sub">L</th><th class="th-sub">RR</th>
+                <th class="th-sub">S</th><th class="th-sub">L</th><th class="th-sub">RR</th>
+                <th class="th-sub">S</th><th class="th-sub">L</th><th class="th-sub">RR</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      // Helper to render rows with rowspan to PREVENT data repeating 2-3 times (Issue 8)
+      const renderNodeRows = (nodeScenarios, nodeName) => {
+        let rowsHtml = '';
+        if (nodeName) {
+          rowsHtml += `<tr><td colspan="23" class="node-banner">📁 NODE: ${nodeName}</td></tr>`;
+        }
+
+        const sorted = [...nodeScenarios].sort((a, b) => {
+          const devA = a.deviationId?._id || '';
+          const devB = b.deviationId?._id || '';
+          if (devA !== devB) return devA.localeCompare(devB);
+          const causeA = a.causeId?._id || '';
+          const causeB = b.causeId?._id || '';
+          if (causeA !== causeB) return causeA.localeCompare(causeB);
+          const consA = a.consequenceGroupId || '';
+          const consB = b.consequenceGroupId || '';
+          if (consA !== consB) return consA.localeCompare(consB);
+          return (a.order || 0) - (b.order || 0);
+        });
+
+        const getConsKey = (s) => s.consequenceGroupId || s._id;
+        const getSafeKey = (s) => s.safeguardGroupId || s._id;
+
+        let recIndex = 1;
+
+        for (let i = 0; i < sorted.length; i++) {
+          const sc = sorted[i];
+          const prevSc = i > 0 ? sorted[i - 1] : null;
+
+          const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+          const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+          const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
+          const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
+
+          let devSpan = 1;
+          if (isNewDev) {
+            for (let j = i + 1; j < sorted.length; j++) {
+              if (sorted[j].deviationId?._id === sc.deviationId?._id) devSpan++;
+              else break;
+            }
+          }
+
+          let causeSpan = 1;
+          if (isNewCause) {
+            for (let j = i + 1; j < sorted.length; j++) {
+              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id) causeSpan++;
+              else break;
+            }
+          }
+
+          let consSpan = 1;
+          if (isNewCons) {
+            for (let j = i + 1; j < sorted.length; j++) {
+              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc)) consSpan++;
+              else break;
+            }
+          }
+
+          let safeSpan = 1;
+          if (isNewSafe) {
+            for (let j = i + 1; j < sorted.length; j++) {
+              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc) && getSafeKey(sorted[j]) === getSafeKey(sc)) safeSpan++;
+              else break;
+            }
+          }
+
+          const irColor = getCellColor(sc.inherentRiskS, sc.inherentRiskL);
+          const mrColor = getCellColor(sc.mitigatedRiskS, sc.mitigatedRiskL);
+          const rrColor = getCellColor(sc.residualRiskS, sc.residualRiskL);
+
+          let recLabel = '';
+          if (sc.additionalProtection && sc.additionalProtection.trim()) {
+            recLabel = sc.recommendationNo ? `[${sc.recommendationNo}] ` : (sc.displayRecNo ? `[${sc.displayRecNo}] ` : `[R${recIndex++}] `);
+          }
+
+          rowsHtml += `<tr>`;
+          rowsHtml += `<td align="center">${i + 1}</td>`;
+
+          if (isNewDev) {
+            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.deviationAuto || ''}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.parameter || ''}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.processFlowMaterial || ''}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.locationFrom || ''}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.locationTo || ''}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}"><b>${sc.deviationId?.deviationAuto || ''}</b></td>`;
+          }
+
+          if (isNewCause) {
+            rowsHtml += `<td rowspan="${causeSpan}">${sc.causeId?.description || ''}</td>`;
+          }
+
+          if (isNewCons) {
+            rowsHtml += `<td rowspan="${consSpan}">${sc.consequencesImmediate || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}">${sc.consequencesUltimate || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.consequenceCategory || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.inherentRiskS || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.inherentRiskL || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${irColor}; font-weight: bold; color: ${irColor !== 'transparent' ? '#000' : 'inherit'}">${sc.inherentRiskRR || ''}</td>`;
+          }
+
+          if (isNewSafe) {
+            rowsHtml += `<td rowspan="${safeSpan}">${sc.presentProtection || ''}</td>`;
+          }
+
+          if (isNewCons) {
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.mitigatedRiskS || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.mitigatedRiskL || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${mrColor}; font-weight: bold; color: ${mrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.mitigatedRiskRR || ''}</td>`;
+          }
+
+          rowsHtml += `<td>${recLabel}${sc.additionalProtection || ''}</td>`;
+
+          if (isNewCons) {
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.residualRiskS || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.residualRiskL || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${rrColor}; font-weight: bold; color: ${rrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.residualRiskRR || ''}</td>`;
+          }
+
+          rowsHtml += `<td>${sc.remarks || ''}</td>`;
+          rowsHtml += `<td align="center">${sc.status || ''}</td>`;
+          rowsHtml += `</tr>`;
+        }
+        return rowsHtml;
+      };
+
+      if (exportAll) {
+        studyNodes.forEach((node) => {
+          const nodeScs = exportData.filter(s => s.nodeId && (s.nodeId._id === node._id || s.nodeId === node._id));
+          if (nodeScs.length > 0) {
+            tableHtml += renderNodeRows(nodeScs, `${node.nodeNumber || ''} - ${node.description || 'Node'}`);
+          }
+        });
+      } else {
+        tableHtml += renderNodeRows(exportData, selectedNode ? `${selectedNode.description}` : '');
+      }
+
+      tableHtml += `</tbody></table></body></html>`;
+
+      const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `PHA_Worksheet_${exportAll ? 'All_Nodes' : (selectedNode?.description || 'Node').replace(/[^a-zA-Z0-9_-]/g, '_')}.xls`;
+      link.click();
+    } catch (err) {
+      console.error('Error exporting Excel:', err);
+      alert('Error generating Excel export: ' + err.message);
+    }
+  };
+
+  // Fixed PDF Export with Recommendations & Proper Headers (Issues 2, 8)
   const exportToPDF = async () => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
       alert("PDF library is still loading.");
@@ -1093,8 +1626,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
     
     if (!study || !study._id) {
-        alert("Study not found.");
-        return;
+      alert("Study not found.");
+      return;
     }
 
     try {
@@ -1172,7 +1705,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           startY: 80,
           theme: 'grid',
           head: [['Name', 'Title', 'Department', 'Expertise']],
-          body: data.teamMembers.map(t => [t.name || '', t.title || '', t.department || '', t.expertise || '']),
+          body: data.teamMembers.map(t => [t.name || t.fullName || '', t.title || '', t.department || '', t.expertise || '']),
           headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
           styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
           alternateRowStyles: { fillColor: rowLight }
@@ -1181,7 +1714,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (data.sessions && data.sessions.length > 0) {
         doc.autoTable({
-          startY: doc.lastAutoTable.finalY + 20,
+          startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 80,
           theme: 'grid',
           head: [['Date', 'Duration', 'Description', 'Places Used']],
           body: data.sessions.map(s => [s.date || '', s.duration || '', s.description || '', s.placesUsed || '']),
@@ -1239,45 +1772,62 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      // Page N: Worksheet
+      // Page N: Worksheets per Node
       if (data.nodes && data.nodes.length > 0) {
-        data.nodes.forEach((node, nIdx) => {
+        data.nodes.forEach((node) => {
           doc.addPage();
           doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
           doc.rect(0, 0, pageWidth, 60, 'F');
-          doc.setFontSize(20);
+          doc.setFontSize(18);
           doc.setTextColor(255, 255, 255);
-          doc.text(`HAZOP Worksheet (Node ${node.nodeNumber}: ${node.nodeTitle || ''})`, 40, 38);
+          doc.text(`HAZOP Worksheet (Node ${node.nodeNumber || ''}: ${node.description || ''})`, 40, 38);
           
+          // Fixed head with matching column structure (Issues 2 & 4)
           const head = [[
             { content: '#', rowSpan: 2 },
-            { content: 'DEVIATION', colSpan: 1 },
+            { content: 'DEVIATION', rowSpan: 2 },
             { content: 'CAUSE', rowSpan: 2 },
             { content: 'CONSEQUENCES', rowSpan: 2 },
             { content: 'CAT', rowSpan: 2 },
             { content: 'I-RISK', colSpan: 3 },
-            { content: 'PROTECTION', rowSpan: 2 },
+            { content: 'SAFEGUARDS', rowSpan: 2 },
             { content: 'M-RISK', colSpan: 3 },
             { content: 'RECOMMENDATIONS', rowSpan: 2 },
             { content: 'R-RISK', colSpan: 3 }
           ], [
-            'Deviation', 'S', 'L', 'RR', 'S', 'L', 'RR', 'S', 'L', 'RR'
+            'S', 'L', 'RR',
+            'S', 'L', 'RR',
+            'S', 'L', 'RR'
           ]];
 
-          const nodeScenarios = data.scenarios.filter(s => s.nodeId && s.nodeId._id === node._id);
+          const nodeScenarios = data.scenarios.filter(s => s.nodeId && (s.nodeId._id === node._id || s.nodeId === node._id));
           
+          let lastDevId = null;
+          let lastCauseId = null;
+          let lastConsKey = null;
+
           const body = nodeScenarios.map((s, idx) => {
-            const cons = [s.consequencesImmediate, s.consequencesUltimate].filter(c=>c).join('\n');
-            const safe = [s.presentProtection, s.additionalProtection].filter(c=>c).join('\n');
-            const rec = s.remarks || '';
+            const cons = [s.consequencesImmediate, s.consequencesUltimate].filter(Boolean).join('\n');
+            const safe = s.presentProtection || '';
+            const rec = s.additionalProtection ? (s.recommendationNo ? `[${s.recommendationNo}] ${s.additionalProtection}` : s.additionalProtection) : '';
             
+            const isSameDev = s.deviationId?._id && s.deviationId._id === lastDevId;
+            const isSameCause = isSameDev && s.causeId?._id && s.causeId._id === lastCauseId;
+            const isSameCons = isSameCause && s.consequenceGroupId && s.consequenceGroupId === lastConsKey;
+
+            lastDevId = s.deviationId?._id;
+            lastCauseId = s.causeId?._id;
+            lastConsKey = s.consequenceGroupId;
+
             return [
-              s.badgeCons || '', 
-              s.deviationId?.deviationAuto || '', 
-              s.causeId?.description || '',
-              cons,
-              s.consequenceCategory || '',
-              s.inherentRiskS || '', s.inherentRiskL || '', s.inherentRiskRR || '',
+              s.badgeCons || `${idx + 1}`, 
+              isSameDev ? '' : (s.deviationId?.deviationAuto || ''), 
+              isSameCause ? '' : (s.causeId?.description || ''),
+              isSameCons ? '' : cons,
+              isSameCons ? '' : (s.consequenceCategory || ''),
+              isSameCons ? '' : (s.inherentRiskS || ''),
+              isSameCons ? '' : (s.inherentRiskL || ''),
+              isSameCons ? '' : (s.inherentRiskRR || ''),
               safe,
               s.mitigatedRiskS || '', s.mitigatedRiskL || '', s.mitigatedRiskRR || '',
               rec,
@@ -1286,7 +1836,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           });
 
           if (body.length === 0) {
-            body.push(['-', 'No scenarios defined for this node', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+            body.push(['-', 'No scenarios defined for this node', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
           }
 
           doc.autoTable({
@@ -1294,10 +1844,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             head: head, 
             body: body, 
             theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 4, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
+            styles: { fontSize: 7, cellPadding: 3.5, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
             headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
             alternateRowStyles: { fillColor: rowLight },
             didParseCell: function(cellData) {
+               // Color RR cells (indices 7, 11, 15)
                if (cellData.section === 'body' && (cellData.column.index === 7 || cellData.column.index === 11 || cellData.column.index === 15)) {
                   const val = parseInt(cellData.cell.raw);
                   if (!isNaN(val) && val > 0) {
@@ -1317,7 +1868,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      // Page N: Manage Recommendations
+      // Page N: Recommendations Summary - Node Wise (Issues 2 & 7)
       doc.addPage();
       doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
       doc.rect(0, 0, pageWidth, 60, 'F');
@@ -1327,35 +1878,38 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       
       const allRecs = [];
       data.scenarios.forEach(s => {
-        if (s.recommendations && s.recommendations.length > 0) {
-           s.recommendations.forEach(r => {
-             allRecs.push([
-               r.recommendation || '',
-               r.type || 'Generic',
-               r.personResponsible || '',
-               r.targetDate || '',
-               `Node ${s.nodeId?.nodeNumber || ''}`
-             ]);
+        if (s.additionalProtection && s.additionalProtection.trim()) {
+           allRecs.push({
+             recNo: s.recommendationNo || '',
+             recommendation: s.additionalProtection,
+             personResponsible: (s.recommendationData && s.recommendationData.personResponsible) || '',
+             targetDate: (s.recommendationData && s.recommendationData.targetDate) || '',
+             node: `Node ${s.nodeId?.nodeNumber || ''}: ${s.nodeId?.description || ''}`,
+             nodeOrder: s.nodeId?.order || 0
            });
-        } else if (s.remarks) {
-           allRecs.push([
-             s.remarks,
-             'Generic',
-             '',
-             '',
-             `Node ${s.nodeId?.nodeNumber || ''}`
-           ]);
         }
       });
 
-      if (allRecs.length > 0) {
+      // Sort Node-wise (Issue 7)
+      allRecs.sort((a, b) => a.nodeOrder - b.nodeOrder);
+
+      let rNum = 1;
+      const recRows = allRecs.map(r => [
+        r.recNo || `R${rNum++}`,
+        r.recommendation,
+        r.node,
+        r.personResponsible,
+        r.targetDate
+      ]);
+
+      if (recRows.length > 0) {
         doc.autoTable({
           startY: 80,
           theme: 'grid',
-          head: [['Recommendation', 'Type', 'Person Responsible', 'Target Date', 'Node']],
-          body: allRecs,
+          head: [['Rec #', 'Recommendation Statement', 'Node', 'Person Responsible', 'Target Date']],
+          body: recRows,
           headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+          styles: { fontSize: 8.5, cellPadding: 6, lineColor: [200, 200, 200] },
           alternateRowStyles: { fillColor: rowLight }
         });
       } else {
@@ -1406,12 +1960,53 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             </div>
           </div>
           
-          <div className="pha-metadata-row">
-            <div className="pha-metadata-cell">
-              <span className="pha-metadata-label">INTENTION</span>
-              <span className="pha-metadata-value">
-                {selectedNode ? selectedNode.intention : 'Design Intention...'}
-              </span>
+          <div className="pha-metadata-row pha-metadata-intent-row">
+            <div className="pha-metadata-cell" style={{alignItems: 'flex-start', minHeight: '52px'}}>
+              <span className="pha-metadata-label" style={{marginTop: '4px'}}>INTENTION</span>
+              <div className="pha-metadata-value" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word', width: '100%'}}>
+                {canEdit && selectedNode ? (
+                  <textarea 
+                    value={selectedNode.intention || ''}
+                    spellCheck={true}
+                    data-gramm="false"
+                    placeholder="Design Intention..."
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNodes(prev => prev.map(n => n._id === selectedNode._id ? { ...n, intention: val } : n));
+                    }}
+                    onBlur={async (e) => {
+                      const val = e.target.value;
+                      try {
+                        const token = localStorage.getItem('token');
+                        await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${selectedNode._id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ intention: val })
+                        });
+                      } catch (err) {
+                        console.error('Failed to update node intention:', err);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      minHeight: '44px',
+                      border: '1px solid transparent',
+                      background: 'transparent',
+                      fontFamily: 'inherit',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      color: 'var(--text-primary)',
+                      resize: 'vertical',
+                      outline: 'none',
+                      padding: '4px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#93c5fd'}
+                    onBlurCapture={(e) => e.target.style.borderColor = 'transparent'}
+                  />
+                ) : (
+                  <span>{selectedNode ? selectedNode.intention : 'Design Intention...'}</span>
+                )}
+              </div>
             </div>
           </div>
           
@@ -1460,9 +2055,57 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           {canEdit && (
             <button 
               className="toolbar-btn" 
+              onClick={handleDuplicateWorksheet} 
+              disabled={!selectedNodeId}
+              title="Duplicate current worksheet/node with all scenarios"
+              style={{fontSize: '12px', fontWeight: '600'}}
+            >
+              📋 Duplicate Worksheet
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={() => handleDuplicateRows()} 
+              disabled={selectedRowIds.length === 0}
+              title="Duplicate selected row(s)"
+              style={{fontSize: '12px'}}
+            >
+              📋 Duplicate Selected {selectedRowIds.length > 0 ? `(${selectedRowIds.length})` : ''}
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={handleCopyRows} 
+              disabled={selectedRowIds.length === 0}
+              title="Copy selected rows to clipboard"
+              style={{fontSize: '12px'}}
+            >
+              📄 Copy {selectedRowIds.length > 0 ? `(${selectedRowIds.length})` : ''}
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={handlePasteRows} 
+              disabled={clipboardRowIds.length === 0}
+              title="Paste copied rows into this worksheet"
+              style={{fontSize: '12px', color: clipboardRowIds.length > 0 ? '#2563eb' : 'inherit'}}
+            >
+              📋 Paste {clipboardRowIds.length > 0 ? `(${clipboardRowIds.length})` : ''}
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
               onClick={handleDeleteSelected} 
               disabled={selectedRowIds.length === 0}
-              style={{ color: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', borderColor: selectedRowIds.length > 0 ? '#ef4444' : 'inherit' }}
+              style={{ color: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', borderColor: selectedRowIds.length > 0 ? '#ef4444' : 'inherit', fontSize: '12px' }}
             >
               🗑️ Delete Selected ({selectedRowIds.length})
             </button>
@@ -1472,8 +2115,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
           <button className="toolbar-btn" onClick={() => setShowImportModal(true)} title="Import Data" style={{fontSize: '12px'}}>📤 Import</button>
           <input id="file-upload-input" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style={{display: 'none'}} onChange={handleFileUpload} />
-          <button className="toolbar-btn" onClick={exportToCSV} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
-          <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px'}}>📥 PDF</button>
+          <button className="toolbar-btn" onClick={() => exportToExcel(false)} title="Export Current Node to Excel with Matrix Colors" style={{fontSize: '12px', fontWeight: '600', color: '#16a34a'}}>📥 Excel (Node)</button>
+          <button className="toolbar-btn" onClick={() => exportToExcel(true)} title="Export All Nodes to Excel with Matrix Colors" style={{fontSize: '12px', fontWeight: '600', color: '#15803d'}}>📥 Excel (All)</button>
+          <button className="toolbar-btn" onClick={() => exportToCSV(false)} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
+          <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px', fontWeight: '600', color: '#dc2626'}}>📥 PDF</button>
           <button 
             className={`toolbar-btn ${isFocusMode ? 'active' : ''}`} 
             onClick={() => setIsFocusMode(!isFocusMode)} 
@@ -1592,12 +2237,33 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
                   <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="checkbox" 
-                      checked={selectedRowIds.includes(sc._id)}
-                      onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
-                      style={{ cursor: 'pointer' }}
-                    />
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px'}}>
+                      <input disabled={!canEdit} 
+                        type="checkbox" 
+                        checked={selectedRowIds.includes(sc._id)}
+                        onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      {canEdit && (
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDuplicateRows([sc._id]); }}
+                          title="Duplicate this row"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0',
+                            fontSize: '11px',
+                            opacity: 0.6
+                          }}
+                          onMouseEnter={(e) => e.target.style.opacity = 1}
+                          onMouseLeave={(e) => e.target.style.opacity = 0.6}
+                        >
+                          📋
+                        </button>
+                      )}
+                    </div>
                   </td>
                   {sc.isNewDev && (
                     <>
@@ -1750,18 +2416,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       </td>
                       
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.inherentRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}>
+                          {renderSeverityOptions(sc.inherentRiskS)}
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.inherentRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}>
+                          {renderLikelihoodOptions(sc.inherentRiskL)}
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL)}}><input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.inherentRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
@@ -1790,25 +2454,25 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   {sc.isNewCons && (
                     <>
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.mitigatedRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}>
+                          {renderSeverityOptions(sc.mitigatedRiskS)}
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.mitigatedRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}>
+                          {renderLikelihoodOptions(sc.mitigatedRiskL)}
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL)}}><input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.mitigatedRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   
                   <td className="w-additional">
                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                       <div style={{display: 'flex', alignItems: 'flex-start', gap: '4px'}}>
-                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#6b7280', paddingTop: '4px', minWidth: '24px'}}>{sc.additionalProtection ? `R${index + 1}.` : ''}</span>
+                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#2563eb', paddingTop: '4px', minWidth: '28px'}}>
+                          {sc.displayRecNo ? `${sc.displayRecNo}.` : ''}
+                        </span>
                         <AutocompleteTextarea disabled={!canEdit} 
                           style={{flex: 1}}
                           value={sc.additionalProtection || ''} 
@@ -1819,34 +2483,59 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
                               e.target.blur();
-                              handleQuickAddRecommendation(sc);
+                              openAddRecModal(sc);
                             }
                           }}
                         />
+                        {canEdit && sc.additionalProtection && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRecommendation(sc)}
+                            title={`Delete recommendation ${sc.displayRecNo}`}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              padding: '4px 2px',
+                              lineHeight: 1
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
-                      <span className="action-link" style={{color: '#10b981', display: 'block'}} onClick={() => handleQuickAddRecommendation(sc)}>+ ADD RECOMMENDATION</span>
+                      {canEdit && (
+                        <span 
+                          className="action-link" 
+                          style={{color: '#10b981', display: 'block', cursor: 'pointer'}} 
+                          onClick={() => openAddRecModal(sc)}
+                        >
+                          + ADD RECOMMENDATION
+                        </span>
+                      )}
                     </div>
                   </td>
 
                   {sc.isNewCons && (
                     <>
                       <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.severityLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                          {renderSeverityOptions(sc.residualRiskS)}
                         </select>
                       </td>
                       <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
-                          <option value=""></option>
-                          {riskCriteria?.likelihoodLevels.map(lvl => <option key={lvl.level} value={lvl.level}>{lvl.level}</option>)}
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                          {renderLikelihoodOptions(sc.residualRiskL)}
                         </select>
                       </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit}  data-gramm="false" spellcheck="false" style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
                     </>
                   )}
                   <td className="w-remarks">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <textarea 
+                      spellCheck={true} 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
@@ -1987,6 +2676,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </div>
         </div>
       )}
+
+      <AddRecommendationModal 
+        isOpen={recModalConfig.isOpen}
+        onClose={() => setRecModalConfig({ isOpen: false, targetScenario: null })}
+        onConfirm={handleConfirmAddRec}
+        existingRecommendations={allStudyRecommendations}
+        nextRecNo={nextRecNo}
+      />
     </StudyLayout>
   );
 };

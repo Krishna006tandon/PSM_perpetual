@@ -116,6 +116,9 @@ router.get('/:id/full-export-data', async (req, res) => {
       .populate('causeId')
       .sort({ order: 1 });
 
+    const RiskCriteria = require('../models/RiskCriteria');
+    const riskCriteria = await RiskCriteria.findOne({ studyId });
+
     res.json({
       study,
       teamMembers,
@@ -123,7 +126,8 @@ router.get('/:id/full-export-data', async (req, res) => {
       revisions,
       documents,
       nodes,
-      scenarios
+      scenarios,
+      riskCriteria
     });
   } catch (err) {
     console.error('Error fetching full export data:', err);

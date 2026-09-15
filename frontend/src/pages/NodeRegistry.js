@@ -4,6 +4,47 @@ import AddNodeModal from '../components/AddNodeModal';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './NodeRegistry.css';
 
+const AutoResizeTextarea = ({ value, onChange, onBlur, disabled }) => {
+  const textareaRef = React.useRef(null);
+  
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      disabled={disabled}
+      value={value || ''}
+      onChange={(e) => {
+        if (onChange) onChange(e);
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+      }}
+      onBlur={onBlur}
+      rows={1}
+      data-gramm="false" 
+      spellCheck={true}
+      style={{
+        width: '100%',
+        minHeight: '36px',
+        resize: 'none',
+        overflow: 'hidden',
+        border: 'none',
+        background: 'transparent',
+        padding: '8px',
+        fontFamily: 'inherit',
+        fontSize: 'inherit',
+        lineHeight: '1.4',
+        boxSizing: 'border-box'
+      }}
+    />
+  );
+};
+
 const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [nodes, setNodes] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -105,7 +146,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
     return (
       <input disabled={!canEdit}  
-        data-gramm="false" spellcheck="false"
+        data-gramm="false" spellCheck={true}
         type="text" 
         value={value} 
         onChange={(e) => handleCellChange(node._id, col.id, e.target.value, true)}
@@ -295,6 +336,8 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="col-intention">INTENTION</th>
                 <th className="col-boundary">BOUNDARY</th>
                 <th className="col-eq-count">EQ. COUNT</th>
+                {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
+                {canEdit && <th className="col-actions">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
@@ -306,32 +349,28 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 >
                   <td className="col-num">{index + 1}</td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={node.description} 
                       onChange={(e) => handleCellChange(node._id, 'description', e.target.value)}
                       onBlur={(e) => handleBlur(node._id, 'description', e.target.value)}
                     />
                   </td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={node.intention} 
                       onChange={(e) => handleCellChange(node._id, 'intention', e.target.value)}
                       onBlur={(e) => handleBlur(node._id, 'intention', e.target.value)}
                     />
                   </td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={node.boundary} 
                       onChange={(e) => handleCellChange(node._id, 'boundary', e.target.value)}
                       onBlur={(e) => handleBlur(node._id, 'boundary', e.target.value)}
                     />
                   </td>
                   <td className="col-eq-count">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={node.eqCount} 
                       onChange={(e) => handleCellChange(node._id, 'eqCount', e.target.value)}
                       onBlur={(e) => handleBlur(node._id, 'eqCount', e.target.value)}
@@ -342,6 +381,17 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       {renderCustomCell(node, col)}
                     </td>
                   ))}
+                  {canEdit && (
+                    <td className="col-actions" style={{textAlign: 'center', verticalAlign: 'middle'}}>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(node._id); }} 
+                        style={{background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px'}}
+                        title="Delete Row"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

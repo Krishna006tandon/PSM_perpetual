@@ -11,6 +11,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
   const [contact, setContact] = useState('');
   const [numberOfUsers, setNumberOfUsers] = useState('');
   const [password, setPassword] = useState(''); // Only used for standard login/register
+  const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -236,7 +237,12 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={{ ...inputStyle, width: '100%', paddingRight: '40px' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }} tabIndex="-1">
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
               </div>
               <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
                 {loading ? 'Authenticating...' : 'Sign In'}

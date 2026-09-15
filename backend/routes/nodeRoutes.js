@@ -83,7 +83,57 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Node not found' });
     }
     res.json({ message: 'Node deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST duplicate node and all its scenarios
+router.post('/:studyId/:nodeId/duplicate', async (req, res) => {
+  try {
+    const { studyId, nodeId } = req.params;
+    const Scenario = require('../models/Scenario');
+    
+    const sourceNode = await Node.findById(nodeId);
+    if (!sourceNode) {
+      return res.status(404).json({ message: 'Source node not found' });
+    }
+
+    const lastNode = await Node.findOne({ companyCode: req.user.companyCode, studyId }).sort({ order: -1 });
+    const newOrder = lastNode ? lastNode.order + 1 : 1;
+
+    const newNode = new Node({
+      companyCode: req.user.companyCode,
+      studyId,
+      description: req.body.description || `${sourceNode.description} (Copy)`,
+      intention: sourceNode.intention,
+      boundary: sourceNode.boundary,
+      eqCount: sourceNode.eqCount,
+      equipments: sourceNode.equipments ? sourceNode.equipments.map(e => ({ ...(e.toObject ? e.toObject() : e), _id: undefined })) : [],
+      order: newOrder,
+      customData: sourceNode.customData
+    });
+
+    const savedNode = await newNode.save();
+
+    // Duplicate all scenarios belonging to sourceNode
+    const sourceScenarios = await Scenario.find({ studyId, nodeId }).sort({ order: 1 });
+    
+    if (sourceScenarios.length > 0) {
+      const scenarioClones = sourceScenarios.map(sc => {
+        const scObj = sc.toObject();
+        delete scObj._id;
+        delete scObj.createdAt;
+        delete scObj.updatedAt;
+        scObj.nodeId = savedNode._id;
+        return scObj;
+      });
+      await Scenario.insertMany(scenarioClones);
+    }
+
+    res.status(201).json(savedNode);
   } catch (err) {
+    console.error('Error duplicating node:', err);
     res.status(500).json({ message: err.message });
   }
 });

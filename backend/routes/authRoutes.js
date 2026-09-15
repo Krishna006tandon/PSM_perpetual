@@ -64,12 +64,13 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
+    const cleanEmail = email.trim();
 
-    // Check user exists
-    let user = await User.findOne({ email });
+    // Check user exists (Case-Insensitive)
+    let user = await User.findOne({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
     
     // --- TEMPORARY TEST OWNER CREATION ---
-    if (!user && email === 'owner@perpetual.com' && password === 'Owner@123!') {
+    if (!user && email.toLowerCase() === 'owner@perpetual.com' && password === 'Owner@123!') {
        const salt = await bcrypt.genSalt(10);
        const hashedPassword = await bcrypt.hash(password, salt);
        user = new User({
@@ -288,8 +289,9 @@ router.post('/forgot-password-otp', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    const cleanEmail = email.trim();
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
     // IMPORTANT: Always return success to prevent user enumeration
     if (!user) {
       return res.status(200).json({ message: 'If an account with this email exists, an OTP has been sent.' });
@@ -371,9 +373,10 @@ router.post('/reset-password-otp', async (req, res) => {
     if (!email || !otp || !newPassword) {
       return res.status(400).json({ error: 'Email, OTP, and new password are required' });
     }
+    const cleanEmail = email.trim();
 
     const user = await User.findOne({ 
-      email,
+      email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') },
       resetPasswordOtpExpire: { $gt: Date.now() }
     });
 

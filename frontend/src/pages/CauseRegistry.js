@@ -1,8 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddCauseModal from '../components/AddCauseModal';
 import './CauseRegistry.css';
+
+const AutoResizeTextarea = ({ value, onChange, onBlur, disabled }) => {
+  const textareaRef = useRef(null);
+  
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      disabled={disabled}
+      value={value || ''}
+      onChange={(e) => {
+        if (onChange) onChange(e);
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+      }}
+      onBlur={onBlur}
+      rows={1}
+      data-gramm="false" 
+      spellCheck="false"
+      style={{
+        width: '100%',
+        minHeight: '28px',
+        resize: 'none',
+        overflow: 'hidden',
+        border: 'none',
+        background: 'transparent',
+        padding: '6px',
+        fontFamily: 'inherit',
+        fontSize: 'inherit'
+      }}
+    />
+  );
+};
 
 const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [causes, setCauses] = useState([]);
@@ -307,6 +346,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                 <th className="col-cause-source">SOURCE / REFERENCE</th>
                 <th className="col-cause-comments">COMMENTS</th>
                 {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
+                {canEdit && <th className="col-actions">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
@@ -318,32 +358,28 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                 >
                   <td className="col-cause-num">{index + 1}</td>
                   <td className="col-cause-desc">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={cause.description} 
                       onChange={(e) => handleCellChange(cause._id, 'description', e.target.value)}
                       onBlur={(e) => handleBlur(cause._id, 'description', e.target.value)}
                     />
                   </td>
                   <td className="col-cause-cat">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={cause.categoryType} 
                       onChange={(e) => handleCellChange(cause._id, 'categoryType', e.target.value)}
                       onBlur={(e) => handleBlur(cause._id, 'categoryType', e.target.value)}
                     />
                   </td>
                   <td className="col-cause-source">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={cause.sourceReference} 
                       onChange={(e) => handleCellChange(cause._id, 'sourceReference', e.target.value)}
                       onBlur={(e) => handleBlur(cause._id, 'sourceReference', e.target.value)}
                     />
                   </td>
                   <td className="col-cause-comments">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={cause.comments} 
                       onChange={(e) => handleCellChange(cause._id, 'comments', e.target.value)}
                       onBlur={(e) => handleBlur(cause._id, 'comments', e.target.value)}
@@ -354,6 +390,17 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                       {renderCustomCell(cause, col)}
                     </td>
                   ))}
+                  {canEdit && (
+                    <td className="col-actions" style={{textAlign: 'center', verticalAlign: 'middle'}}>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(cause._id); }} 
+                        style={{background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px'}}
+                        title="Delete Row"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

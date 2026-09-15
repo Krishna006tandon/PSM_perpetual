@@ -1,8 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import AddDeviationModal from '../components/AddDeviationModal';
 import './DeviationRegistry.css';
+
+const AutoResizeTextarea = ({ value, onChange, onBlur, disabled }) => {
+  const textareaRef = useRef(null);
+  
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      disabled={disabled}
+      value={value || ''}
+      onChange={(e) => {
+        if (onChange) onChange(e);
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+      }}
+      onBlur={onBlur}
+      rows={1}
+      data-gramm="false" 
+      spellCheck="false"
+      style={{
+        width: '100%',
+        minHeight: '28px',
+        resize: 'none',
+        overflow: 'hidden',
+        border: 'none',
+        background: 'transparent',
+        padding: '6px',
+        fontFamily: 'inherit',
+        fontSize: 'inherit'
+      }}
+    />
+  );
+};
 
 const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [deviations, setDeviations] = useState([]);
@@ -309,6 +348,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                 <th className="col-dev-loc-to">INSTRUMENT</th>
                 <th className="col-dev-auto">DEVIATION</th>
                 {columns.map(col => <th key={col.id} className="col-custom">{col.label}</th>)}
+                {canEdit && <th className="col-actions">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
@@ -320,49 +360,43 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                 >
                   <td className="col-dev-num">{index + 1}</td>
                   <td className="col-dev-guidewords">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={dev.guidewords} 
                       onChange={(e) => handleCellChange(dev._id, 'guidewords', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'guidewords', e.target.value)}
                     />
                   </td>
                   <td className="col-dev-parameter">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={dev.parameter} 
                       onChange={(e) => handleCellChange(dev._id, 'parameter', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'parameter', e.target.value)}
                     />
                   </td>
                   <td className="col-dev-process">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={dev.processFlowMaterial} 
                       onChange={(e) => handleCellChange(dev._id, 'processFlowMaterial', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'processFlowMaterial', e.target.value)}
                     />
                   </td>
                   <td className="col-dev-loc-from">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={dev.locationFrom} 
                       onChange={(e) => handleCellChange(dev._id, 'locationFrom', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'locationFrom', e.target.value)}
                     />
                   </td>
                   <td className="col-dev-loc-to">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit}  
                       value={dev.locationTo} 
                       onChange={(e) => handleCellChange(dev._id, 'locationTo', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'locationTo', e.target.value)}
                     />
                   </td>
                   <td className="col-dev-auto">
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
-                      value={dev.deviationAuto || ''} 
+                    <AutoResizeTextarea disabled={!canEdit}  
+                      value={dev.deviationAuto} 
                       onChange={(e) => handleCellChange(dev._id, 'deviationAuto', e.target.value)}
                       onBlur={(e) => handleBlur(dev._id, 'deviationAuto', e.target.value)}
                     />
@@ -372,6 +406,17 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                       {renderCustomCell(dev, col)}
                     </td>
                   ))}
+                  {canEdit && (
+                    <td className="col-actions" style={{textAlign: 'center', verticalAlign: 'middle'}}>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(dev._id); }} 
+                        style={{background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px'}}
+                        title="Delete Row"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

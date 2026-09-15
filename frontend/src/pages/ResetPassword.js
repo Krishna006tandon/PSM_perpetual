@@ -5,6 +5,7 @@ const ResetPassword = () => {
   const [authStep, setAuthStep] = useState('FORGOT_SEND_OTP'); // 'FORGOT_SEND_OTP', 'FORGOT_OTP', 'FORGOT_RESET'
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -261,7 +262,12 @@ const ResetPassword = () => {
               <form onSubmit={handleForgotResetPassword}>
                 <div style={inputContainerStyle}>
                   <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginLeft: '4px' }}>Secure Password</label>
-                  <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="Enter new password" style={inputStyle} onFocus={(e) => {e.target.style.borderColor = '#0066cc'; e.target.style.boxShadow = '0 0 0 4px rgba(0,102,204,0.1)';}} onBlur={(e) => {e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none';}} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input type={showPassword ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="Enter new password" style={{ ...inputStyle, width: '100%', paddingRight: '40px' }} onFocus={(e) => {e.target.style.borderColor = '#0066cc'; e.target.style.boxShadow = '0 0 0 4px rgba(0,102,204,0.1)';}} onBlur={(e) => {e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none';}} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#94a3b8' }} tabIndex="-1">
+                      {showPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" disabled={loading || !newPassword} style={{ ...btnStyle, marginTop: '16px' }} onMouseOver={(e) => { if(!loading && newPassword) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 102, 204, 0.4)'; } }} onMouseOut={(e) => { if(!loading) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 102, 204, 0.3)'; } }}>
                   {loading ? 'Updating...' : 'Set Password'}

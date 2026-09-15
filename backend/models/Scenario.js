@@ -31,6 +31,7 @@ const scenarioSchema = new mongoose.Schema({
   residualRiskRR: { type: String, default: '' },
   
   additionalProtection: { type: String, default: '' },
+  recommendationNo: { type: String, default: '' },
   remarks: { type: String, default: '' },
   status: { type: String, default: '' },
 

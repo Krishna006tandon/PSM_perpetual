@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import './DynamicRegistry.css';
@@ -218,7 +218,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
     // Default to text
     return (
-      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+      <textarea disabled={!canEdit} data-gramm="false" spellCheck={true} 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
@@ -226,7 +226,174 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     );
   };
 
+  // Node-wise sorting (Issue 7)
+  const sortedScenariosWithRecs = useMemo(() => {
+    const recs = scenarios.filter(sc => sc.additionalProtection && sc.additionalProtection.trim() !== '');
+    const nodeOrderMap = {};
+    nodes.forEach((n, idx) => {
+      nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
+    });
+
+    return [...recs].sort((a, b) => {
+      const nodeA = a.nodeId?._id || a.nodeId;
+      const nodeB = b.nodeId?._id || b.nodeId;
+      const orderA = nodeOrderMap[nodeA] ?? 9999;
+      const orderB = nodeOrderMap[nodeB] ?? 9999;
+      if (orderA !== orderB) return orderA - orderB;
+
+      const devA = a.deviationId?.deviationAuto || '';
+      const devB = b.deviationId?.deviationAuto || '';
+      if (devA !== devB) return devA.localeCompare(devB);
+
+      return (a.order || 0) - (b.order || 0);
+    });
+  }, [scenarios, nodes]);
+
+  // Dynamic sequential recommendation numbering (Issue 11 & 12)
+  const recNumberMap = useMemo(() => {
+    const map = {};
+    let counter = 1;
+    sortedScenariosWithRecs.forEach((sc) => {
+      if (sc.recommendationNo) {
+        map[sc._id] = sc.recommendationNo;
+      } else {
+        map[sc._id] = `R${counter++}`;
+      }
+    });
+    return map;
+  }, [sortedScenariosWithRecs]);
+
+  // Delete Recommendation with warning and auto-renumber (Issue 11)
+  const handleDeleteRecommendation = async (sc) => {
+    const recNo = recNumberMap[sc._id] || 'this recommendation';
+    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? This action cannot be undone and will re-number remaining recommendations.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
+      });
+
+      setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
+    } catch (err) {
+      console.error('Error deleting recommendation:', err);
+      alert('Failed to delete recommendation.');
+    }
+  };
+
+  // Export Recommendation Sheet to Excel (Issue 9)
+  const exportToExcel = () => {
+    const colHeaders = columns.map(c => c.label);
+    let tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Recommendations</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+        <style>
+          th { background-color: #0f172a; color: #ffffff; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; }
+          td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+          .node-hdr { background-color: #e2e8f0; font-weight: bold; font-size: 13px; color: #0f172a; }
+        </style>
+      </head>
+      <body>
+        <h2>RECOMMENDATIONS REGISTRY - ${study.studyName || ''}</h2>
+        <p>Project: ${study.projectName || ''} | Facility: ${study.facilityName || ''} | Generated: ${new Date().toLocaleDateString()}</p>
+        <table border="1">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>RECOMMENDATION STATEMENT</th>
+              <th>NODE</th>
+              <th>DEVIATION</th>
+              <th>CAUSE</th>
+              <th>CONSEQUENCE</th>
+              ${colHeaders.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    let lastNodeId = null;
+    sortedScenariosWithRecs.forEach((sc) => {
+      const nodeDesc = sc.nodeId?.description || 'General Node';
+      if (sc.nodeId?._id !== lastNodeId) {
+        lastNodeId = sc.nodeId?._id;
+        tableHtml += `
+          <tr class="node-hdr">
+            <td colspan="${6 + columns.length}">📁 NODE: ${nodeDesc}</td>
+          </tr>
+        `;
+      }
+
+      const recNo = recNumberMap[sc._id] || '';
+      const customCells = columns.map(c => `<td>${(sc.recommendationData && sc.recommendationData[c.id]) || ''}</td>`).join('');
+      tableHtml += `
+        <tr>
+          <td align="center" style="font-weight: bold;">${recNo}</td>
+          <td>${sc.additionalProtection || ''}</td>
+          <td>${nodeDesc}</td>
+          <td>${sc.deviationId?.deviationAuto || ''}</td>
+          <td>${sc.causeId?.description || ''}</td>
+          <td>${sc.consequencesImmediate || ''}</td>
+          ${customCells}
+        </tr>
+      `;
+    });
+
+    tableHtml += `</tbody></table></body></html>`;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Recommendations_Registry_${study.studyName || 'Study'}.xls`;
+    link.click();
+  };
+
+  // Export Recommendation Sheet to CSV (Issue 9)
+  const exportToCSV = () => {
+    const colHeaders = columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
+    let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE",${colHeaders.join(',')}\n`;
+
+    const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+    sortedScenariosWithRecs.forEach((sc) => {
+      const recNo = recNumberMap[sc._id] || '';
+      const customCells = columns.map(c => escape((sc.recommendationData && sc.recommendationData[c.id]) || ''));
+      csv += [
+        escape(recNo),
+        escape(sc.additionalProtection),
+        escape(sc.nodeId?.description),
+        escape(sc.deviationId?.deviationAuto),
+        escape(sc.causeId?.description),
+        escape(sc.consequencesImmediate),
+        ...customCells
+      ].join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Recommendations_Registry_${study.studyName || 'Study'}.csv`;
+    link.click();
+  };
+
   if (!study) return null;
+
+  let renderLastNodeId = null;
 
   return (
     <StudyLayout activeTab="recommendations" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
@@ -235,65 +402,107 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <h2>RECOMMENDATIONS REGISTRY</h2>
         </div>
 
-        <div className="dynamic-toolbar">
+        <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
             </button>
           )}
+          <button 
+            className="btn-manage-columns" 
+            onClick={exportToExcel}
+            style={{ backgroundColor: '#10b981', color: '#ffffff', border: 'none' }}
+            title="Export Recommendations to Excel"
+          >
+            📥 EXPORT EXCEL
+          </button>
+          <button 
+            className="btn-manage-columns" 
+            onClick={exportToCSV}
+            style={{ backgroundColor: '#0284c7', color: '#ffffff', border: 'none' }}
+            title="Export Recommendations to CSV"
+          >
+            📥 EXPORT CSV
+          </button>
         </div>
 
         <div className="dynamic-table-wrapper">
           <table className="dynamic-table">
             <thead>
               <tr>
-                <th style={{width:'50px'}}>#</th>
+                <th style={{width:'60px'}}>#</th>
                 <th className="col-custom">RECOMMENDATION STATEMENT</th>
                 <th className="col-node">NODE</th>
                 <th className="col-dev">DEVIATION</th>
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
-                <th style={{width: '60px', textAlign: 'center'}}>LINK</th>
+                <th style={{width: '90px', textAlign: 'center'}}>ACTIONS</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {!loading && scenarios.filter(sc => sc.additionalProtection && sc.additionalProtection.trim() !== '').map((sc, index) => (
-                <tr key={sc._id}>
-                  <td style={{textAlign:'center'}}>R{index + 1}</td>
-                  <td className="col-custom">
-                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      value={sc.additionalProtection || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
-                    />
-                  </td>
-                  <td className="col-node">{sc.nodeId?.description || ''}</td>
-                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-cause">{sc.causeId?.description || ''}</td>
-                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
-                  <td style={{textAlign: 'center'}}>
-                    <span 
-                      title="Go to Worksheet" 
-                      onClick={() => {
-                        if (sc.nodeId?._id) localStorage.setItem('targetNodeId', sc.nodeId._id);
-                        if (sc._id) localStorage.setItem('targetScenarioId', sc._id);
-                        onNavigate('pha-worksheets');
-                      }} 
-                      style={{cursor: 'pointer', color: '#0ea5e9', fontSize: '16px', textDecoration: 'underline'}}
-                    >
-                      View
-                    </span>
-                  </td>
-                  {columns.map(col => (
-                    <td key={col.id} className="col-custom">
-                      {renderCustomCell(sc, col)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {!loading && sortedScenariosWithRecs.map((sc) => {
+                const isNewNode = sc.nodeId?._id !== renderLastNodeId;
+                if (isNewNode) {
+                  renderLastNodeId = sc.nodeId?._id;
+                }
+                const recNo = recNumberMap[sc._id] || '';
+
+                return (
+                  <React.Fragment key={sc._id}>
+                    {isNewNode && (
+                      <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 'bold' }}>
+                        <td colSpan={7 + columns.length} style={{ padding: '8px 12px', color: '#0f172a', fontSize: '12px' }}>
+                          📁 NODE: {sc.nodeId?.description || 'General Node'}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td style={{textAlign:'center', fontWeight:'bold', color:'#0369a1'}}>{recNo}</td>
+                      <td className="col-custom">
+                        <textarea disabled={!canEdit} data-gramm="false" spellCheck={true} 
+                          value={sc.additionalProtection || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                          onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                        />
+                      </td>
+                      <td className="col-node">{sc.nodeId?.description || ''}</td>
+                      <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
+                      <td className="col-cause">{sc.causeId?.description || ''}</td>
+                      <td className="col-cons">{sc.consequencesImmediate || ''}</td>
+                      <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
+                        <span 
+                          title="Go to Worksheet" 
+                          onClick={() => {
+                            if (sc.nodeId?._id) localStorage.setItem('targetNodeId', sc.nodeId._id);
+                            if (sc._id) localStorage.setItem('targetScenarioId', sc._id);
+                            onNavigate('pha-worksheets');
+                          }} 
+                          style={{cursor: 'pointer', color: '#0ea5e9', fontSize: '13px', textDecoration: 'underline', marginRight: '8px'}}
+                        >
+                          View
+                        </span>
+                        {canEdit && (
+                          <span
+                            title="Delete Recommendation"
+                            onClick={() => handleDeleteRecommendation(sc)}
+                            style={{cursor: 'pointer', color: '#ef4444', fontSize: '14px'}}
+                          >
+                            🗑️
+                          </span>
+                        )}
+                      </td>
+                      {columns.map(col => (
+                        <td key={col.id} className="col-custom">
+                          {renderCustomCell(sc, col)}
+                        </td>
+                      ))}
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

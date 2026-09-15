@@ -128,7 +128,7 @@ const AutocompleteTextarea = ({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         data-gramm="false"
-        spellCheck="false"
+        spellCheck={true}
       />
       {showSuggestions && (
         <ul className="suggestions-list">

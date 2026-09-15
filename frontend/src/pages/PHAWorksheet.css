@@ -461,3 +461,37 @@
 .cell-material { color: #d97706 !important; font-weight: 500; }
 .cell-from { color: #dc2626 !important; font-weight: 500; }
 .cell-to { color: #7c3aed !important; font-weight: 500; }
+
+/* Risk Level Select styling (Issue 4) */
+.risk-level-select {
+  text-align: center;
+  text-align-last: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #0f172a) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  cursor: pointer;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text-primary, #0f172a) !important;
+}
+.risk-level-select:disabled {
+  opacity: 1 !important;
+  cursor: default;
+  color: var(--text-primary, #0f172a) !important;
+  -webkit-text-fill-color: var(--text-primary, #0f172a) !important;
+}
+
+/* Node Intent auto-expansion (Issue 5) */
+.pha-metadata-intent-row .pha-metadata-cell {
+  height: auto !important;
+  min-height: 48px;
+  align-items: flex-start !important;
+  padding: 10px 20px;
+}
+.pha-metadata-value {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}

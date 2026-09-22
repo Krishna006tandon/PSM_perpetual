@@ -103,4 +103,6 @@ router.put('/:studyId', async (req, res) => {
   }
 });
 
+router.generateDefaultRiskCriteria = generateDefaultRiskCriteria;
+
 module.exports = router;

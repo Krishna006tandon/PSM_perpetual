@@ -117,7 +117,13 @@ router.get('/:id/full-export-data', async (req, res) => {
       .sort({ order: 1 });
 
     const RiskCriteria = require('../models/RiskCriteria');
-    const riskCriteria = await RiskCriteria.findOne({ studyId });
+    let riskCriteria = await RiskCriteria.findOne({ studyId });
+    if (!riskCriteria) {
+      const riskCriteriaRoutes = require('./riskCriteriaRoutes');
+      if (riskCriteriaRoutes.generateDefaultRiskCriteria) {
+        riskCriteria = riskCriteriaRoutes.generateDefaultRiskCriteria(studyId);
+      }
+    }
 
     res.json({
       study,

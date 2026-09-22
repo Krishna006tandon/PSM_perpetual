@@ -1636,6 +1636,72 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       const data = await response.json();
       
+      const activeRiskCriteria = data.riskCriteria || riskCriteria;
+
+      const hexToRgb = (hex) => {
+        if (!hex || typeof hex !== 'string') return null;
+        let c = hex.trim();
+        if (c.startsWith('#')) c = c.slice(1);
+        if (c.length === 3) {
+          c = c.split('').map(char => char + char).join('');
+        }
+        if (c.length === 6) {
+          const num = parseInt(c, 16);
+          if (!isNaN(num)) {
+            return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+          }
+        }
+        return null;
+      };
+
+      const getPdfRiskColor = (sVal, lVal, scoreVal) => {
+        const s = parseInt(sVal);
+        const l = parseInt(lVal);
+        const val = parseInt(scoreVal);
+
+        if (activeRiskCriteria) {
+          // 1. Look up exact matrix cell by (s, l)
+          if (!isNaN(s) && !isNaN(l) && s > 0 && l > 0) {
+            const cell = activeRiskCriteria.matrixCells?.find(
+              c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l)
+            );
+            if (cell) {
+              const cat = activeRiskCriteria.riskCategories?.find(c => c.name === cell.category);
+              if (cat?.color) {
+                const rgb = hexToRgb(cat.color);
+                if (rgb) return rgb;
+              }
+            }
+          }
+
+          // 2. Look up by score in matrix cells if s or l is missing
+          if (!isNaN(val) && val > 0) {
+            const cell = activeRiskCriteria.matrixCells?.find(c => Number(c.score) === val);
+            if (cell) {
+              const cat = activeRiskCriteria.riskCategories?.find(c => c.name === cell.category);
+              if (cat?.color) {
+                const rgb = hexToRgb(cat.color);
+                if (rgb) return rgb;
+              }
+            }
+          }
+        }
+
+        // 3. Fallback based on standard risk matrix:
+        // Score 1-5: Low (Green)
+        // Score 6-11: Medium (Yellow)
+        // Score 12-19: High (Orange)
+        // Score 20+: Extreme (Red)
+        if (!isNaN(val) && val > 0) {
+          if (val >= 20) return [239, 68, 68];   // Red (#ef4444)
+          if (val >= 12) return [249, 115, 22];  // Orange (#f97316)
+          if (val >= 6) return [234, 179, 8];    // Yellow (#eab308)
+          return [34, 197, 94];                  // Green (#22c55e)
+        }
+
+        return null;
+      };
+
       const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.width;
       
@@ -1852,15 +1918,28 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                if (cellData.section === 'body' && (cellData.column.index === 7 || cellData.column.index === 11 || cellData.column.index === 15)) {
                   const val = parseInt(cellData.cell.raw);
                   if (!isNaN(val) && val > 0) {
-                     let color = [34, 197, 94];
-                     if (val > 10) color = [239, 68, 68];
-                     else if (val >= 4) color = [234, 179, 8];
-                     
-                     cellData.cell.styles.fillColor = color;
-                     cellData.cell.styles.textColor = val > 10 ? 255 : 0;
-                     cellData.cell.styles.fontStyle = 'bold';
-                     cellData.cell.styles.halign = 'center';
-                     cellData.cell.styles.valign = 'middle';
+                     const sc = nodeScenarios[cellData.row.index];
+                     let s = '', l = '';
+                     if (cellData.column.index === 7) {
+                        s = sc?.inherentRiskS || cellData.row.raw?.[5];
+                        l = sc?.inherentRiskL || cellData.row.raw?.[6];
+                     } else if (cellData.column.index === 11) {
+                        s = sc?.mitigatedRiskS || sc?.inherentRiskS || cellData.row.raw?.[9];
+                        l = sc?.mitigatedRiskL || cellData.row.raw?.[10];
+                     } else if (cellData.column.index === 15) {
+                        s = sc?.residualRiskS || sc?.inherentRiskS || cellData.row.raw?.[13];
+                        l = sc?.residualRiskL || cellData.row.raw?.[14];
+                     }
+
+                     const color = getPdfRiskColor(s, l, val);
+                     if (color) {
+                        cellData.cell.styles.fillColor = color;
+                        const isDark = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000 < 140;
+                        cellData.cell.styles.textColor = isDark ? 255 : 0;
+                        cellData.cell.styles.fontStyle = 'bold';
+                        cellData.cell.styles.halign = 'center';
+                        cellData.cell.styles.valign = 'middle';
+                     }
                   }
                }
             }

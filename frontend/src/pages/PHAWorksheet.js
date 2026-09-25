@@ -517,18 +517,32 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     return cat ? cat.color : 'transparent';
   };
 
+  const calculateRiskScore = (sVal, lVal) => {
+    const s = parseInt(sVal);
+    const l = parseInt(lVal);
+    if (isNaN(s) || isNaN(l) || !s || !l) return '';
+    if (riskCriteria?.matrixCells) {
+      const cell = riskCriteria.matrixCells.find(
+        c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l)
+      );
+      if (cell && cell.score) return String(cell.score);
+    }
+    return String(s * l);
+  };
+
   const renderSeverityOptions = (currentVal) => {
     const levels = (riskCriteria?.severityLevels && riskCriteria.severityLevels.length > 0)
       ? riskCriteria.severityLevels.map(l => l.level)
       : [1, 2, 3, 4, 5];
+    const strVal = currentVal !== undefined && currentVal !== null ? String(currentVal) : '';
     return (
       <>
         <option value=""></option>
-        {currentVal && !levels.includes(Number(currentVal)) && !levels.includes(String(currentVal)) && (
-          <option value={currentVal}>{currentVal}</option>
+        {strVal && !levels.some(lvl => String(lvl) === strVal) && (
+          <option value={strVal}>{strVal}</option>
         )}
         {levels.map(lvl => (
-          <option key={lvl} value={lvl}>{lvl}</option>
+          <option key={lvl} value={String(lvl)}>{lvl}</option>
         ))}
       </>
     );
@@ -538,14 +552,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     const levels = (riskCriteria?.likelihoodLevels && riskCriteria.likelihoodLevels.length > 0)
       ? riskCriteria.likelihoodLevels.map(l => l.level)
       : [1, 2, 3, 4, 5];
+    const strVal = currentVal !== undefined && currentVal !== null ? String(currentVal) : '';
     return (
       <>
         <option value=""></option>
-        {currentVal && !levels.includes(Number(currentVal)) && !levels.includes(String(currentVal)) && (
-          <option value={currentVal}>{currentVal}</option>
+        {strVal && !levels.some(lvl => String(lvl) === strVal) && (
+          <option value={strVal}>{strVal}</option>
         )}
         {levels.map(lvl => (
-          <option key={lvl} value={lvl}>{lvl}</option>
+          <option key={lvl} value={String(lvl)}>{lvl}</option>
         ))}
       </>
     );
@@ -563,14 +578,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         if (sc._id === id || (targetConsGroupId && sc.consequenceGroupId === targetConsGroupId) || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId)) {
           const updatedSc = { ...sc, [field]: value };
           
-          const calcRisk = (sVal, lVal) => {
-            const s = parseInt(sVal) || 0;
-            const l = parseInt(lVal) || 0;
-            if (!s || !l || !riskCriteria) return '';
-            const cell = riskCriteria.matrixCells.find(c => c.severityLevel === s && c.likelihoodLevel === l);
-            return cell ? cell.score : s * l;
-          };
-
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
             if (field === 'inherentRiskS') {
               updatedSc.mitigatedRiskS = value;
@@ -580,15 +587,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               if (!updatedSc.mitigatedRiskL) updatedSc.mitigatedRiskL = value;
               if (!updatedSc.residualRiskL) updatedSc.residualRiskL = value;
             }
-            updatedSc.inherentRiskRR = calcRisk(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
-            updatedSc.mitigatedRiskRR = calcRisk(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
-            updatedSc.residualRiskRR = calcRisk(updatedSc.residualRiskS, updatedSc.residualRiskL);
+            updatedSc.inherentRiskRR = calculateRiskScore(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
+            updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
+            updatedSc.residualRiskRR = calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL);
           }
           if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-            updatedSc.mitigatedRiskRR = calcRisk(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
+            updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
           }
           if (field === 'residualRiskS' || field === 'residualRiskL') {
-            updatedSc.residualRiskRR = calcRisk(updatedSc.residualRiskS, updatedSc.residualRiskL);
+            updatedSc.residualRiskRR = calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL);
           }
           
           return updatedSc;
@@ -606,9 +613,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const targetSc = scenarios.find(s => s._id === id);
       
       if (field === 'inherentRiskS' || field === 'inherentRiskL') {
-        const s = field === 'inherentRiskS' ? parseInt(value) : parseInt(targetSc.inherentRiskS);
-        const l = field === 'inherentRiskL' ? parseInt(value) : parseInt(targetSc.inherentRiskL);
-        payload.inherentRiskRR = s && l ? s * l : '';
+        const s = field === 'inherentRiskS' ? value : targetSc.inherentRiskS;
+        const l = field === 'inherentRiskL' ? value : targetSc.inherentRiskL;
+        payload.inherentRiskRR = calculateRiskScore(s, l);
         
         if (field === 'inherentRiskS') {
           payload.mitigatedRiskS = value;
@@ -619,23 +626,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           if (!targetSc.residualRiskL) payload.residualRiskL = value;
         }
         
-        const mS = parseInt(payload.mitigatedRiskS || targetSc.mitigatedRiskS);
-        const mL = parseInt(payload.mitigatedRiskL || targetSc.mitigatedRiskL);
-        payload.mitigatedRiskRR = mS && mL ? mS * mL : '';
+        const mS = payload.mitigatedRiskS || targetSc.mitigatedRiskS;
+        const mL = payload.mitigatedRiskL || targetSc.mitigatedRiskL;
+        payload.mitigatedRiskRR = calculateRiskScore(mS, mL);
         
-        const rS = parseInt(payload.residualRiskS || targetSc.residualRiskS);
-        const rL = parseInt(payload.residualRiskL || targetSc.residualRiskL);
-        payload.residualRiskRR = rS && rL ? rS * rL : '';
+        const rS = payload.residualRiskS || targetSc.residualRiskS;
+        const rL = payload.residualRiskL || targetSc.residualRiskL;
+        payload.residualRiskRR = calculateRiskScore(rS, rL);
       }
       if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-        const s = field === 'mitigatedRiskS' ? parseInt(value) : parseInt(targetSc.mitigatedRiskS);
-        const l = field === 'mitigatedRiskL' ? parseInt(value) : parseInt(targetSc.mitigatedRiskL);
-        payload.mitigatedRiskRR = s && l ? s * l : '';
+        const s = field === 'mitigatedRiskS' ? value : targetSc.mitigatedRiskS;
+        const l = field === 'mitigatedRiskL' ? value : targetSc.mitigatedRiskL;
+        payload.mitigatedRiskRR = calculateRiskScore(s, l);
       }
       if (field === 'residualRiskS' || field === 'residualRiskL') {
-        const s = field === 'residualRiskS' ? parseInt(value) : parseInt(targetSc.residualRiskS);
-        const l = field === 'residualRiskL' ? parseInt(value) : parseInt(targetSc.residualRiskL);
-        payload.residualRiskRR = s && l ? s * l : '';
+        const s = field === 'residualRiskS' ? value : targetSc.residualRiskS;
+        const l = field === 'residualRiskL' ? value : targetSc.residualRiskL;
+        payload.residualRiskRR = calculateRiskScore(s, l);
       }
 
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
@@ -1757,37 +1764,41 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      // Page 2: Team Members & Sessions
-      doc.addPage();
-      doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
-      doc.rect(0, 0, pageWidth, 60, 'F');
-      doc.setFontSize(22);
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.text("Team Members & Sessions", 40, 38);
-      
-      if (data.teamMembers && data.teamMembers.length > 0) {
-        doc.autoTable({
-          startY: 80,
-          theme: 'grid',
-          head: [['Name', 'Title', 'Department', 'Expertise']],
-          body: data.teamMembers.map(t => [t.name || t.fullName || '', t.title || '', t.department || '', t.expertise || '']),
-          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-          alternateRowStyles: { fillColor: rowLight }
-        });
-      }
+      // Page 2: Team Members & Sessions (only add if data exists)
+      const hasTeam = data.teamMembers && data.teamMembers.length > 0;
+      const hasSessions = data.sessions && data.sessions.length > 0;
+      if (hasTeam || hasSessions) {
+        doc.addPage();
+        doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
+        doc.rect(0, 0, pageWidth, 60, 'F');
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text("Team Members & Sessions", 40, 38);
+        
+        if (hasTeam) {
+          doc.autoTable({
+            startY: 80,
+            theme: 'grid',
+            head: [['Name', 'Title', 'Department', 'Expertise']],
+            body: data.teamMembers.map(t => [t.name || t.fullName || '', t.title || '', t.department || '', t.expertise || '']),
+            headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+            styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+            alternateRowStyles: { fillColor: rowLight }
+          });
+        }
 
-      if (data.sessions && data.sessions.length > 0) {
-        doc.autoTable({
-          startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 80,
-          theme: 'grid',
-          head: [['Date', 'Duration', 'Description', 'Places Used']],
-          body: data.sessions.map(s => [s.date || '', s.duration || '', s.description || '', s.placesUsed || '']),
-          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-          alternateRowStyles: { fillColor: rowLight }
-        });
+        if (hasSessions) {
+          doc.autoTable({
+            startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 80,
+            theme: 'grid',
+            head: [['Date', 'Duration', 'Description', 'Places Used']],
+            body: data.sessions.map(s => [s.date || '', s.duration || '', s.description || '', s.placesUsed || '']),
+            headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
+            styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
+            alternateRowStyles: { fillColor: rowLight }
+          });
+        }
       }
 
       if (data.documents && data.documents.length > 0) {
@@ -1831,7 +1842,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           startY: 80,
           theme: 'grid',
           head: [['Node #', 'Title', 'Description', 'Intention', 'Drawings / References']],
-          body: data.nodes.map(n => [n.nodeNumber || '', n.nodeTitle || '', n.description || '', n.intention || '', n.drawings || '']),
+          body: data.nodes.map((n, i) => [
+            n.nodeNumber || n.order || String(i + 1),
+            n.nodeTitle || n.description || '',
+            n.description || '',
+            n.intention || '',
+            n.drawings || n.boundary || ''
+          ]),
           headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
           styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
           alternateRowStyles: { fillColor: rowLight }
@@ -1840,64 +1857,148 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       // Page N: Worksheets per Node
       if (data.nodes && data.nodes.length > 0) {
-        data.nodes.forEach((node) => {
+        data.nodes.forEach((node, nodeIdx) => {
           doc.addPage();
           doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
           doc.rect(0, 0, pageWidth, 60, 'F');
           doc.setFontSize(18);
           doc.setTextColor(255, 255, 255);
-          doc.text(`HAZOP Worksheet (Node ${node.nodeNumber || ''}: ${node.description || ''})`, 40, 38);
+
+          const nodeNum = node.nodeNumber || node.order || String(nodeIdx + 1);
+          const nodeDesc = node.description || '';
+          const nodeTitleText = nodeDesc.toLowerCase().startsWith('node')
+            ? nodeDesc
+            : `Node ${nodeNum}: ${nodeDesc}`;
+          doc.text(`HAZOP Worksheet (${nodeTitleText})`, 40, 38);
           
-          // Fixed head with matching column structure (Issues 2 & 4)
           const head = [[
-            { content: '#', rowSpan: 2 },
-            { content: 'DEVIATION', rowSpan: 2 },
-            { content: 'CAUSE', rowSpan: 2 },
-            { content: 'CONSEQUENCES', rowSpan: 2 },
-            { content: 'CAT', rowSpan: 2 },
-            { content: 'I-RISK', colSpan: 3 },
-            { content: 'SAFEGUARDS', rowSpan: 2 },
-            { content: 'M-RISK', colSpan: 3 },
-            { content: 'RECOMMENDATIONS', rowSpan: 2 },
-            { content: 'R-RISK', colSpan: 3 }
+            { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'DEVIATION', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'CAUSE', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'CONSEQUENCES', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'CAT', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'I-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'SAFEGUARDS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'M-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'RECOMMENDATIONS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'R-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } }
           ], [
-            'S', 'L', 'RR',
-            'S', 'L', 'RR',
-            'S', 'L', 'RR'
+            { content: 'S', styles: { halign: 'center' } },
+            { content: 'L', styles: { halign: 'center' } },
+            { content: 'RR', styles: { halign: 'center' } },
+            { content: 'S', styles: { halign: 'center' } },
+            { content: 'L', styles: { halign: 'center' } },
+            { content: 'RR', styles: { halign: 'center' } },
+            { content: 'S', styles: { halign: 'center' } },
+            { content: 'L', styles: { halign: 'center' } },
+            { content: 'RR', styles: { halign: 'center' } }
           ]];
 
-          const nodeScenarios = data.scenarios.filter(s => s.nodeId && (s.nodeId._id === node._id || s.nodeId === node._id));
+          const nodeScenarios = (data.scenarios || []).filter(s => {
+            const sNodeId = s.nodeId?._id ? String(s.nodeId._id) : (s.nodeId ? String(s.nodeId) : '');
+            return sNodeId === String(node._id);
+          });
           
+          nodeScenarios.sort((a, b) => {
+            const devA = a.deviationId?._id ? String(a.deviationId._id) : (a.deviationId ? String(a.deviationId) : '');
+            const devB = b.deviationId?._id ? String(b.deviationId._id) : (b.deviationId ? String(b.deviationId) : '');
+            if (devA !== devB) return devA.localeCompare(devB);
+            
+            const causeA = a.causeId?._id ? String(a.causeId._id) : (a.causeId ? String(a.causeId) : '');
+            const causeB = b.causeId?._id ? String(b.causeId._id) : (b.causeId ? String(b.causeId) : '');
+            if (causeA !== causeB) return causeA.localeCompare(causeB);
+            
+            const consA = a.consequenceGroupId || '';
+            const consB = b.consequenceGroupId || '';
+            if (consA !== consB) return consA.localeCompare(consB);
+            
+            return (a.order || 0) - (b.order || 0);
+          });
+
+          // Consolidate consequence group level risks so multi-safeguard rows cleanly inherit group values
+          const consGroupMap = {};
+          nodeScenarios.forEach(s => {
+            const key = s.consequenceGroupId || String(s._id);
+            if (!consGroupMap[key]) {
+              consGroupMap[key] = {
+                cons: [s.consequencesImmediate, s.consequencesUltimate].filter(Boolean).join('\n'),
+                cat: s.consequenceCategory || '',
+                iS: s.inherentRiskS || '',
+                iL: s.inherentRiskL || '',
+                mS: s.mitigatedRiskS || '',
+                mL: s.mitigatedRiskL || '',
+                rS: s.residualRiskS || '',
+                rL: s.residualRiskL || ''
+              };
+            } else {
+              const g = consGroupMap[key];
+              if (!g.cons) g.cons = [s.consequencesImmediate, s.consequencesUltimate].filter(Boolean).join('\n');
+              if (!g.cat && s.consequenceCategory) g.cat = s.consequenceCategory;
+              if (!g.iS && s.inherentRiskS) g.iS = s.inherentRiskS;
+              if (!g.iL && s.inherentRiskL) g.iL = s.inherentRiskL;
+              if (!g.mS && s.mitigatedRiskS) g.mS = s.mitigatedRiskS;
+              if (!g.mL && s.mitigatedRiskL) g.mL = s.mitigatedRiskL;
+              if (!g.rS && s.residualRiskS) g.rS = s.residualRiskS;
+              if (!g.rL && s.residualRiskL) g.rL = s.residualRiskL;
+            }
+          });
+
+          const calcScore = (sVal, lVal) => {
+            const s = parseInt(sVal);
+            const l = parseInt(lVal);
+            if (isNaN(s) || isNaN(l) || !s || !l) return '';
+            if (activeRiskCriteria?.matrixCells) {
+              const cell = activeRiskCriteria.matrixCells.find(c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l));
+              if (cell && cell.score) return String(cell.score);
+            }
+            return String(s * l);
+          };
+
           let lastDevId = null;
           let lastCauseId = null;
           let lastConsKey = null;
 
           const body = nodeScenarios.map((s, idx) => {
-            const cons = [s.consequencesImmediate, s.consequencesUltimate].filter(Boolean).join('\n');
+            const consKey = s.consequenceGroupId || String(s._id);
+            const g = consGroupMap[consKey] || {};
+
+            const curDevId = s.deviationId?._id ? String(s.deviationId._id) : (s.deviationId ? String(s.deviationId) : null);
+            const curCauseId = s.causeId?._id ? String(s.causeId._id) : (s.causeId ? String(s.causeId) : null);
+
+            const isSameDev = curDevId && curDevId === lastDevId;
+            const isSameCause = isSameDev && curCauseId && curCauseId === lastCauseId;
+            const isSameCons = isSameCause && consKey === lastConsKey;
+
+            lastDevId = curDevId;
+            lastCauseId = curCauseId;
+            lastConsKey = consKey;
+
             const safe = s.presentProtection || '';
             const rec = s.additionalProtection ? (s.recommendationNo ? `[${s.recommendationNo}] ${s.additionalProtection}` : s.additionalProtection) : '';
-            
-            const isSameDev = s.deviationId?._id && s.deviationId._id === lastDevId;
-            const isSameCause = isSameDev && s.causeId?._id && s.causeId._id === lastCauseId;
-            const isSameCons = isSameCause && s.consequenceGroupId && s.consequenceGroupId === lastConsKey;
 
-            lastDevId = s.deviationId?._id;
-            lastCauseId = s.causeId?._id;
-            lastConsKey = s.consequenceGroupId;
+            const iS = isSameCons ? '' : (g.iS || '');
+            const iL = isSameCons ? '' : (g.iL || '');
+            const iRR = (iS && iL) ? calcScore(iS, iL) : '';
+
+            const mS = isSameCons ? '' : (g.mS || g.iS || '');
+            const mL = isSameCons ? '' : (g.mL || '');
+            const mRR = (mS && mL) ? calcScore(mS, mL) : '';
+
+            const rS = isSameCons ? '' : (g.rS || g.iS || '');
+            const rL = isSameCons ? '' : (g.rL || '');
+            const rRR = (rS && rL) ? calcScore(rS, rL) : '';
 
             return [
-              s.badgeCons || `${idx + 1}`, 
+              String(idx + 1), 
               isSameDev ? '' : (s.deviationId?.deviationAuto || ''), 
               isSameCause ? '' : (s.causeId?.description || ''),
-              isSameCons ? '' : cons,
-              isSameCons ? '' : (s.consequenceCategory || ''),
-              isSameCons ? '' : (s.inherentRiskS || ''),
-              isSameCons ? '' : (s.inherentRiskL || ''),
-              isSameCons ? '' : (s.inherentRiskRR || ''),
+              isSameCons ? '' : (g.cons || ''),
+              isSameCons ? '' : (g.cat || ''),
+              iS, iL, iRR,
               safe,
-              s.mitigatedRiskS || '', s.mitigatedRiskL || '', s.mitigatedRiskRR || '',
+              mS, mL, mRR,
               rec,
-              s.residualRiskS || '', s.residualRiskL || '', s.residualRiskRR || ''
+              rS, rL, rRR
             ];
           });
 
@@ -1910,35 +2011,50 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             head: head, 
             body: body, 
             theme: 'grid',
+            rowPageBreak: 'avoid',
             styles: { fontSize: 7, cellPadding: 3.5, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
             headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
             alternateRowStyles: { fillColor: rowLight },
+            columnStyles: {
+              0: { cellWidth: 18, halign: 'center' },
+              4: { halign: 'center' },
+              5: { cellWidth: 14, halign: 'center' },
+              6: { cellWidth: 14, halign: 'center' },
+              7: { cellWidth: 18, halign: 'center' },
+              9: { cellWidth: 14, halign: 'center' },
+              10: { cellWidth: 14, halign: 'center' },
+              11: { cellWidth: 18, halign: 'center' },
+              13: { cellWidth: 14, halign: 'center' },
+              14: { cellWidth: 14, halign: 'center' },
+              15: { cellWidth: 18, halign: 'center' }
+            },
             didParseCell: function(cellData) {
                // Color RR cells (indices 7, 11, 15)
                if (cellData.section === 'body' && (cellData.column.index === 7 || cellData.column.index === 11 || cellData.column.index === 15)) {
                   const val = parseInt(cellData.cell.raw);
                   if (!isNaN(val) && val > 0) {
-                     const sc = nodeScenarios[cellData.row.index];
                      let s = '', l = '';
                      if (cellData.column.index === 7) {
-                        s = sc?.inherentRiskS || cellData.row.raw?.[5];
-                        l = sc?.inherentRiskL || cellData.row.raw?.[6];
+                        s = cellData.row.raw?.[5];
+                        l = cellData.row.raw?.[6];
                      } else if (cellData.column.index === 11) {
-                        s = sc?.mitigatedRiskS || sc?.inherentRiskS || cellData.row.raw?.[9];
-                        l = sc?.mitigatedRiskL || cellData.row.raw?.[10];
+                        s = cellData.row.raw?.[9];
+                        l = cellData.row.raw?.[10];
                      } else if (cellData.column.index === 15) {
-                        s = sc?.residualRiskS || sc?.inherentRiskS || cellData.row.raw?.[13];
-                        l = sc?.residualRiskL || cellData.row.raw?.[14];
+                        s = cellData.row.raw?.[13];
+                        l = cellData.row.raw?.[14];
                      }
 
-                     const color = getPdfRiskColor(s, l, val);
-                     if (color) {
-                        cellData.cell.styles.fillColor = color;
-                        const isDark = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000 < 140;
-                        cellData.cell.styles.textColor = isDark ? 255 : 0;
-                        cellData.cell.styles.fontStyle = 'bold';
-                        cellData.cell.styles.halign = 'center';
-                        cellData.cell.styles.valign = 'middle';
+                     if (s && l) {
+                       const color = getPdfRiskColor(s, l, val);
+                       if (color) {
+                          cellData.cell.styles.fillColor = color;
+                          const isDark = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000 < 140;
+                          cellData.cell.styles.textColor = isDark ? 255 : 0;
+                          cellData.cell.styles.fontStyle = 'bold';
+                          cellData.cell.styles.halign = 'center';
+                          cellData.cell.styles.valign = 'middle';
+                       }
                      }
                   }
                }
@@ -1956,14 +2072,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       doc.text("Manage Recommendations", 40, 38);
       
       const allRecs = [];
-      data.scenarios.forEach(s => {
+      (data.scenarios || []).forEach(s => {
         if (s.additionalProtection && s.additionalProtection.trim()) {
+           const nNum = s.nodeId?.nodeNumber || s.nodeId?.order || '';
+           const nDesc = s.nodeId?.description || '';
+           const nLabel = nDesc.toLowerCase().startsWith('node') ? nDesc : `Node ${nNum}: ${nDesc}`;
            allRecs.push({
              recNo: s.recommendationNo || '',
              recommendation: s.additionalProtection,
              personResponsible: (s.recommendationData && s.recommendationData.personResponsible) || '',
              targetDate: (s.recommendationData && s.recommendationData.targetDate) || '',
-             node: `Node ${s.nodeId?.nodeNumber || ''}: ${s.nodeId?.description || ''}`,
+             node: nLabel,
              nodeOrder: s.nodeId?.order || 0
            });
         }

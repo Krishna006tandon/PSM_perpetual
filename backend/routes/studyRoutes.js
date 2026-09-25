@@ -109,7 +109,7 @@ router.get('/:id/full-export-data', async (req, res) => {
     const sessions = await Session.find({ studyId }).sort({ date: 1 });
     const revisions = await StudyRevision.find({ studyId }).sort({ revision: 1 });
     const documents = await StudyDocument.find({ studyId });
-    const nodes = await Node.find({ studyId }).sort({ nodeNumber: 1 });
+    const nodes = await Node.find({ studyId }).sort({ nodeNumber: 1, order: 1 });
     const scenarios = await Scenario.find({ studyId })
       .populate('nodeId')
       .populate('deviationId')

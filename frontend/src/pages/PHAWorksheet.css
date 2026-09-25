@@ -357,7 +357,7 @@
 
 .pha-table td input,
 .pha-table td textarea,
-.pha-table td select {
+.pha-table td select:not(.risk-level-select):not(.cell-select) {
   width: 100%;
   border: 1px solid transparent;
   background: transparent;
@@ -458,66 +458,102 @@
 .cell-from { color: #dc2626 !important; font-weight: 500; }
 .cell-to { color: #7c3aed !important; font-weight: 500; }
 
-/* Risk Level Select styling (Issue 4) */
+/* Risk Level Select styling (Issue 4) - clearly visible dropdown indicator */
+.pha-table td select.risk-level-select,
 .risk-level-select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  text-align: center;
-  text-align-last: center;
-  width: 100%;
-  height: 32px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 4px center;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  display: block !important;
+  width: 100% !important;
+  height: 28px !important;
+  line-height: 26px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%232563eb'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 4px center !important;
+  background-size: 14px 14px !important;
   color: var(--text-primary, #0f172a) !important;
   font-weight: 700 !important;
   font-size: 13px !important;
-  cursor: pointer;
+  text-align: center !important;
+  text-align-last: center !important;
+  cursor: pointer !important;
   opacity: 1 !important;
-  padding: 0 16px 0 6px;
-  box-sizing: border-box;
-  transition: all 0.2s ease;
-}
-.risk-level-select:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-  border-color: #cbd5e1;
-}
-.risk-level-select:focus {
-  outline: none;
-  border-color: #0284c7;
-  background-color: var(--bg-paper, #ffffff);
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
-}
-.risk-level-select:disabled {
-  opacity: 1 !important;
-  cursor: default;
-  background-image: none;
-  padding: 0 4px;
-  color: var(--text-primary, #0f172a) !important;
+  padding: 0 18px 0 6px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease !important;
 }
 
-.cell-select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  padding: 4px 20px 4px 6px;
-  box-sizing: border-box;
-  cursor: pointer;
+.pha-table td select.risk-level-select:hover,
+.risk-level-select:hover {
+  border-color: #2563eb !important;
+  background-color: #f0f7ff !important;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15) !important;
 }
+
+.pha-table td select.risk-level-select:focus,
+.risk-level-select:focus {
+  outline: none !important;
+  border-color: #2563eb !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+}
+
+.pha-table td select.risk-level-select:disabled,
+.risk-level-select:disabled {
+  opacity: 1 !important;
+  cursor: default !important;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  padding: 0 4px !important;
+  color: var(--text-primary, #0f172a) !important;
+  box-shadow: none !important;
+}
+
+.pha-table td select.cell-select,
+.cell-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  height: 28px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%232563eb'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 14px 14px !important;
+  padding: 2px 22px 2px 8px !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.pha-table td select.cell-select:hover,
+.cell-select:hover {
+  border-color: #2563eb !important;
+  background-color: #f0f7ff !important;
+}
+
+.pha-table td select.cell-select:focus,
+.cell-select:focus {
+  outline: none !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+}
+
+.pha-table td select.cell-select:disabled,
 .cell-select:disabled {
-  background-image: none;
-  padding: 4px;
-  cursor: default;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  padding: 4px !important;
+  cursor: default !important;
 }
 
 /* Node Intent auto-expansion (Issue 5) */

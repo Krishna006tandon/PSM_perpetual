@@ -2634,7 +2634,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         />
                       </td>
                       <td className="w-cat bg-consequence" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit}  className="cell-select" style={{textAlign:'center', width:'100%', border:'none', background:'transparent'}} value={sc.consequenceCategory || ''} onChange={(e) => handleCellChange(sc._id, 'consequenceCategory', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'consequenceCategory', e.target.value)}>
+                        <select disabled={!canEdit} className="cell-select" value={sc.consequenceCategory || ''} onChange={(e) => handleCellChange(sc._id, 'consequenceCategory', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'consequenceCategory', e.target.value)}>
                           <option value=""></option>
                           {riskCriteria?.consequenceCategories?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
@@ -2771,7 +2771,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <select disabled={!canEdit}  
                         className="cell-select"
-                        style={{width:'100%', border:'none', background:'transparent', padding:'8px'}}
                         value={sc.status || ''} 
                         onChange={(e) => handleCellChange(sc._id, 'status', e.target.value)}
                         onBlur={(e) => handleBlur(sc._id, 'status', e.target.value)}

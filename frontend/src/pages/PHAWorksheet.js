@@ -2325,6 +2325,33 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           >
             {isFocusMode ? '✖ Exit Focus' : '⛶ Focus Mode'}
           </button>
+
+          <div style={{display: 'inline-flex', alignItems: 'center', gap: '3px'}}>
+            <button 
+              type="button"
+              className="toolbar-btn" 
+              onClick={() => {
+                const el = document.querySelector('.pha-table-wrapper-flush');
+                if (el) el.scrollBy({ left: -450, behavior: 'smooth' });
+              }} 
+              title="Scroll columns left" 
+              style={{padding: '5px 10px', fontSize: '12px', fontWeight: 'bold'}}
+            >
+              ◀
+            </button>
+            <button 
+              type="button"
+              className="toolbar-btn" 
+              onClick={() => {
+                const el = document.querySelector('.pha-table-wrapper-flush');
+                if (el) el.scrollBy({ left: 450, behavior: 'smooth' });
+              }} 
+              title="Scroll columns right" 
+              style={{padding: '5px 10px', fontSize: '12px', fontWeight: 'bold'}}
+            >
+              ▶
+            </button>
+          </div>
           
           <div className="pha-node-selector">
             NODE: 

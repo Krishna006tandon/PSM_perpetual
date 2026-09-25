@@ -52,19 +52,22 @@
   padding: 0;
 }
 
-body {
+html, body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background-color: var(--bg-default);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   min-height: 100vh;
   overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Layout */
 .app-container {
   display: flex;
   min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Formal Sidebar */
@@ -408,14 +411,14 @@ h1, h2, h3, h4, h5, h6 {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary); 
+  background: var(--bg-default, #f4f7f9); 
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border); 
+  background: var(--divider, #cbd5e1); 
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary); 
+  background: var(--text-secondary, #94a3b8); 
 }
 
 /* Animations */

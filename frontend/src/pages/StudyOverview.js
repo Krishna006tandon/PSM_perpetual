@@ -87,10 +87,19 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
       let csv = "NODE,SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n";
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
 
+      let devCounter = 0;
+      let lastDevId = null;
+
       (data.scenarios || []).forEach((sc, idx) => {
+        const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
+        if (!lastDevId || curDevId !== lastDevId) {
+          devCounter++;
+          lastDevId = curDevId;
+        }
+
         csv += [
           escape(sc.nodeId?.description || 'Node'),
-          escape(idx + 1),
+          escape(devCounter),
           escape(sc.deviationId?.parameter),
           escape(sc.deviationId?.processFlowMaterial),
           escape(sc.deviationId?.locationFrom),
@@ -241,6 +250,9 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
       `;
 
       let lastNodeId = null;
+      let devCounter = 0;
+      let lastDevId = null;
+
       (data.scenarios || []).forEach((sc, idx) => {
         const nodeDesc = sc.nodeId?.description || 'General Node';
         if (sc.nodeId?._id !== lastNodeId) {
@@ -252,6 +264,12 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
           `;
         }
 
+        const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
+        if (!lastDevId || curDevId !== lastDevId) {
+          devCounter++;
+          lastDevId = curDevId;
+        }
+
         const irColor = getRiskColor(sc.inherentRiskS, sc.inherentRiskL);
         const mrColor = getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL);
         const rrColor = getRiskColor(sc.residualRiskS, sc.residualRiskL);
@@ -260,7 +278,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
 
         tableHtml += `
           <tr>
-            <td align="center">${idx + 1}</td>
+            <td align="center">${devCounter}</td>
             <td>${sc.deviationId?.deviationAuto || ''}</td>
             <td>${sc.causeId?.description || ''}</td>
             <td>${cons}</td>

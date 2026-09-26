@@ -14,6 +14,8 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   const [allStudies, setAllStudies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [undoStack, setUndoStack] = useState([]);
+  const [undoToast, setUndoToast] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -266,13 +268,28 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   // Delete Recommendation with warning and auto-renumber (Issue 11)
   const handleDeleteRecommendation = async (sc) => {
     const recNo = recNumberMap[sc._id] || 'this recommendation';
-    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? This action cannot be undone and will re-number remaining recommendations.`)) {
+    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? You can undo this action.`)) {
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      setUndoStack(prev => [...prev, {
+        scenarioId: sc._id,
+        description: `recommendation ${recNo}`,
+        fields: {
+          additionalProtection: sc.additionalProtection,
+          recommendationNo: sc.recommendationNo
+        }
+      }]);
+      setUndoToast({
+        message: `Recommendation ${recNo} deleted.`,
+        type: 'recommendation'
+      });
+
+      await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
@@ -284,6 +301,60 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       alert('Failed to delete recommendation.');
     }
   };
+
+  const handleUndo = async () => {
+    if (undoStack.length === 0) return;
+    const lastAction = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, prev.length - 1));
+    setUndoToast(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      const res = await fetch(`${apiUrl}/api/scenarios/${lastAction.scenarioId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          additionalProtection: lastAction.fields.additionalProtection,
+          recommendationNo: lastAction.fields.recommendationNo
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setScenarios(prev => prev.map(s => s._id === lastAction.scenarioId ? updated : s));
+        setUndoToast({
+          message: `↩️ Restored ${lastAction.description} successfully!`,
+          isSuccess: true
+        });
+      }
+    } catch (err) {
+      console.error('Failed to undo deletion:', err);
+      alert('Failed to undo deletion: ' + err.message);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoStack, scenarios]);
+
+  useEffect(() => {
+    if (!undoToast) return;
+    const timer = setTimeout(() => {
+      setUndoToast(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [undoToast]);
 
   // Export Recommendation Sheet to Excel (Issue 9)
   const exportToExcel = () => {
@@ -408,6 +479,22 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               <span className="icon">◫</span> MANAGE COLUMNS
             </button>
           )}
+          {canEdit && (
+            <button 
+              className="btn-manage-columns" 
+              onClick={handleUndo} 
+              disabled={undoStack.length === 0}
+              title={undoStack.length > 0 ? `Undo ${undoStack[undoStack.length - 1].description}` : 'Undo'}
+              style={{ 
+                backgroundColor: undoStack.length > 0 ? '#2563eb' : '#64748b', 
+                color: '#ffffff', 
+                border: 'none',
+                opacity: undoStack.length > 0 ? 1 : 0.6
+              }}
+            >
+              ↩️ UNDO {undoStack.length > 0 ? `(${undoStack.length})` : ''}
+            </button>
+          )}
           <button 
             className="btn-manage-columns" 
             onClick={exportToExcel}
@@ -515,6 +602,21 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           onClose={() => setIsManageColumnsOpen(false)}
           onSave={handleColumnsSaved}
         />
+      )}
+
+      {/* Floating Undo Notification Toast */}
+      {undoToast && (
+        <div className="pha-undo-toast">
+          <span>{undoToast.message}</span>
+          {!undoToast.isSuccess && (
+            <button className="pha-undo-toast-btn" onClick={handleUndo}>
+              ↩️ Undo
+            </button>
+          )}
+          <button className="pha-undo-toast-close" onClick={() => setUndoToast(null)} title="Dismiss">
+            ✕
+          </button>
+        </div>
       )}
     </StudyLayout>
   );

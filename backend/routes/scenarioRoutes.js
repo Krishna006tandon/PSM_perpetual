@@ -148,4 +148,55 @@ router.post('/:studyId/bulk-duplicate', async (req, res) => {
   }
 });
 
+// POST restore deleted scenarios (undo deletion)
+router.post('/:studyId/restore', async (req, res) => {
+  try {
+    const { scenarios } = req.body;
+    if (!scenarios || !Array.isArray(scenarios) || scenarios.length === 0) {
+      return res.status(400).json({ message: 'No scenarios provided to restore' });
+    }
+
+    const docsToInsert = [];
+    for (const sc of scenarios) {
+      const { _id, createdAt, updatedAt, __v, ...rest } = sc;
+      const targetNodeId = sc.nodeId?._id || sc.nodeId || req.body.nodeId;
+      if (!targetNodeId) continue;
+
+      const doc = {
+        ...rest,
+        companyCode: req.user.companyCode,
+        studyId: req.params.studyId,
+        nodeId: targetNodeId,
+        deviationId: sc.deviationId?._id || sc.deviationId || null,
+        causeId: sc.causeId?._id || sc.causeId || null
+      };
+
+      if (_id) {
+        const exists = await Scenario.exists({ _id });
+        if (!exists) {
+          doc._id = _id;
+        }
+      }
+      docsToInsert.push(doc);
+    }
+
+    if (docsToInsert.length === 0) {
+      return res.status(400).json({ message: 'No valid scenarios to restore' });
+    }
+
+    const inserted = await Scenario.insertMany(docsToInsert);
+
+    const populated = await Scenario.find({ _id: { $in: inserted.map(d => d._id) } })
+      .populate('nodeId')
+      .populate('deviationId')
+      .populate('causeId');
+
+    res.status(201).json(populated);
+  } catch (err) {
+    console.error('Error restoring scenarios:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
+

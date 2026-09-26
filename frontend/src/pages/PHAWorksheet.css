@@ -568,3 +568,79 @@
   word-break: break-word;
   overflow-wrap: break-word;
 }
+
+/* Focus Mode: Hide first decomposition input columns */
+body.crazy-focus-mode .w-guideword,
+body.crazy-focus-mode .w-parameter,
+body.crazy-focus-mode .w-material,
+body.crazy-focus-mode .w-from,
+body.crazy-focus-mode .w-to {
+  display: none !important;
+}
+
+/* Floating Undo Toast */
+.pha-undo-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 999999;
+  font-size: 13px;
+  border: 1px solid #334155;
+  animation: slideUpFade 0.25s ease-out;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 15px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.pha-undo-toast-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s;
+}
+
+.pha-undo-toast-btn:hover {
+  background-color: #1d4ed8;
+}
+
+.pha-undo-toast-close {
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.pha-undo-toast-close:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+

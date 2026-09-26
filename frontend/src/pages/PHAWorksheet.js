@@ -54,6 +54,27 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
   const [clipboardRowIds, setClipboardRowIds] = useState([]);
+  const [undoStack, setUndoStack] = useState([]);
+  const [undoToast, setUndoToast] = useState(null);
+  const [recentlyDeleted, setRecentlyDeleted] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`pha_trash_${study?._id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showRecentlyDeletedModal, setShowRecentlyDeletedModal] = useState(false);
+
+  useEffect(() => {
+    if (study?._id) {
+      try {
+        localStorage.setItem(`pha_trash_${study._id}`, JSON.stringify(recentlyDeleted.slice(0, 50)));
+      } catch (e) {
+        console.warn('Failed to save recently deleted to localStorage', e);
+      }
+    }
+  }, [recentlyDeleted, study?._id]);
 
   // Extract unique text from all scenarios for autocomplete
   const uniqueSuggestions = useMemo(() => {
@@ -366,6 +387,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           border-radius: 0 !important;
           border: none !important;
         }
+
+        body.crazy-focus-mode .w-guideword,
+        body.crazy-focus-mode .w-parameter,
+        body.crazy-focus-mode .w-material,
+        body.crazy-focus-mode .w-from,
+        body.crazy-focus-mode .w-to {
+          display: none !important;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -669,16 +698,231 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleUndo = async () => {
+    if (undoStack.length === 0) return;
+    const lastAction = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, prev.length - 1));
+    setUndoToast(null);
+
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      if (lastAction.type === 'DELETE_ROW' || lastAction.type === 'DELETE_ROWS' || (lastAction.type === 'DELETE_RECOMMENDATION' && lastAction.mode === 'row')) {
+        let restoredScenarios = [];
+        try {
+          const res = await fetch(`${apiUrl}/api/scenarios/${study._id}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ scenarios: lastAction.scenarios })
+          });
+          if (res.ok) {
+            restoredScenarios = await res.json();
+          } else {
+            throw new Error('Restore endpoint error');
+          }
+        } catch (err) {
+          for (const sc of lastAction.scenarios) {
+            const { _id, createdAt, updatedAt, __v, ...rest } = sc;
+            const bodyData = {
+              ...rest,
+              nodeId: sc.nodeId?._id || sc.nodeId,
+              deviationId: sc.deviationId?._id || sc.deviationId,
+              causeId: sc.causeId?._id || sc.causeId
+            };
+            const fallbackRes = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify(bodyData)
+            });
+            if (fallbackRes.ok) {
+              const created = await fallbackRes.json();
+              restoredScenarios.push(created);
+            }
+          }
+        }
+
+        if (restoredScenarios.length > 0) {
+          setScenarios(prev => {
+            const existingIds = new Set(prev.map(s => s._id));
+            const toAdd = restoredScenarios.filter(s => !existingIds.has(s._id));
+            return [...prev, ...toAdd];
+          });
+          fetchStudyRecommendations();
+          setUndoToast({
+            message: `↩️ Restored ${lastAction.description} successfully!`,
+            isSuccess: true
+          });
+        }
+      } else if (lastAction.type === 'DELETE_RECOMMENDATION' && lastAction.mode === 'fields') {
+        const res = await fetch(`${apiUrl}/api/scenarios/${lastAction.scenarioId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            additionalProtection: lastAction.fields.additionalProtection,
+            recommendationNo: lastAction.fields.recommendationNo
+          })
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setScenarios(prev => prev.map(s => s._id === lastAction.scenarioId ? updated : s));
+          fetchStudyRecommendations();
+          setUndoToast({
+            message: `↩️ Restored ${lastAction.description} successfully!`,
+            isSuccess: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to undo deletion:', error);
+      alert('Failed to undo deletion: ' + error.message);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoStack, study, scenarios]);
+
+  useEffect(() => {
+    if (!undoToast) return;
+    const timer = setTimeout(() => {
+      setUndoToast(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [undoToast]);
+
+  const handleRestoreItem = async (item) => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      if (item.type === 'row' || item.type === 'rows' || (item.type === 'recommendation' && item.mode === 'row')) {
+        let restoredScenarios = [];
+        try {
+          const res = await fetch(`${apiUrl}/api/scenarios/${study._id}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ scenarios: item.scenarios })
+          });
+          if (res.ok) {
+            restoredScenarios = await res.json();
+          } else {
+            throw new Error('Restore endpoint error');
+          }
+        } catch (err) {
+          for (const sc of item.scenarios) {
+            const { _id, createdAt, updatedAt, __v, ...rest } = sc;
+            const bodyData = {
+              ...rest,
+              nodeId: sc.nodeId?._id || sc.nodeId,
+              deviationId: sc.deviationId?._id || sc.deviationId,
+              causeId: sc.causeId?._id || sc.causeId
+            };
+            const fallbackRes = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify(bodyData)
+            });
+            if (fallbackRes.ok) {
+              const created = await fallbackRes.json();
+              restoredScenarios.push(created);
+            }
+          }
+        }
+
+        if (restoredScenarios.length > 0) {
+          setScenarios(prev => {
+            const existingIds = new Set(prev.map(s => s._id));
+            const toAdd = restoredScenarios.filter(s => !existingIds.has(s._id));
+            return [...prev, ...toAdd];
+          });
+          fetchStudyRecommendations();
+        }
+      } else if (item.type === 'recommendation' && item.mode === 'fields') {
+        const res = await fetch(`${apiUrl}/api/scenarios/${item.scenarioId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            additionalProtection: item.fields.additionalProtection,
+            recommendationNo: item.fields.recommendationNo
+          })
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setScenarios(prev => prev.map(s => s._id === item.scenarioId ? updated : s));
+          fetchStudyRecommendations();
+        }
+      }
+
+      setRecentlyDeleted(prev => prev.filter(i => i.id !== item.id));
+      setUndoToast({
+        message: `↩️ Restored "${item.title}" successfully!`,
+        isSuccess: true
+      });
+    } catch (error) {
+      console.error('Error restoring item:', error);
+      alert('Failed to restore item: ' + error.message);
+    }
+  };
+
+  const handleRestoreAllRecentlyDeleted = async () => {
+    for (const item of [...recentlyDeleted]) {
+      await handleRestoreItem(item);
+    }
+    setShowRecentlyDeletedModal(false);
+  };
+
+  const handleClearRecentlyDeleted = () => {
+    if (window.confirm('Are you sure you want to permanently clear the Recently Deleted history?')) {
+      setRecentlyDeleted([]);
+      try {
+        localStorage.removeItem(`pha_trash_${study._id}`);
+      } catch (e) {}
+    }
+  };
+
+  const handleDelete = async (id, isPartOfBulk = false) => {
+    try {
+      const scToDelete = scenarios.find(sc => sc._id === id);
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const response = await fetch(`${apiUrl}/api/scenarios/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         setScenarios(prev => prev.filter(sc => sc._id !== id));
         setSelectedRowIds(prev => prev.filter(rowId => rowId !== id));
+        if (!isPartOfBulk && scToDelete) {
+          setUndoStack(prev => [...prev, {
+            type: 'DELETE_ROW',
+            description: '1 scenario row',
+            scenarios: [scToDelete]
+          }]);
+          setRecentlyDeleted(prev => [{
+            id: 'del_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: 'row',
+            title: `Row: ${scToDelete.deviationId?.deviationAuto || 'Scenario'}`,
+            details: `Cause: ${scToDelete.causeId?.description || 'N/A'}${scToDelete.additionalProtection ? ` | Rec: ${scToDelete.additionalProtection}` : ''}`,
+            nodeName: selectedNode?.description || scToDelete.nodeId?.description || 'Node',
+            deletedAt: new Date().toISOString(),
+            scenarios: [scToDelete]
+          }, ...prev]);
+          setUndoToast({
+            message: 'Scenario row deleted.',
+            type: 'row'
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to delete scenario:', error);
@@ -687,15 +931,36 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
   const handleDeleteSelected = async () => {
     if (selectedRowIds.length === 0) return;
-    const hasRecs = scenarios.filter(s => selectedRowIds.includes(s._id) && s.additionalProtection && s.additionalProtection.trim());
+    const toDelete = scenarios.filter(s => selectedRowIds.includes(s._id));
+    const hasRecs = toDelete.filter(s => s.additionalProtection && s.additionalProtection.trim());
     let warningMsg = `Are you sure you want to delete ${selectedRowIds.length} selected row(s)?`;
     if (hasRecs.length > 0) {
       warningMsg += ` Note: ${hasRecs.length} recommendation(s) will also be deleted, and remaining recommendations will be re-numbered.`;
     }
     if (!window.confirm(warningMsg)) return;
     
+    // Save snapshot of all rows to be deleted to undo stack & recently deleted
+    setUndoStack(prev => [...prev, {
+      type: 'DELETE_ROWS',
+      description: `${toDelete.length} row(s)`,
+      scenarios: toDelete
+    }]);
+    setRecentlyDeleted(prev => [{
+      id: 'del_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      type: 'rows',
+      title: `${toDelete.length} Scenario Rows`,
+      details: toDelete.map(s => s.deviationId?.deviationAuto || 'Scenario').slice(0, 3).join(', ') + (toDelete.length > 3 ? '...' : ''),
+      nodeName: selectedNode?.description || 'Node',
+      deletedAt: new Date().toISOString(),
+      scenarios: toDelete
+    }, ...prev]);
+    setUndoToast({
+      message: `${toDelete.length} row(s) deleted.`,
+      type: 'rows'
+    });
+
     for (const id of selectedRowIds) {
-      await handleDelete(id);
+      await handleDelete(id, true);
     }
     setSelectedRowIds([]);
     fetchStudyRecommendations();
@@ -1059,22 +1324,76 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
   // Delete Recommendation with warning and auto-renumber (Issue 11)
   const handleDeleteRecommendation = async (sc) => {
-    const recNo = sc.displayRecNo || 'this recommendation';
-    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? This action cannot be undone and will reset recommendation numbering.`)) {
+    const recNo = sc.displayRecNo || sc.recommendationNo || 'this recommendation';
+    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? You can undo this action.`)) {
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       const siblingsInSafeguardGroup = scenarios.filter(s => s.safeguardGroupId && s.safeguardGroupId === sc.safeguardGroupId);
+      
       if (siblingsInSafeguardGroup.length > 1) {
-        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+        setUndoStack(prev => [...prev, {
+          type: 'DELETE_RECOMMENDATION',
+          mode: 'row',
+          description: `recommendation ${recNo}`,
+          scenarios: [sc],
+          scenarioId: sc._id
+        }]);
+        setRecentlyDeleted(prev => [{
+          id: 'del_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'recommendation',
+          mode: 'row',
+          title: `Recommendation ${recNo}`,
+          details: sc.additionalProtection,
+          nodeName: selectedNode?.description || sc.nodeId?.description || 'Current Node',
+          deletedAt: new Date().toISOString(),
+          scenarioId: sc._id,
+          scenarios: [sc]
+        }, ...prev]);
+        setUndoToast({
+          message: `Recommendation ${recNo} deleted.`,
+          type: 'recommendation'
+        });
+
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setScenarios(prev => prev.filter(s => s._id !== sc._id));
       } else {
-        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+        setUndoStack(prev => [...prev, {
+          type: 'DELETE_RECOMMENDATION',
+          mode: 'fields',
+          description: `recommendation ${recNo}`,
+          scenarioId: sc._id,
+          fields: {
+            additionalProtection: sc.additionalProtection,
+            recommendationNo: sc.recommendationNo
+          }
+        }]);
+        setRecentlyDeleted(prev => [{
+          id: 'del_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'recommendation',
+          mode: 'fields',
+          title: `Recommendation ${recNo}`,
+          details: sc.additionalProtection,
+          nodeName: selectedNode?.description || sc.nodeId?.description || 'Current Node',
+          deletedAt: new Date().toISOString(),
+          scenarioId: sc._id,
+          fields: {
+            additionalProtection: sc.additionalProtection,
+            recommendationNo: sc.recommendationNo
+          }
+        }, ...prev]);
+        setUndoToast({
+          message: `Recommendation ${recNo} deleted.`,
+          type: 'recommendation'
+        });
+
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
@@ -1343,11 +1662,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
 
       let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n`;
-      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      let devCounter = 0;
+      let lastDevId = null;
 
       rowsToExport.forEach((sc, idx) => {
+        const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
+        if (!lastDevId || curDevId !== lastDevId) {
+          devCounter++;
+          lastDevId = curDevId;
+        }
+
         const rowData = [
-          escape(sc.index !== undefined ? sc.index + 1 : idx + 1),
+          escape(devCounter),
           escape(sc.deviationId?.parameter),
           escape(sc.deviationId?.processFlowMaterial),
           escape(sc.deviationId?.locationFrom),
@@ -1500,12 +1826,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const getSafeKey = (s) => s.safeguardGroupId || s._id;
 
         let recIndex = 1;
+        let devCounter = 0;
 
         for (let i = 0; i < sorted.length; i++) {
           const sc = sorted[i];
           const prevSc = i > 0 ? sorted[i - 1] : null;
 
           const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+          if (isNewDev) {
+            devCounter++;
+          }
           const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
           const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
           const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
@@ -1552,7 +1882,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           }
 
           rowsHtml += `<tr>`;
-          rowsHtml += `<td align="center">${i + 1}</td>`;
+          rowsHtml += `<td align="center">${devCounter}</td>`;
 
           if (isNewDev) {
             rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.deviationAuto || ''}</td>`;
@@ -1957,6 +2287,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let lastDevId = null;
           let lastCauseId = null;
           let lastConsKey = null;
+          let devCounter = 0;
 
           const body = nodeScenarios.map((s, idx) => {
             const consKey = s.consequenceGroupId || String(s._id);
@@ -1968,6 +2299,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const isSameDev = curDevId && curDevId === lastDevId;
             const isSameCause = isSameDev && curCauseId && curCauseId === lastCauseId;
             const isSameCons = isSameCause && consKey === lastConsKey;
+
+            if (!isSameDev) {
+              devCounter++;
+            }
 
             lastDevId = curDevId;
             lastCauseId = curCauseId;
@@ -1989,7 +2324,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const rRR = (rS && rL) ? calcScore(rS, rL) : '';
 
             return [
-              String(idx + 1), 
+              String(devCounter), 
               isSameDev ? '' : (s.deviationId?.deviationAuto || ''), 
               isSameCause ? '' : (s.causeId?.description || ''),
               isSameCons ? '' : (g.cons || ''),
@@ -2308,6 +2643,37 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               🗑️ Delete Selected ({selectedRowIds.length})
             </button>
           )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={handleUndo} 
+              disabled={undoStack.length === 0}
+              title={undoStack.length > 0 ? `Undo ${undoStack[undoStack.length - 1].description} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}
+              style={{
+                fontSize: '12px',
+                fontWeight: undoStack.length > 0 ? '600' : 'normal',
+                color: undoStack.length > 0 ? '#2563eb' : '#94a3b8',
+                borderColor: undoStack.length > 0 ? '#2563eb' : 'inherit'
+              }}
+            >
+              ↩️ Undo {undoStack.length > 0 ? `(${undoStack.length})` : ''}
+            </button>
+          )}
+
+          <button 
+            className="toolbar-btn" 
+            onClick={() => setShowRecentlyDeletedModal(true)} 
+            title="View and restore recently deleted items"
+            style={{
+              fontSize: '12px',
+              fontWeight: recentlyDeleted.length > 0 ? '600' : 'normal',
+              color: recentlyDeleted.length > 0 ? '#d97706' : 'inherit',
+              borderColor: recentlyDeleted.length > 0 ? '#d97706' : 'inherit'
+            }}
+          >
+            🕒 Recently Deleted {recentlyDeleted.length > 0 ? `(${recentlyDeleted.length})` : ''}
+          </button>
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
           <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
@@ -2396,8 +2762,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 </th>
                 <th className="th-primary w-sr" rowSpan={2}>SR.</th>
                 
-                {/* Decomposition of Deviation */}
-                <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>
+                {/* Decomposition of Deviation - Hidden in Focus Mode */}
+                {!isFocusMode && <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>}
                 
                 <th className="th-primary w-deviation" rowSpan={2}>DEVIATION</th>
                 <th className="th-primary w-cause" rowSpan={2}>CAUSE</th>
@@ -2418,12 +2784,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary w-status" rowSpan={2}>STATUS</th>
               </tr>
               <tr>
-                {/* Sub headers */}
-                <th className="th-sub w-guideword">DEVIATION</th>
-                <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
-                <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
-                <th className="th-sub w-from">EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span></th>
-                <th className="th-sub w-to">INSTRUMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Instrument)</span></th>
+                {/* Sub headers - Hidden in Focus Mode */}
+                {!isFocusMode && (
+                  <>
+                    <th className="th-sub w-guideword">DEVIATION</th>
+                    <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
+                    <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
+                    <th className="th-sub w-from">EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span></th>
+                    <th className="th-sub w-to">INSTRUMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Instrument)</span></th>
+                  </>
+                )}
                 
                 <th className="th-sub w-cons-imm">Immediate</th>
                 <th className="th-sub w-cons-ult">Ultimate</th>
@@ -2444,7 +2814,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <tbody>
               {!loading && scenarios.length === 0 && (
                 <tr>
-                  <td colSpan={24}>
+                  <td colSpan={isFocusMode ? 19 : 24}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
                       {canEdit && <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
@@ -2494,61 +2864,65 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <>
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
                       
-                      <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect disabled={!canEdit}  
-                          className="cell-guideword cell-select" 
-                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
-                          options={uniqueDropdownOptions.guidewords} 
-                          value={sc.deviationId?.guidewords} 
-                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'guidewords', e.target.value)} 
-                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'guidewords', e.target.value)} 
-                          placeholder="Guideword"
-                        />
-                      </td>
-                      <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect disabled={!canEdit}  
-                          className="cell-parameter cell-select" 
-                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
-                          options={uniqueDropdownOptions.parameters} 
-                          value={sc.deviationId?.parameter} 
-                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'parameter', e.target.value)} 
-                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'parameter', e.target.value)} 
-                          placeholder="Parameter"
-                        />
-                      </td>
-                      <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect disabled={!canEdit}  
-                          className="cell-material cell-select" 
-                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
-                          options={uniqueDropdownOptions.materials} 
-                          value={sc.deviationId?.processFlowMaterial} 
-                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
-                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
-                          placeholder="Material"
-                        />
-                      </td>
-                      <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect disabled={!canEdit}  
-                          className="cell-from cell-select" 
-                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
-                          options={uniqueDropdownOptions.equipments} 
-                          value={sc.deviationId?.locationFrom} 
-                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationFrom', e.target.value)} 
-                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationFrom', e.target.value)} 
-                          placeholder="From (Eq.)"
-                        />
-                      </td>
-                      <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}>
-                        <EditableSelect disabled={!canEdit}  
-                          className="cell-to cell-select" 
-                          style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
-                          options={uniqueDropdownOptions.instruments} 
-                          value={sc.deviationId?.locationTo} 
-                          onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationTo', e.target.value)} 
-                          onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationTo', e.target.value)} 
-                          placeholder="To (Inst.)"
-                        />
-                      </td>
+                      {!isFocusMode && (
+                        <>
+                          <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
+                            <EditableSelect disabled={!canEdit}  
+                              className="cell-guideword cell-select" 
+                              style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                              options={uniqueDropdownOptions.guidewords} 
+                              value={sc.deviationId?.guidewords} 
+                              onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'guidewords', e.target.value)} 
+                              onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'guidewords', e.target.value)} 
+                              placeholder="Guideword"
+                            />
+                          </td>
+                          <td className="w-parameter bg-deviation" rowSpan={sc.devSpanCount}>
+                            <EditableSelect disabled={!canEdit}  
+                              className="cell-parameter cell-select" 
+                              style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                              options={uniqueDropdownOptions.parameters} 
+                              value={sc.deviationId?.parameter} 
+                              onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'parameter', e.target.value)} 
+                              onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'parameter', e.target.value)} 
+                              placeholder="Parameter"
+                            />
+                          </td>
+                          <td className="w-material bg-deviation" rowSpan={sc.devSpanCount}>
+                            <EditableSelect disabled={!canEdit}  
+                              className="cell-material cell-select" 
+                              style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                              options={uniqueDropdownOptions.materials} 
+                              value={sc.deviationId?.processFlowMaterial} 
+                              onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
+                              onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'processFlowMaterial', e.target.value)} 
+                              placeholder="Material"
+                            />
+                          </td>
+                          <td className="w-from bg-deviation" rowSpan={sc.devSpanCount}>
+                            <EditableSelect disabled={!canEdit}  
+                              className="cell-from cell-select" 
+                              style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                              options={uniqueDropdownOptions.equipments} 
+                              value={sc.deviationId?.locationFrom} 
+                              onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationFrom', e.target.value)} 
+                              onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationFrom', e.target.value)} 
+                              placeholder="From (Eq.)"
+                            />
+                          </td>
+                          <td className="w-to bg-deviation" rowSpan={sc.devSpanCount}>
+                            <EditableSelect disabled={!canEdit}  
+                              className="cell-to cell-select" 
+                              style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
+                              options={uniqueDropdownOptions.instruments} 
+                              value={sc.deviationId?.locationTo} 
+                              onChange={(e) => handleDeviationFieldChange(sc.deviationId?._id, 'locationTo', e.target.value)} 
+                              onBlur={(e) => handleDeviationFieldBlur(sc.deviationId?._id, 'locationTo', e.target.value)} 
+                              placeholder="To (Inst.)"
+                            />
+                          </td>
+                        </>
+                      )}
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
@@ -2908,6 +3282,188 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         existingRecommendations={allStudyRecommendations}
         nextRecNo={nextRecNo}
       />
+
+      {/* Floating Undo Notification Toast */}
+      {undoToast && (
+        <div className="pha-undo-toast">
+          <span>{undoToast.message}</span>
+          {!undoToast.isSuccess && (
+            <button className="pha-undo-toast-btn" onClick={handleUndo}>
+              ↩️ Undo
+            </button>
+          )}
+          <button className="pha-undo-toast-close" onClick={() => setUndoToast(null)} title="Dismiss">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Recently Deleted Modal / Trash Bin */}
+      {showRecentlyDeletedModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-paper, #ffffff)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '850px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
+            overflow: 'hidden',
+            border: '1px solid var(--divider, #cbd5e1)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid var(--divider, #e2e8f0)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '22px' }}>🕒</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: 'bold' }}>
+                    Recently Deleted Items
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                    Restore any deleted scenario row or recommendation
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowRecentlyDeletedModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+              {recentlyDeleted.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '50px 20px', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '44px', marginBottom: '12px' }}>🗑️</div>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#475569' }}>No recently deleted items</p>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '13px' }}>Deleted scenario rows and recommendations will appear here for easy 1-click restoration.</p>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                      <th style={{ padding: '8px 12px' }}>TYPE</th>
+                      <th style={{ padding: '8px 12px' }}>DETAILS</th>
+                      <th style={{ padding: '8px 12px' }}>NODE</th>
+                      <th style={{ padding: '8px 12px' }}>DELETED</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentlyDeleted.map(item => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase',
+                            backgroundColor: item.type === 'recommendation' ? '#fef3c7' : '#dbeafe',
+                            color: item.type === 'recommendation' ? '#b45309' : '#1d4ed8'
+                          }}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <div style={{ fontWeight: '600', color: '#0f172a' }}>{item.title}</div>
+                          {item.details && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>{item.details}</div>}
+                        </td>
+                        <td style={{ padding: '12px', color: '#475569', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                          {item.nodeName}
+                        </td>
+                        <td style={{ padding: '12px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                          {new Date(item.deletedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button 
+                            onClick={() => handleRestoreItem(item)}
+                            style={{
+                              backgroundColor: '#10b981',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '6px 14px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ↩️ Restore
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            {recentlyDeleted.length > 0 && (
+              <div style={{
+                padding: '14px 24px',
+                borderTop: '1px solid var(--divider, #e2e8f0)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#f8fafc'
+              }}>
+                <button 
+                  onClick={handleClearRecentlyDeleted}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #ef4444',
+                    color: '#ef4444',
+                    borderRadius: '4px',
+                    padding: '6px 14px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Clear Trash
+                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    onClick={handleRestoreAllRecentlyDeleted}
+                    style={{
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '7px 18px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ↩️ Restore All ({recentlyDeleted.length})
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </StudyLayout>
   );
 };

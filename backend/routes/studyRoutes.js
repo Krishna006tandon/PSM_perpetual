@@ -71,6 +71,52 @@ router.post('/', async (req, res) => {
 // Apply checkStudyAccess middleware to routes targeting a specific study by ID
 router.use('/:id', checkStudyAccess);
 
+// GET study summary statistics
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const studyId = req.params.id;
+    const Node = require('../models/Node');
+    const Scenario = require('../models/Scenario');
+    const StudyDocument = require('../models/StudyDocument');
+
+    const [totalNodes, totalScenarios, totalRecommendations, totalDrawings] = await Promise.all([
+      Node.countDocuments({ studyId }),
+      Scenario.countDocuments({ studyId }),
+      Scenario.countDocuments({
+        studyId,
+        $or: [
+          { additionalProtection: { $exists: true, $regex: /\S/ } },
+          { recommendationNo: { $exists: true, $regex: /\S/ } }
+        ]
+      }),
+      StudyDocument.countDocuments({ studyId })
+    ]);
+
+    res.json({
+      totalNodes,
+      totalScenarios,
+      totalRecommendations,
+      totalDrawings
+    });
+  } catch (err) {
+    console.error('Error fetching study stats:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET single study by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const study = await Study.findById(req.params.id);
+    if (!study) {
+      return res.status(404).json({ message: 'Study not found' });
+    }
+    res.json(study);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // PUT update study
 router.put('/:id', async (req, res) => {
   try {

@@ -6,6 +6,91 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [stats, setStats] = useState({
+    totalNodes: 0,
+    totalScenarios: 0,
+    totalRecommendations: 0,
+    totalDrawings: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+  const fetchStudyStats = async () => {
+    if (!study?._id) return;
+    setLoadingStats(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      // 1. Try dedicated study stats endpoint first
+      try {
+        const statsRes = await fetch(`${apiUrl}/api/studies/${study._id}/stats`, { headers });
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats({
+            totalNodes: Number(data.totalNodes) || 0,
+            totalScenarios: Number(data.totalScenarios) || 0,
+            totalRecommendations: Number(data.totalRecommendations) || 0,
+            totalDrawings: Number(data.totalDrawings) || 0
+          });
+          setLoadingStats(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Dedicated stats endpoint unavailable, falling back to parallel fetch:', err);
+      }
+
+      // 2. Fallback: Fetch nodes, scenarios, and documents in parallel
+      const [nodesRes, scenariosRes, docsRes] = await Promise.allSettled([
+        fetch(`${apiUrl}/api/nodes/${study._id}`, { headers }),
+        fetch(`${apiUrl}/api/scenarios/${study._id}`, { headers }),
+        fetch(`${apiUrl}/api/documents/${study._id}`, { headers })
+      ]);
+
+      let nodeCount = 0;
+      let scenarioCount = 0;
+      let recCount = 0;
+      let docCount = 0;
+
+      if (nodesRes.status === 'fulfilled' && nodesRes.value.ok) {
+        const nodesData = await nodesRes.value.json();
+        nodeCount = Array.isArray(nodesData) ? nodesData.length : 0;
+      }
+
+      if (scenariosRes.status === 'fulfilled' && scenariosRes.value.ok) {
+        const scenariosData = await scenariosRes.value.json();
+        if (Array.isArray(scenariosData)) {
+          scenarioCount = scenariosData.length;
+          recCount = scenariosData.filter(
+            s => (s.additionalProtection && s.additionalProtection.trim() !== '') ||
+                 (s.recommendationNo && s.recommendationNo.trim() !== '')
+          ).length;
+        }
+      }
+
+      if (docsRes.status === 'fulfilled' && docsRes.value.ok) {
+        const docsData = await docsRes.value.json();
+        docCount = Array.isArray(docsData) ? docsData.length : 0;
+      }
+
+      setStats({
+        totalNodes: nodeCount,
+        totalScenarios: scenarioCount,
+        totalRecommendations: recCount,
+        totalDrawings: docCount
+      });
+    } catch (error) {
+      console.error('Error fetching study stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudyStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [study?._id]);
 
   useEffect(() => {
     if (study) {
@@ -35,7 +120,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
+      const response = await fetch(`${apiUrl}/api/studies/${study._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +163,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
   const handleExportCSV = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+      const res = await fetch(`${apiUrl}/api/studies/${study._id}/full-export-data`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch export data');
@@ -139,7 +224,7 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
   const handleFullExport = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+      const res = await fetch(`${apiUrl}/api/studies/${study._id}/full-export-data`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch full study data');
@@ -447,31 +532,47 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
         </div>
 
         <div className="stats-row">
-          <div className="stat-card">
+          <div 
+            className="stat-card clickable" 
+            onClick={() => onNavigate && onNavigate('nodes-registry')}
+            title="Click to view Nodes Registry"
+          >
             <div className="stat-icon nodes-icon">📋</div>
             <div className="stat-info">
-              <span className="stat-value">12</span>
+              <span className="stat-value">{loadingStats ? '—' : stats.totalNodes}</span>
               <span className="stat-label">TOTAL NODES</span>
             </div>
           </div>
-          <div className="stat-card">
+          <div 
+            className="stat-card clickable" 
+            onClick={() => onNavigate && onNavigate('pha-worksheets')}
+            title="Click to view PHA Worksheet Scenarios"
+          >
             <div className="stat-icon scenarios-icon">⚡</div>
             <div className="stat-info">
-              <span className="stat-value">45</span>
+              <span className="stat-value">{loadingStats ? '—' : stats.totalScenarios}</span>
               <span className="stat-label">TOTAL SCENARIOS</span>
             </div>
           </div>
-          <div className="stat-card">
+          <div 
+            className="stat-card clickable" 
+            onClick={() => onNavigate && onNavigate('recommendations')}
+            title="Click to view Recommendations Registry"
+          >
             <div className="stat-icon recs-icon">🎯</div>
             <div className="stat-info">
-              <span className="stat-value">8</span>
+              <span className="stat-value">{loadingStats ? '—' : stats.totalRecommendations}</span>
               <span className="stat-label">RECOMMENDATIONS</span>
             </div>
           </div>
-          <div className="stat-card">
+          <div 
+            className="stat-card clickable" 
+            onClick={() => onNavigate && onNavigate('documents')}
+            title="Click to view Drawings / Documents"
+          >
             <div className="stat-icon drawings-icon">📐</div>
             <div className="stat-info">
-              <span className="stat-value">3</span>
+              <span className="stat-value">{loadingStats ? '—' : stats.totalDrawings}</span>
               <span className="stat-label">DRAWINGS</span>
             </div>
           </div>

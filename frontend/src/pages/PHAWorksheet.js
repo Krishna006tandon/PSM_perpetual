@@ -66,6 +66,60 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   });
   const [showRecentlyDeletedModal, setShowRecentlyDeletedModal] = useState(false);
 
+  // Text size control for worksheet table
+  const DEFAULT_FONT_SIZE = 13.5;
+  const [fontSize, setFontSize] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pha_font_size');
+      return saved ? parseFloat(saved) : DEFAULT_FONT_SIZE;
+    } catch (e) {
+      return DEFAULT_FONT_SIZE;
+    }
+  });
+
+  const handleIncreaseFontSize = () => {
+    setFontSize(prev => {
+      const next = Math.min(22, Math.round((prev + 1) * 10) / 10);
+      try { localStorage.setItem('pha_font_size', next); } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleDecreaseFontSize = () => {
+    setFontSize(prev => {
+      const next = Math.max(10, Math.round((prev - 1) * 10) / 10);
+      try { localStorage.setItem('pha_font_size', next); } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleResetFontSize = () => {
+    setFontSize(DEFAULT_FONT_SIZE);
+    try { localStorage.setItem('pha_font_size', DEFAULT_FONT_SIZE); } catch (e) {}
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Alt + '=' or Alt + '+'
+      if (e.altKey && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        handleIncreaseFontSize();
+      }
+      // Alt + '-' or Alt + '_'
+      if (e.altKey && (e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        handleDecreaseFontSize();
+      }
+      // Alt + '0'
+      if (e.altKey && e.key === '0') {
+        e.preventDefault();
+        handleResetFontSize();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     if (study?._id) {
       try {
@@ -2847,6 +2901,36 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             {scenarios.length} rows
           </div>
 
+          {/* Text Size Increase / Decrease Controls */}
+          <div className="pha-text-size-controls">
+            <span className="text-size-label">Text:</span>
+            <button 
+              type="button" 
+              className="pha-text-size-btn"
+              onClick={handleDecreaseFontSize}
+              title="Decrease worksheet text size (Alt + Minus)"
+              disabled={fontSize <= 10}
+            >
+              A-
+            </button>
+            <span 
+              className="pha-text-size-indicator"
+              onClick={handleResetFontSize}
+              title="Click to reset default size (13.5px) [Alt + 0]"
+            >
+              {fontSize}px
+            </span>
+            <button 
+              type="button" 
+              className="pha-text-size-btn"
+              onClick={handleIncreaseFontSize}
+              title="Increase worksheet text size (Alt + Plus)"
+              disabled={fontSize >= 22}
+            >
+              A+
+            </button>
+          </div>
+
           <span className="editable-indicator-badge" title="Fields with warm highlighting and borders are directly editable.">
             ✏️ Highlighted fields are editable
           </span>
@@ -2859,8 +2943,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         </div>
 
         {/* Data Grid */}
-        <div className="pha-table-wrapper-flush">
-          <table className="pha-table">
+        <div 
+          className="pha-table-wrapper-flush"
+          style={{
+            '--pha-table-font-size': `${fontSize}px`
+          }}
+        >
+          <table className="pha-table" style={{ fontSize: `${fontSize}px` }}>
             <thead>
               <tr>
                 <th className="th-primary" rowSpan={2} style={{width: '40px', textAlign: 'center'}}>

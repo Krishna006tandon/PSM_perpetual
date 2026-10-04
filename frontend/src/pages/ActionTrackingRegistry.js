@@ -261,7 +261,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
                 <th className="col-custom" style={{width: '200px'}}>RECOMMENDATION</th>
-                <th className="col-custom">ASSIGN ACTION</th>
+              <th className="col-custom">RESPONSIBLE PERSON</th>
                 <th className="col-custom">TRACK DUE DATE</th>
                 <th className="col-custom">UPDATE STATUS</th>
                 <th className="col-custom">REMARKS</th>

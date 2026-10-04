@@ -281,11 +281,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
             <thead>
               <tr>
                 <th style={{width:'50px'}}>#</th>
-                <th className="col-node">NODE</th>
                 <th className="col-dev">DEVIATION</th>
-                <th className="col-cause">CAUSE</th>
-                <th className="col-cons">CONSEQUENCE</th>
-                <th className="col-safe">SAFEGUARDS</th>
                 <th className="col-rec">RECOMMENDATION</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
@@ -296,11 +292,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
               {!loading && scenarios.map((sc, index) => (
                 <tr key={sc._id}>
                   <td style={{textAlign:'center'}}>{index + 1}</td>
-                  <td className="col-node">{sc.nodeId?.description || ''}</td>
                   <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-cause">{sc.causeId?.description || ''}</td>
-                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
-                  <td className="col-safe" style={{whiteSpace: 'pre-wrap'}}>{sc.presentProtection || ''}</td>
                   <td className="col-rec" style={{whiteSpace: 'pre-wrap'}}>{sc.additionalProtection || ''}</td>
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">

@@ -21,6 +21,7 @@ import MomWorksheet from './pages/MomWorksheet';
 import MocDashboard from './pages/MocDashboard';
 import ResetPassword from './pages/ResetPassword';
 import RecommendationsHub from './pages/RecommendationsHub';
+import BowTieAnalysis from './pages/BowTieAnalysis';
 
 import Auth from './components/Auth';
 
@@ -271,6 +272,19 @@ function App() {
           <LOPAWorksheet 
             study={activeStudy} 
             canEdit={canEditGlobal} 
+            onBack={() => handleStudyNav('pha')}
+            onNavigate={handleStudyNav}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        );
+      }
+
+      if (studyTab === 'bowtie') {
+        return (
+          <BowTieAnalysis 
+            study={activeStudy} 
+            canEdit={canEditPHA} 
             onBack={() => handleStudyNav('pha')}
             onNavigate={handleStudyNav}
             theme={theme}

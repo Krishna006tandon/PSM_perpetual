@@ -2775,6 +2775,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </button>
           
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
+          <button 
+            className="toolbar-btn" 
+            onClick={() => onNavigate('bowtie')} 
+            title="Open BowTie Analysis for this Study" 
+            style={{fontSize: '12px', fontWeight: '700', color: '#db2777', borderColor: '#fbcfe8', background: '#fdf2f8'}}
+          >
+            🎀 BowTie Analysis
+          </button>
           <button className="toolbar-btn" onClick={() => setShowReportSettings(true)} title="Report Settings" style={{fontSize: '12px'}}>⚙️ Report Settings</button>
           <button className="toolbar-btn" onClick={() => setShowImportModal(true)} title="Import Data" style={{fontSize: '12px'}}>📤 Import</button>
           <input id="file-upload-input" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style={{display: 'none'}} onChange={handleFileUpload} />

@@ -18,6 +18,7 @@ const ICONS = {
   docs: '📁',
   analysis: '📝',
   summary: '📉',
+  bowtie: '🎀',
   close: '✖️'
 };
 
@@ -69,6 +70,7 @@ const STUDY_NAV_ITEMS = [
   },
   { id: 'safeguards', label: 'SAFEGUARDS', icon: ICONS.safeguards, subItems: [] },
   { id: 'lopa', label: 'LOPA WORKSHEET', icon: ICONS.analysis, subItems: [] },
+  { id: 'bowtie', label: 'BOWTIE ANALYSIS', icon: ICONS.bowtie, subItems: [] },
   { id: 'recommendations', label: 'RECOMMENDATIONS', icon: ICONS.recommendations, subItems: [] },
   { id: 'check-lists', label: 'CHECK LISTS', icon: ICONS.checklists, subItems: [] },
   { id: 'action-tracking', label: 'ACTION TRACKING', icon: ICONS.action, subItems: [] },
@@ -84,6 +86,7 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
     if (item.subItems && item.subItems.find(sub => sub.id === activeTab)) return true;
     // Map specific registry tabs back to their parent
     if (item.id === 'pha-worksheets' && activeTab === 'pha-worksheets') return true;
+    if (item.id === 'bowtie' && activeTab === 'bowtie') return true;
     return false;
   };
 

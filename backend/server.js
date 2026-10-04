@@ -37,6 +37,7 @@ const causeRoutes = require('./routes/causeRoutes');
 const scenarioRoutes = require('./routes/scenarioRoutes');
 const columnRoutes = require('./routes/columnRoutes');
 const riskCriteriaRoutes = require('./routes/riskCriteriaRoutes');
+const bowtieRoutes = require('./routes/bowtieRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
@@ -51,6 +52,7 @@ app.use('/api/causes', causeRoutes);
 app.use('/api/scenarios', scenarioRoutes);
 app.use('/api/columns', columnRoutes);
 app.use('/api/risk-criteria', riskCriteriaRoutes);
+app.use('/api/bowtie', bowtieRoutes);
 
 // Database connection
 const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI;

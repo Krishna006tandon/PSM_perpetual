@@ -12,7 +12,13 @@ const EditableSelect = ({ options, value, onChange, onBlur, className, style, pl
   return (
     <select disabled={disabled}  
       className={className} 
-      style={{ ...style, cursor: 'pointer', appearance: 'auto' }} 
+      style={{
+        fontSize: 'var(--pha-table-font-size, 13.5px)',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        appearance: 'auto',
+        ...style
+      }} 
       value={value || ''} 
       onChange={(e) => {
         if (e.target.value === '__ADD_NEW__') {
@@ -3186,7 +3192,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         <EditableSelect disabled={!canEdit}  
                           options={uniqueDropdownOptions.equipments} 
                           placeholder="Eq..." 
-                          style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
+                          style={{flex: 1, padding: '2px 4px', fontSize: 'calc(var(--pha-table-font-size, 13.5px) * 0.85)', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
                           value={sc.causeId?.equipment}
                           onChange={(e) => handleCauseFieldChange(sc.causeId?._id, 'equipment', e.target.value)}
                           onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'equipment', e.target.value)}
@@ -3194,7 +3200,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         <EditableSelect disabled={!canEdit}  
                           options={uniqueDropdownOptions.instruments} 
                           placeholder="Inst..." 
-                          style={{flex: 1, padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
+                          style={{flex: 1, padding: '2px 4px', fontSize: 'calc(var(--pha-table-font-size, 13.5px) * 0.85)', border: '1px solid #ccc', borderRadius: '3px', width: '0'}}
                           value={sc.causeId?.instrument}
                           onChange={(e) => handleCauseFieldChange(sc.causeId?._id, 'instrument', e.target.value)}
                           onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'instrument', e.target.value)}

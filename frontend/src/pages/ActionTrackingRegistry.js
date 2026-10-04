@@ -240,6 +240,7 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       <div className="dynamic-container">
         <div className="dynamic-header">
           <h2>ACTION TRACKING REGISTRY</h2>
+          <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
         <div className="dynamic-toolbar">

@@ -519,20 +519,26 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--editable-border, #fcd34d);
   font-size: 14px;
-  background: #fafaf9;
+  background: var(--editable-bg, #fffdf5);
   margin-bottom: 16px;
   box-sizing: border-box;
-  color: #0f172a;
-  transition: border-color 0.2s, background-color 0.2s;
+  color: var(--editable-text, #0f172a);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input-styled:hover, .form-select-styled:hover, .form-textarea-styled:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.18);
 }
 
 .form-input-styled:focus, .form-select-styled:focus, .form-textarea-styled:focus {
   border-color: #ea580c;
   background: #fff;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.18);
 }
 
 .form-row-2 {

@@ -106,12 +106,37 @@
 
 .pha-metadata-value input {
   width: 100%;
-  border: none;
-  background: transparent;
+  border: 1.5px dashed var(--editable-border, #fcd34d);
+  background: var(--editable-bg, #fffdf5);
   outline: none;
-  font-style: italic;
+  font-style: normal;
   color: var(--text-primary);
   font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.pha-metadata-value input:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  border-style: solid;
+}
+
+.pha-metadata-value input:focus {
+  background: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  border-style: solid;
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
+}
+
+.pha-metadata-value input[readonly],
+.pha-metadata-value input:disabled {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  cursor: default !important;
+  box-shadow: none !important;
 }
 
 /* Toolbar Specific for PHA */
@@ -405,32 +430,51 @@
 
 .pha-table td input,
 .pha-table td textarea,
-.pha-table td select:not(.risk-level-select):not(.cell-select) {
+.pha-table td select:not(.risk-level-select):not(.cell-select),
+.autocomplete-wrapper textarea {
   width: 100%;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1.5px solid var(--editable-border, #fcd34d);
+  background: var(--editable-bg, #fffdf5);
   outline: none;
   font-family: inherit;
   font-size: 13.5px;
-  color: #0f172a;
+  color: var(--editable-text, #0f172a);
   font-weight: 500;
   resize: vertical;
   border-radius: 4px;
-  padding: 6px;
+  padding: 6px 8px;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .pha-table td input:hover,
-.pha-table td textarea:hover {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: #cbd5e1;
+.pha-table td textarea:hover,
+.pha-table td select:not(.risk-level-select):not(.cell-select):hover,
+.autocomplete-wrapper textarea:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.18);
 }
 
 .pha-table td input:focus,
-.pha-table td textarea:focus {
-  background: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+.pha-table td textarea:focus,
+.pha-table td select:not(.risk-level-select):not(.cell-select):focus,
+.autocomplete-wrapper textarea:focus {
+  background: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
+}
+
+.pha-table td input[readonly],
+.pha-table td textarea[readonly],
+.pha-table td select:disabled,
+.pha-table td input:disabled,
+.pha-table td textarea:disabled {
+  background-color: var(--readonly-bg, #f8fafc) !important;
+  border-color: var(--readonly-border, #e2e8f0) !important;
+  color: var(--readonly-text, #64748b) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
 }
 
 .pha-table td textarea {
@@ -529,9 +573,9 @@
   width: 100% !important;
   height: 28px !important;
   line-height: 26px !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1.5px solid var(--editable-border, #fcd34d) !important;
   border-radius: 4px !important;
-  background-color: #ffffff !important;
+  background-color: var(--editable-bg, #fffdf5) !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%232563eb'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 4px center !important;
@@ -551,17 +595,17 @@
 
 .pha-table td select.risk-level-select:hover,
 .risk-level-select:hover {
-  border-color: #2563eb !important;
-  background-color: #f0f7ff !important;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15) !important;
+  border-color: var(--editable-hover-border, #f59e0b) !important;
+  background-color: var(--editable-hover-bg, #ffffff) !important;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.2) !important;
 }
 
 .pha-table td select.risk-level-select:focus,
 .risk-level-select:focus {
   outline: none !important;
-  border-color: #2563eb !important;
+  border-color: var(--editable-focus-border, #2563eb) !important;
   background-color: #ffffff !important;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+  box-shadow: 0 0 0 2px var(--editable-focus-ring, rgba(37, 99, 235, 0.25)) !important;
 }
 
 .pha-table td select.risk-level-select:disabled,
@@ -582,9 +626,9 @@
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   height: 28px !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1.5px solid var(--editable-border, #fcd34d) !important;
   border-radius: 4px !important;
-  background-color: #ffffff !important;
+  background-color: var(--editable-bg, #fffdf5) !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%232563eb'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 6px center !important;
@@ -597,8 +641,8 @@
 
 .pha-table td select.cell-select:hover,
 .cell-select:hover {
-  border-color: #2563eb !important;
-  background-color: #f0f7ff !important;
+  border-color: var(--editable-hover-border, #f59e0b) !important;
+  background-color: var(--editable-hover-bg, #ffffff) !important;
 }
 
 .pha-table td select.cell-select:focus,
@@ -704,4 +748,57 @@ body.crazy-focus-mode .w-to {
   color: #ffffff;
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* Dark Mode Overrides for PHA Worksheet Table & Inputs */
+[data-theme='dark'] .pha-table td {
+  border-color: #334155 !important;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .pha-table td input,
+[data-theme='dark'] .pha-table td textarea,
+[data-theme='dark'] .pha-table td select:not(.risk-level-select):not(.cell-select),
+[data-theme='dark'] .autocomplete-wrapper textarea {
+  background: var(--editable-bg, rgba(254, 240, 138, 0.07));
+  border-color: var(--editable-border, rgba(245, 158, 11, 0.45));
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .pha-table td input:hover,
+[data-theme='dark'] .pha-table td textarea:hover,
+[data-theme='dark'] .autocomplete-wrapper textarea:hover {
+  background: var(--editable-hover-bg, rgba(254, 240, 138, 0.14));
+  border-color: var(--editable-hover-border, #f59e0b);
+}
+
+[data-theme='dark'] .pha-table td input:focus,
+[data-theme='dark'] .pha-table td textarea:focus,
+[data-theme='dark'] .autocomplete-wrapper textarea:focus {
+  background: var(--editable-focus-bg, #1e293b);
+  border-color: var(--editable-focus-border, #60a5fa);
+}
+
+[data-theme='dark'] .pha-table td select.risk-level-select,
+[data-theme='dark'] .pha-table td select.cell-select {
+  background-color: var(--editable-bg, rgba(254, 240, 138, 0.07)) !important;
+  border-color: var(--editable-border, rgba(245, 158, 11, 0.45)) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme='dark'] .pha-table td select.risk-level-select:hover,
+[data-theme='dark'] .pha-table td select.cell-select:hover {
+  background-color: var(--editable-hover-bg, rgba(254, 240, 138, 0.14)) !important;
+  border-color: var(--editable-hover-border, #f59e0b) !important;
+}
+
+[data-theme='dark'] .pha-table td select.risk-level-select:focus,
+[data-theme='dark'] .pha-table td select.cell-select:focus {
+  background-color: var(--editable-focus-bg, #1e293b) !important;
+  border-color: var(--editable-focus-border, #60a5fa) !important;
+}
+
+[data-theme='dark'] .bg-deviation { background-color: rgba(30, 58, 138, 0.2); }
+[data-theme='dark'] .bg-cause { background-color: rgba(180, 83, 9, 0.2); }
+[data-theme='dark'] .bg-consequence { background-color: rgba(6, 95, 70, 0.2); }
+[data-theme='dark'] .bg-protection { background-color: rgba(30, 41, 59, 0.4); }
 

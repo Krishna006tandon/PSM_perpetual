@@ -292,8 +292,9 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         />
       )}
         <div className="causes-header">
-          <div className="causes-header-left">
+          <div className="causes-header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <h2>CAUSES REGISTRY</h2>
+            <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
           </div>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>

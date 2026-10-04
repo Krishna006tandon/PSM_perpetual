@@ -232,6 +232,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       <div className="dynamic-container">
         <div className="dynamic-header">
           <h2>SAFEGUARDS REGISTRY</h2>
+          <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
         <div className="dynamic-toolbar">

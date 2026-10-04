@@ -2846,6 +2846,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <div className="pha-row-count">
             {scenarios.length} rows
           </div>
+
+          <span className="editable-indicator-badge" title="Fields with warm highlighting and borders are directly editable.">
+            ✏️ Highlighted fields are editable
+          </span>
           
           <div className="pha-shortcuts">
             <span>e Enter = add nested row</span> | 

@@ -93,31 +93,74 @@
   background-color: rgba(0,0,0,0.02);
 }
 
-.dynamic-table input,
+.dynamic-table input:not([type="checkbox"]),
 .dynamic-table textarea,
 .dynamic-table select {
   width: 100%;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1.5px solid var(--editable-border, #fcd34d);
+  background: var(--editable-bg, #fffdf5);
   outline: none;
   font-family: inherit;
   font-size: inherit;
-  color: inherit;
+  color: var(--editable-text, inherit);
   resize: vertical;
-  padding: 6px;
+  padding: 6px 8px;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
 }
 
-.dynamic-table input:focus,
+.dynamic-table input:not([type="checkbox"]):hover,
+.dynamic-table textarea:hover,
+.dynamic-table select:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.18);
+}
+
+.dynamic-table input:not([type="checkbox"]):focus,
 .dynamic-table textarea:focus,
 .dynamic-table select:focus {
-  background: var(--bg-paper);
-  border-color: #7dd3fc;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  background: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
+}
+
+.dynamic-table input[readonly],
+.dynamic-table textarea[readonly],
+.dynamic-table select:disabled,
+.dynamic-table input:disabled,
+.dynamic-table textarea:disabled {
+  background-color: var(--readonly-bg, #f8fafc) !important;
+  border-color: var(--readonly-border, #e2e8f0) !important;
+  color: var(--readonly-text, #64748b) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .dynamic-table input:not([type="checkbox"]),
+[data-theme='dark'] .dynamic-table textarea,
+[data-theme='dark'] .dynamic-table select {
+  background: var(--editable-bg, rgba(254, 240, 138, 0.07));
+  border-color: var(--editable-border, rgba(245, 158, 11, 0.45));
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .dynamic-table input:not([type="checkbox"]):hover,
+[data-theme='dark'] .dynamic-table textarea:hover,
+[data-theme='dark'] .dynamic-table select:hover {
+  background: var(--editable-hover-bg, rgba(254, 240, 138, 0.14));
+  border-color: var(--editable-hover-border, #f59e0b);
+}
+
+[data-theme='dark'] .dynamic-table input:not([type="checkbox"]):focus,
+[data-theme='dark'] .dynamic-table textarea:focus,
+[data-theme='dark'] .dynamic-table select:focus {
+  background: var(--editable-focus-bg, #1e293b);
+  border-color: var(--editable-focus-border, #60a5fa);
 }
 
 .dynamic-table input[type="checkbox"] {

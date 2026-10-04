@@ -471,6 +471,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       <div className="dynamic-container">
         <div className="dynamic-header">
           <h2>RECOMMENDATIONS REGISTRY</h2>
+          <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
         <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

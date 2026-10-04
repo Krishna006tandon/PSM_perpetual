@@ -296,8 +296,9 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         />
       )}
         <div className="deviations-header">
-          <div className="deviations-header-left">
+          <div className="deviations-header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <h2>DEVIATIONS REGISTRY</h2>
+            <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
           </div>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>

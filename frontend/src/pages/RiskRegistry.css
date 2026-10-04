@@ -58,15 +58,24 @@
 .w-full {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #ccc;
+  border: 1.5px solid var(--editable-border, #fcd34d);
+  background-color: var(--editable-bg, #fffdf5);
   border-radius: 4px;
-  padding: 6px;
+  padding: 6px 8px;
   font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.w-full:hover {
+  background-color: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
 }
 
 .w-full:focus {
   outline: none;
-  border-color: #004d80;
+  background-color: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
 }
 
 .category-cards {
@@ -87,9 +96,23 @@
 }
 
 .category-card input[type="text"] {
-  border: 1px solid #ccc;
-  padding: 5px;
+  border: 1.5px solid var(--editable-border, #fcd34d);
+  background-color: var(--editable-bg, #fffdf5);
+  padding: 6px 8px;
   border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.category-card input[type="text"]:hover {
+  background-color: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+}
+
+.category-card input[type="text"]:focus {
+  outline: none;
+  background-color: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
 }
 
 .category-card input[type="color"] {

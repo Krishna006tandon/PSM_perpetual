@@ -286,8 +286,9 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     <StudyLayout activeTab="nodes-registry" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="nodes-container">
         <div className="nodes-header">
-          <div className="nodes-header-left">
+          <div className="nodes-header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <h2>NODES REGISTRY</h2>
+            <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
           </div>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>

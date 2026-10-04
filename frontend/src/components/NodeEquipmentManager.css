@@ -144,15 +144,27 @@
 
 .equipment-table input {
   width: 100%;
-  border: 1px solid transparent;
-  padding: 8px 5px;
+  border: 1.5px solid var(--editable-border, #fcd34d);
+  background: var(--editable-bg, #fffdf5);
+  padding: 8px 10px;
   font-size: 12px;
+  border-radius: 4px;
   box-sizing: border-box;
+  color: var(--editable-text, #0f172a);
+  transition: all 0.2s ease;
+}
+
+.equipment-table input:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.18);
 }
 
 .equipment-table input:focus {
-  border: 1px solid #004d80;
+  border-color: var(--editable-focus-border, #004d80);
+  background: var(--editable-focus-bg, #ffffff);
   outline: none;
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(0, 77, 128, 0.2));
 }
 
 .col-hash {

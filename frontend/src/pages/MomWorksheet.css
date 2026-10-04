@@ -19,11 +19,24 @@
 
 .date-selector select {
   padding: 10px 15px;
-  font-size: 16px;
-  border: 1px solid #d1d5db;
+  font-size: 15px;
+  border: 1.5px solid var(--editable-border, #fcd34d);
   border-radius: 6px;
-  background-color: #f9fafb;
+  background-color: var(--editable-bg, #fffdf5);
+  color: var(--text-primary, #1f2937);
   cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.date-selector select:hover {
+  background-color: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+}
+
+.date-selector select:focus {
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
 }
 
 .rich-text-toolbar {
@@ -31,7 +44,7 @@
   gap: 10px;
   padding: 10px;
   background-color: #f3f4f6;
-  border: 1px solid #d1d5db;
+  border: 1.5px solid var(--editable-border, #fcd34d);
   border-bottom: none;
   border-radius: 6px 6px 0 0;
 }
@@ -54,17 +67,44 @@
 .rich-text-editor {
   min-height: 400px;
   padding: 20px;
-  border: 1px solid #d1d5db;
+  border: 1.5px solid var(--editable-border, #fcd34d);
   border-radius: 0 0 6px 6px;
-  background-color: white;
+  background-color: var(--editable-bg, #fffdf5);
   font-size: 15px;
   line-height: 1.6;
-  color: #1f2937;
+  color: var(--editable-text, #1f2937);
+  transition: all 0.2s ease;
+}
+
+.rich-text-editor:hover {
+  background-color: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
 }
 
 .rich-text-editor:focus {
   outline: none;
-  border-color: #3b82f6;
+  background-color: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
+}
+
+[data-theme='dark'] .date-selector select,
+[data-theme='dark'] .rich-text-editor {
+  background-color: var(--editable-bg, rgba(254, 240, 138, 0.07));
+  border-color: var(--editable-border, rgba(245, 158, 11, 0.45));
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .rich-text-editor:hover,
+[data-theme='dark'] .date-selector select:hover {
+  background-color: var(--editable-hover-bg, rgba(254, 240, 138, 0.14));
+  border-color: var(--editable-hover-border, #f59e0b);
+}
+
+[data-theme='dark'] .rich-text-editor:focus,
+[data-theme='dark'] .date-selector select:focus {
+  background-color: var(--editable-focus-bg, #1e293b);
+  border-color: var(--editable-focus-border, #60a5fa);
 }
 
 .mom-actions {

@@ -473,6 +473,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       <div className="dynamic-container" style={{ padding: '0px' }}>
         <div className="dynamic-header" style={{ padding: '20px 30px' }}>
           <h2>LOPA WORKSHEET</h2>
+          <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
         <div className="dynamic-toolbar" style={{ padding: '0 30px 10px', display: 'flex', gap: '10px' }}>

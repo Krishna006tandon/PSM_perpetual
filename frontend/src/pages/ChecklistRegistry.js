@@ -265,6 +265,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       <div className="dynamic-container">
         <div className="dynamic-header">
           <h2>CHECKLISTS REGISTRY</h2>
+          <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
         <div className="dynamic-toolbar">

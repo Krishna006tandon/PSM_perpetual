@@ -20,6 +20,7 @@ import EquipmentRegistry from './pages/EquipmentRegistry';
 import MomWorksheet from './pages/MomWorksheet';
 import MocDashboard from './pages/MocDashboard';
 import ResetPassword from './pages/ResetPassword';
+import RecommendationsHub from './pages/RecommendationsHub';
 
 import Auth from './components/Auth';
 
@@ -367,6 +368,19 @@ function App() {
       return <MocDashboard />;
     }
 
+    if (currentView === 'recommendations' || currentView === 'recommendations-pha' || currentView === 'recommendations-moc') {
+      const initialTab = currentView === 'recommendations-moc' ? 'moc' : 'pha';
+      return (
+        <RecommendationsHub 
+          initialTab={initialTab}
+          onOpenStudy={handleStudyOpened}
+          onOpenMoc={() => setCurrentView('moc')}
+          theme={theme}
+          toggleTheme={toggleTheme}
+        />
+      );
+    }
+
     return (
       <main className="main-content">
         <header className="header">
@@ -390,6 +404,11 @@ function App() {
           <div className="card" onClick={() => setCurrentView('moc')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
             <h3>MOC</h3>
             <p>Management of Change</p>
+            <span className="status-badge status-info">View Details</span>
+          </div>
+          <div className="card" onClick={() => setCurrentView('recommendations')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+            <h3>Recommendations</h3>
+            <p>Safety & MOC Action Items</p>
             <span className="status-badge status-info">View Details</span>
           </div>
         </div>

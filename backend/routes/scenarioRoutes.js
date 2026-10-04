@@ -7,6 +7,57 @@ const checkStudyAccess = require('../middleware/checkStudyAccess');
 // Apply auth middleware
 router.use(auth);
 
+// GET all company-wide recommendations across studies (Placed BEFORE /:studyId)
+router.get('/company/recommendations', async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const Study = require('../models/Study');
+    const TeamMember = require('../models/TeamMember');
+
+    const user = await User.findById(req.user.userId);
+    const userRole = (user && user.role) ? user.role.toLowerCase() : '';
+    const userEmail = user ? user.email : '';
+
+    let accessibleStudyIds = [];
+    if (user && (userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner')) {
+      const studies = await Study.find({ companyCode: req.user.companyCode }).select('_id');
+      accessibleStudyIds = studies.map(s => s._id);
+    } else {
+      const [companyStudies, memberships] = await Promise.all([
+        Study.find({ companyCode: req.user.companyCode }).select('_id'),
+        TeamMember.find({ email: { $regex: new RegExp(`^${userEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } }).select('studyId')
+      ]);
+      const set = new Set([...companyStudies.map(s => String(s._id)), ...memberships.map(m => String(m.studyId))]);
+      accessibleStudyIds = Array.from(set);
+    }
+
+    const filter = {
+      $or: [
+        { additionalProtection: { $exists: true, $regex: /\S/ } },
+        { recommendationNo: { $exists: true, $regex: /\S/ } }
+      ]
+    };
+
+    if (accessibleStudyIds.length > 0) {
+      filter.studyId = { $in: accessibleStudyIds };
+    } else if (req.user.companyCode) {
+      filter.companyCode = req.user.companyCode;
+    }
+
+    const scenarios = await Scenario.find(filter)
+      .populate('studyId', 'studyName phaType facility plantUnit lastAccessed')
+      .populate('nodeId', 'description intention boundary')
+      .populate('deviationId', 'deviationAuto guidewords parameter')
+      .populate('causeId', 'description')
+      .sort({ updatedAt: -1, order: 1 });
+
+    res.json(scenarios);
+  } catch (err) {
+    console.error('Error fetching company recommendations:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Apply checkStudyAccess middleware to routes targeting a specific study
 router.use('/:studyId', checkStudyAccess);
 

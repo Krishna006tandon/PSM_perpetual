@@ -36,6 +36,20 @@ const NAV_ITEMS = [
     subItems: []
   },
   { 
+    id: 'recommendations', 
+    label: 'Recommendations',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4"></path>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+      </svg>
+    ),
+    subItems: [
+      { id: 'recommendations-pha', label: 'PHA Recommendations', icon: '📋' },
+      { id: 'recommendations-moc', label: 'MOC Recommendations', icon: '🔄' }
+    ]
+  },
+  { 
     id: 'analytics', 
     label: 'Analytics',
     icon: (
@@ -100,7 +114,7 @@ function Sidebar({ activeView, onNavigate }) {
           {NAV_ITEMS.map(item => (
             <li key={item.id} className="sidebar-item-container">
               <div 
-                className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
+                className={`sidebar-item ${(activeView === item.id || (activeView && activeView.startsWith(item.id))) ? 'active' : ''}`}
                 onClick={() => handleItemClick(item)}
               >
                 <span className="icon">{item.icon}</span>

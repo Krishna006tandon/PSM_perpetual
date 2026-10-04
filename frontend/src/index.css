@@ -92,15 +92,34 @@ html, body {
 }
 
 .sidebar h2 {
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 800;
-  color: #1e40af;
+  color: #0f172a;
   letter-spacing: -0.02em;
-  padding-left: 12px;
+  padding-left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sidebar h2 .brand-accent {
+  color: #ffffff;
+  background: #2563eb;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 [data-theme='dark'] .sidebar h2 {
-  color: #60a5fa;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .sidebar h2 .brand-accent {
+  color: #ffffff;
+  background: #3b82f6;
 }
 
 .sidebar-nav ul {
@@ -499,16 +518,6 @@ h1, h2, h3, h4, h5, h6 {
 [data-theme='dark'] .sidebar {
   background: #0f172a;
   border-right: 1.5px solid var(--border, #334155);
-}
-
-.sidebar h2 {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #1e40af;
-  margin-bottom: 12px;
-}
-[data-theme='dark'] .sidebar h2 {
-  color: #60a5fa;
 }
 
 .sidebar ul {

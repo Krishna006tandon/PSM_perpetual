@@ -108,7 +108,9 @@ function Sidebar({ activeView, onNavigate }) {
 
   return (
     <aside className="sidebar">
-      <h2>Brand</h2>
+      <div className="sidebar-brand">
+        <h2>Perpetual <span className="brand-accent">PSM</span></h2>
+      </div>
       <nav className="sidebar-nav">
         <ul>
           {NAV_ITEMS.map(item => (

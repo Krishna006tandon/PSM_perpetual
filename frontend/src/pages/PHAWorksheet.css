@@ -318,41 +318,89 @@
 }
 
 /* Specific Cell Background Colors based on image */
-.bg-deviation { background-color: #eff6ff; } /* Light blue for deviation */
-.bg-cause { background-color: #fef08a; } /* Light yellow for cause */
-.bg-consequence { background-color: #ecfdf5; } /* Light green for consequence */
-.bg-protection { background-color: var(--bg-paper); } /* White for protection */
+.bg-deviation { background-color: #f0f7ff; } /* Crisp light blue for deviation */
+.bg-cause { background-color: #fefce8; } /* Clean warm amber for cause */
+.bg-consequence { background-color: #f0fdf4; } /* Soft mint for consequence */
+.bg-protection { background-color: #ffffff; } /* White for protection */
 
-/* Serial Numbers (formerly Badges) formatted as text per user request "1.1 1.2 1.3 types" */
-.badge-dev { color: #1d4ed8; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
-.badge-cause { color: #d97706; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
-.badge-cons { color: #059669; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
-.badge-safe { color: #059669; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+/* Serial Numbers formatted as text */
+.badge-dev { color: #1d4ed8; font-size: 11.5px; font-weight: 800; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-cause { color: #b45309; font-size: 11.5px; font-weight: 800; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-cons { color: #047857; font-size: 11.5px; font-weight: 800; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
+.badge-safe { color: #047857; font-size: 11.5px; font-weight: 800; margin-right: 6px; display: inline-block; vertical-align: top; margin-top: 5px; }
 
-/* Action Links Modernized to Buttons */
+/* Action Links Modernized to Crisp High-Contrast Buttons */
 .action-link {
-  font-size: 10px;
-  color: var(--primary-main);
+  font-size: 11px;
   text-transform: uppercase;
   font-weight: 700;
   cursor: pointer;
-  display: inline-block;
-  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.6);
-  padding: 6px 12px;
-  border-radius: 4px;
+  padding: 5px 12px;
+  border-radius: 6px;
   transition: all 0.2s ease;
-  border: 1px solid transparent;
   letter-spacing: 0.5px;
+  background-color: #f1f5f9;
+  color: #1e40af;
+  border: 1px solid #cbd5e1;
 }
 
 .action-link:hover { 
-  background: var(--bg-paper);
-  border-color: #bae6fd;
-  color: var(--primary-main);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.action-link.add-cause {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+.action-link.add-cause:hover {
+  background-color: #fde68a;
+  border-color: #f59e0b;
+}
+
+.action-link.add-cons {
+  background-color: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+.action-link.add-cons:hover {
+  background-color: #fed7aa;
+  border-color: #ea580c;
+}
+
+.action-link.add-safe {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+.action-link.add-safe:hover {
+  background-color: #a7f3d0;
+  border-color: #10b981;
+}
+
+.action-link.add-rec {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+.action-link.add-rec:hover {
+  background-color: #bfdbfe;
+  border-color: #3b82f6;
+}
+
+.pha-table td {
+  padding: 12px 10px;
+  font-size: 13.5px;
+  color: #0f172a;
+  border: 1px solid #cbd5e1 !important;
+  vertical-align: top;
+  line-height: 1.5;
 }
 
 .pha-table td input,
@@ -363,8 +411,9 @@
   background: transparent;
   outline: none;
   font-family: inherit;
-  font-size: inherit;
-  color: inherit;
+  font-size: 13.5px;
+  color: #0f172a;
+  font-weight: 500;
   resize: vertical;
   border-radius: 4px;
   padding: 6px;
@@ -373,18 +422,30 @@
 
 .pha-table td input:hover,
 .pha-table td textarea:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #cbd5e1;
 }
 
 .pha-table td input:focus,
 .pha-table td textarea:focus {
-  background: var(--bg-paper);
-  border-color: #7dd3fc;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  background: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .pha-table td textarea {
   min-height: 72px;
+}
+
+/* Row Added / Duplicated Highlight Animation */
+@keyframes rowHighlightPulse {
+  0% { background-color: #bbf7d0 !important; }
+  50% { background-color: #86efac !important; }
+  100% { background-color: transparent; }
+}
+
+.pha-table tbody tr.row-just-added td {
+  animation: rowHighlightPulse 2.5s ease-out;
 }
 
 /* Empty State */

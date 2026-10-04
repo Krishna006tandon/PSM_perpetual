@@ -120,7 +120,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!scenarios || scenarios.length === 0) return [];
     
     // Sort scenarios by deviation ID then cause ID so they ALWAYS group correctly,
-    // Add stable tie-breaker (_id) to prevent rows from swapping order during typing (which causes focus loss)
+    // Respect order within the group and add stable tie-breaker (_id) to prevent rows from swapping order during typing
     const sortedScenarios = [...scenarios].sort((a, b) => {
       const devA = a.deviationId?._id || '';
       const devB = b.deviationId?._id || '';
@@ -130,6 +130,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const causeB = b.causeId?._id || '';
       if (causeA !== causeB) return causeA.localeCompare(causeB);
       
+      const orderA = typeof a.order === 'number' ? a.order : 0;
+      const orderB = typeof b.order === 'number' ? b.order : 0;
+      if (orderA !== orderB) return orderA - orderB;
+
       const consA = a.consequenceGroupId || '';
       const consB = b.consequenceGroupId || '';
       if (consA !== consB) return consA.localeCompare(consB);
@@ -966,8 +970,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     fetchStudyRecommendations();
   };
 
-  // Duplicate selected row(s) (Issue 10)
-  const handleDuplicateRows = async (rowIds = selectedRowIds) => {
+  // Duplicate selected row(s) or single row directly below (Issue 10)
+  const handleDuplicateRows = async (rowIds = selectedRowIds, insertAfterId = null) => {
     if (!rowIds || rowIds.length === 0) {
       alert('Please select at least one row to duplicate.');
       return;
@@ -975,21 +979,33 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
+      const targetAfterId = insertAfterId || (rowIds.length === 1 ? rowIds[0] : (selectedRowIds.length > 0 ? selectedRowIds[selectedRowIds.length - 1] : null));
       const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}/bulk-duplicate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           scenarioIds: rowIds,
-          targetNodeId: selectedNodeId
+          targetNodeId: selectedNodeId,
+          insertAfterScenarioId: targetAfterId
         })
       });
 
       if (response.ok) {
         const cloned = await response.json();
-        setScenarios(prev => [...prev, ...cloned]);
+        await fetchScenarios(selectedNodeId);
         setSelectedRowIds([]);
         fetchStudyRecommendations();
-        alert(`Successfully duplicated ${cloned.length} row(s).`);
+        if (cloned.length > 0) {
+          const firstClonedId = cloned[0]._id;
+          setTimeout(() => {
+            const rowEl = document.getElementById(`scenario-row-${firstClonedId}`);
+            if (rowEl) {
+              rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              rowEl.classList.add('row-just-added');
+              setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
+            }
+          }, 300);
+        }
       } else {
         const err = await response.json();
         alert('Failed to duplicate rows: ' + (err.message || 'Unknown error'));
@@ -997,6 +1013,44 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     } catch (error) {
       console.error('Error duplicating rows:', error);
       alert('Failed to duplicate rows.');
+    }
+  };
+
+  // Insert a new blank row in between (immediately below the given scenario)
+  const handleInsertRowBelow = async (sc) => {
+    if (!selectedNodeId || !sc) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          nodeId: selectedNodeId,
+          deviationId: sc.deviationId?._id || sc.deviationId,
+          causeId: sc.causeId?._id || sc.causeId,
+          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+          insertAfterScenarioId: sc._id
+        })
+      });
+
+      if (response.ok) {
+        const newScenario = await response.json();
+        await fetchScenarios(selectedNodeId);
+        setTimeout(() => {
+          const rowEl = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            rowEl.classList.add('row-just-added');
+            setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
+          }
+        }, 300);
+      } else {
+        const err = await response.json();
+        alert('Failed to insert row: ' + (err.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error inserting row below:', error);
+      alert('Failed to insert row.');
     }
   };
 
@@ -1270,8 +1324,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
           nodeId: selectedNodeId, 
-          deviationId: sc.deviationId._id, 
-          causeId: sc.causeId._id,
+          deviationId: sc.deviationId?._id || sc.deviationId, 
+          causeId: sc.causeId?._id || sc.causeId,
           consequenceGroupId: sc.consequenceGroupId,
           consequencesImmediate: sc.consequencesImmediate,
           consequencesUltimate: sc.consequencesUltimate,
@@ -1283,21 +1337,44 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           mitigatedRiskS: sc.mitigatedRiskS,
           mitigatedRiskL: sc.mitigatedRiskL,
           additionalProtection: recText,
-          recommendationNo: recNo
+          recommendationNo: recNo,
+          insertAfterScenarioId: sc._id
         })
       });
       if (response.ok) {
         const newScenario = await response.json();
-        setScenarios(prev => {
-          const updatedPrev = prev.map(s => s._id === sc._id ? { ...s, safeguardGroupId: groupId } : s);
-          return [...updatedPrev, newScenario];
-        });
+        await fetchScenarios(selectedNodeId);
         fetchStudyRecommendations();
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+            const textarea = newRow.querySelector('.w-additional textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 300);
       }
     } catch (error) {
       console.error('Error adding quick recommendation:', error);
       alert("Network error: Could not add recommendation. Please check your connection.");
     }
+  };
+
+  const handleDirectAddRecommendation = async (sc) => {
+    if (!sc) return;
+    // If current row's recommendation input is empty, focus it directly!
+    if (!sc.additionalProtection || !sc.additionalProtection.trim()) {
+      const row = document.getElementById(`scenario-row-${sc._id}`);
+      const textarea = row ? row.querySelector('.w-additional textarea') : null;
+      if (textarea) {
+        textarea.focus();
+        return;
+      }
+    }
+    // If it already has recommendation text, directly add a new recommendation sub-row right below!
+    await handleQuickAddRecommendation(sc, '', nextRecNo);
   };
 
   const openAddRecModal = (sc) => {
@@ -1816,10 +1893,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const causeA = a.causeId?._id || '';
           const causeB = b.causeId?._id || '';
           if (causeA !== causeB) return causeA.localeCompare(causeB);
+          const orderA = typeof a.order === 'number' ? a.order : 0;
+          const orderB = typeof b.order === 'number' ? b.order : 0;
+          if (orderA !== orderB) return orderA - orderB;
           const consA = a.consequenceGroupId || '';
           const consB = b.consequenceGroupId || '';
           if (consA !== consB) return consA.localeCompare(consB);
-          return (a.order || 0) - (b.order || 0);
+          return (a._id || '').localeCompare(b._id || '');
         });
 
         const getConsKey = (s) => s.consequenceGroupId || s._id;
@@ -2238,11 +2318,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const causeB = b.causeId?._id ? String(b.causeId._id) : (b.causeId ? String(b.causeId) : '');
             if (causeA !== causeB) return causeA.localeCompare(causeB);
             
+            const orderA = typeof a.order === 'number' ? a.order : 0;
+            const orderB = typeof b.order === 'number' ? b.order : 0;
+            if (orderA !== orderB) return orderA - orderB;
+
             const consA = a.consequenceGroupId || '';
             const consB = b.consequenceGroupId || '';
             if (consA !== consB) return consA.localeCompare(consB);
             
-            return (a.order || 0) - (b.order || 0);
+            return (a._id || '').localeCompare(b._id || '');
           });
 
           // Consolidate consequence group level risks so multi-safeguard rows cleanly inherit group values
@@ -2612,6 +2696,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           {canEdit && (
             <button 
               className="toolbar-btn" 
+              onClick={() => {
+                const targetSc = scenarios.find(s => s._id === selectedRowIds[0]);
+                if (targetSc) handleInsertRowBelow(targetSc);
+              }} 
+              disabled={selectedRowIds.length !== 1}
+              title="Add a new row in between (immediately below the selected row)"
+              style={{fontSize: '12px', fontWeight: '600', color: selectedRowIds.length === 1 ? '#1d4ed8' : 'inherit'}}
+            >
+              ➕ Insert Row Below
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
               onClick={handleCopyRows} 
               disabled={selectedRowIds.length === 0}
               title="Copy selected rows to clipboard"
@@ -2831,32 +2930,58 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   id={`scenario-row-${sc._id}`}
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
                 >
-                  <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)'}}>
-                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px'}}>
+                  <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)', verticalAlign: 'middle', padding: '6px 4px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}>
                       <input disabled={!canEdit} 
                         type="checkbox" 
                         checked={selectedRowIds.includes(sc._id)}
                         onChange={(e) => handleSelectRow(sc._id, e.target.checked)}
                         style={{ cursor: 'pointer' }}
+                        title="Select row"
                       />
                       {canEdit && (
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDuplicateRows([sc._id]); }}
-                          title="Duplicate this row"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '0',
-                            fontSize: '11px',
-                            opacity: 0.6
-                          }}
-                          onMouseEnter={(e) => e.target.style.opacity = 1}
-                          onMouseLeave={(e) => e.target.style.opacity = 0.6}
-                        >
-                          📋
-                        </button>
+                        <>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleInsertRowBelow(sc); }}
+                            title="Add row in between (Insert new row below this row)"
+                            style={{
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#1d4ed8',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              padding: '2px 5px',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              lineHeight: '1',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.borderColor = '#3b82f6'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                          >
+                            +
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleDuplicateRows([sc._id], sc._id); }}
+                            title="Duplicate this row below"
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              fontSize: '11px',
+                              lineHeight: '1',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                          >
+                            📋
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -2933,7 +3058,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           suggestions={uniqueSuggestions.deviations}
                           style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
                         />
-                        <span className="action-link" onClick={() => handleQuickAddCause(sc.deviationId?._id)}>+ ADD CAUSE</span>
+                        <span className="action-link add-cause" onClick={() => handleQuickAddCause(sc.deviationId?._id)}>+ ADD CAUSE</span>
                       </td>
                     </>
                   )}
@@ -2974,7 +3099,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'instrument', e.target.value)}
                         />
                       </div>
-                      <span className="action-link" style={{color: '#d97706', paddingLeft: '35px', display: 'block'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
+                      <span className="action-link add-cons" style={{marginLeft: '35px', display: 'inline-flex'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
                     </td>
                   )}
                   
@@ -2997,7 +3122,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             }
                           }}
                         />
-                        <span className="action-link" style={{color: '#10b981'}} onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
+                        <span className="action-link add-safe" onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
                       </td>
                       <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
                         <AutocompleteTextarea disabled={!canEdit} 
@@ -3082,7 +3207,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
                               e.target.blur();
-                              openAddRecModal(sc);
+                              handleDirectAddRecommendation(sc);
                             }
                           }}
                         />
@@ -3106,13 +3231,23 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         )}
                       </div>
                       {canEdit && (
-                        <span 
-                          className="action-link" 
-                          style={{color: '#10b981', display: 'block', cursor: 'pointer'}} 
-                          onClick={() => openAddRecModal(sc)}
-                        >
-                          + ADD RECOMMENDATION
-                        </span>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
+                          <span 
+                            className="action-link add-rec" 
+                            style={{cursor: 'pointer'}} 
+                            onClick={() => handleDirectAddRecommendation(sc)}
+                            title="Directly add recommendation row here"
+                          >
+                            + ADD RECOMMENDATION
+                          </span>
+                          <span 
+                            style={{fontSize: '11px', color: '#64748b', cursor: 'pointer', textDecoration: 'underline'}} 
+                            onClick={() => openAddRecModal(sc)}
+                            title="Pick from existing study recommendations in library"
+                          >
+                            (from library)
+                          </span>
+                        </div>
                       )}
                     </div>
                   </td>

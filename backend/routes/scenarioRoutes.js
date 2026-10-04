@@ -34,13 +34,32 @@ router.get('/:studyId', async (req, res) => {
 // POST a new scenario row
 router.post('/:studyId', async (req, res) => {
   try {
-    const filter = { studyId: req.params.studyId, nodeId: req.body.nodeId };
-    const lastScenario = await Scenario.findOne(filter).sort({ order: -1 });
-    const newOrder = lastScenario ? lastScenario.order + 1 : 1;
+    const { insertAfterScenarioId, ...bodyData } = req.body;
+    let newOrder;
 
-    const newScenario = new Scenario({ companyCode: req.user.companyCode, studyId: req.params.studyId,
+    if (insertAfterScenarioId) {
+      const targetScenario = await Scenario.findById(insertAfterScenarioId);
+      if (targetScenario) {
+        newOrder = (targetScenario.order || 0) + 1;
+        // Shift subsequent rows
+        await Scenario.updateMany(
+          { studyId: req.params.studyId, nodeId: req.body.nodeId, order: { $gte: newOrder } },
+          { $inc: { order: 1 } }
+        );
+      }
+    }
+
+    if (newOrder === undefined) {
+      const filter = { studyId: req.params.studyId, nodeId: req.body.nodeId };
+      const lastScenario = await Scenario.findOne(filter).sort({ order: -1 });
+      newOrder = lastScenario ? (lastScenario.order || 0) + 1 : 1;
+    }
+
+    const newScenario = new Scenario({
+      companyCode: req.user.companyCode,
+      studyId: req.params.studyId,
       order: newOrder,
-      ...req.body
+      ...bodyData
     });
 
     const savedScenario = await newScenario.save();
@@ -95,7 +114,7 @@ router.delete('/:id', async (req, res) => {
 // POST bulk duplicate scenarios
 router.post('/:studyId/bulk-duplicate', async (req, res) => {
   try {
-    const { scenarioIds, targetNodeId } = req.body;
+    const { scenarioIds, targetNodeId, insertAfterScenarioId } = req.body;
     if (!scenarioIds || !scenarioIds.length) {
       return res.status(400).json({ message: 'No scenario IDs provided' });
     }
@@ -106,19 +125,41 @@ router.post('/:studyId/bulk-duplicate', async (req, res) => {
     }
 
     const effectiveNodeId = targetNodeId || scenariosToClone[0].nodeId;
-    const lastScenario = await Scenario.findOne({ studyId: req.params.studyId, nodeId: effectiveNodeId }).sort({ order: -1 });
-    let startOrder = lastScenario ? lastScenario.order + 1 : 1;
+    let startOrder;
+
+    const afterId = insertAfterScenarioId || (scenarioIds.length === 1 ? scenarioIds[0] : null);
+    if (afterId) {
+      const target = await Scenario.findById(afterId);
+      if (target) {
+        startOrder = (target.order || 0) + 1;
+        // Shift all subsequent scenarios down
+        await Scenario.updateMany(
+          { studyId: req.params.studyId, nodeId: effectiveNodeId, order: { $gte: startOrder } },
+          { $inc: { order: scenariosToClone.length } }
+        );
+      }
+    }
+
+    if (startOrder === undefined) {
+      const lastScenario = await Scenario.findOne({ studyId: req.params.studyId, nodeId: effectiveNodeId }).sort({ order: -1 });
+      startOrder = lastScenario ? (lastScenario.order || 0) + 1 : 1;
+    }
 
     const groupMapping = {};
 
     const clonedDocs = scenariosToClone.map((sc, i) => {
       const obj = sc.toObject();
       delete obj._id;
+      delete obj.__v;
       delete obj.createdAt;
       delete obj.updatedAt;
+      obj.studyId = req.params.studyId;
+      obj.companyCode = req.user.companyCode;
       obj.nodeId = effectiveNodeId;
       obj.order = startOrder + i;
 
+      // Remap consequence and safeguard groups so duplicate rows are independently editable
+      // (while preserving intra-group relationships if multiple rows are duplicated together)
       if (obj.consequenceGroupId) {
         if (!groupMapping[obj.consequenceGroupId]) {
           groupMapping[obj.consequenceGroupId] = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);

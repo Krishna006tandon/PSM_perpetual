@@ -85,32 +85,47 @@
 }
 
 .radial-item {
-  padding: 16px 24px;
-  font-size: 13px;
+  padding: 14px 24px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #334155;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 16px;
   transition: all 0.2s ease;
   position: relative;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   border-left: 4px solid transparent;
   z-index: 2; /* Keep above bubbles */
   background-color: var(--bg-paper);
 }
 
+[data-theme='dark'] .radial-item {
+  color: #cbd5e1;
+}
+
 .radial-item:hover {
-  background-color: var(--bg-default);
-  color: var(--text-primary);
+  background-color: #f1f5f9;
+  color: #1e40af;
+}
+
+[data-theme='dark'] .radial-item:hover {
+  background-color: #334155;
+  color: #f8fafc;
 }
 
 .radial-item.active {
-  color: var(--primary-main);
-  border-left: 4px solid var(--primary-main);
+  color: #1d4ed8;
+  border-left: 4px solid #1d4ed8;
   font-weight: 700;
-  background-color: var(--bg-default);
+  background-color: #eff6ff;
+}
+
+[data-theme='dark'] .radial-item.active {
+  color: #60a5fa;
+  border-left: 4px solid #60a5fa;
+  background-color: #1e293b;
 }
 
 .radial-item .icon {

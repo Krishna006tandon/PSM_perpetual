@@ -1,0 +1,23 @@
+{
+  "short_name": "Perpetual PSM",
+  "name": "Perpetual PSM - Process Safety Management Platform",
+  "description": "Enterprise Process Safety Management, HAZOP, LOPA, MOC, and BowTie risk analysis software for process engineering teams.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"]
+}

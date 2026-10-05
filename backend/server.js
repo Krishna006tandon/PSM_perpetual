@@ -20,6 +20,12 @@ const checklistTemplateRoutes = require('./routes/checklistTemplateRoutes');
 app.use('/api/mocs', mocRoutes);
 app.use('/api/checklist-templates', checklistTemplateRoutes);
 
+// Disallow search bots on the API subdomain
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send("User-agent: *\nDisallow: /\n");
+});
+
 // A simple test route to make sure the server is working
 app.get('/api/test', (req, res) => {
     res.json({ message: 'MOC Backend Server is up and running!' });

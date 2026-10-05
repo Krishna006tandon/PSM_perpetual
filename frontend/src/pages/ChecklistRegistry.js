@@ -281,8 +281,7 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
             <thead>
               <tr>
                 <th style={{width:'50px'}}>#</th>
-                <th className="col-dev">DEVIATION</th>
-                <th className="col-rec">RECOMMENDATION</th>
+                <th className="col-custom" style={{width: '280px', minWidth: '220px'}}>QUICK NOTES</th>
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
@@ -292,8 +291,18 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
               {!loading && scenarios.map((sc, index) => (
                 <tr key={sc._id}>
                   <td style={{textAlign:'center'}}>{index + 1}</td>
-                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-rec" style={{whiteSpace: 'pre-wrap'}}>{sc.additionalProtection || ''}</td>
+                  <td className="col-custom">
+                    <textarea 
+                      disabled={!canEdit} 
+                      data-gramm="false" 
+                      spellCheck={false}
+                      value={(sc.checklistData && sc.checklistData.quickNotes) || ''} 
+                      onChange={(e) => handleCellChange(sc._id, 'quickNotes', e.target.value, true)}
+                      onBlur={(e) => handleBlur(sc._id, 'quickNotes', e.target.value, true)}
+                      placeholder="Add quick notes..."
+                      rows={2}
+                    />
+                  </td>
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">
                       {renderCustomCell(sc, col)}

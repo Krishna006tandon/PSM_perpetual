@@ -243,7 +243,15 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
-        <div className="dynamic-toolbar">
+        <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            className="btn-manage-columns" 
+            onClick={() => onNavigate('recommendations')}
+            style={{ backgroundColor: '#0284c7', color: '#ffffff', border: 'none' }}
+            title="Go to Recommendations Registry"
+          >
+            🎯 RECOMMENDATIONS REGISTRY
+          </button>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
@@ -257,10 +265,8 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               <tr>
                 <th style={{width:'50px'}}>#</th>
                 <th className="col-node">NODE</th>
-                <th className="col-dev">DEVIATION</th>
-                <th className="col-cause">CAUSE</th>
-                <th className="col-cons">CONSEQUENCE</th>
                 <th className="col-custom" style={{width: '200px'}}>RECOMMENDATION</th>
+                <th style={{width: '120px', textAlign: 'center'}}>ACTIONS</th>
               <th className="col-custom">RESPONSIBLE PERSON</th>
                 <th className="col-custom">TRACK DUE DATE</th>
                 <th className="col-custom">UPDATE STATUS</th>
@@ -275,15 +281,63 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                 <tr key={sc._id}>
                   <td style={{textAlign:'center'}}>R{index + 1}</td>
                   <td className="col-node">{sc.nodeId?.description || ''}</td>
-                  <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                  <td className="col-cause">{sc.causeId?.description || ''}</td>
-                  <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
                     <textarea data-gramm="false" spellcheck="false" 
                       value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                     />
+                  </td>
+                  <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
+                    <div style={{display: 'inline-flex', flexDirection: 'column', gap: '3px', alignItems: 'center'}}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sc._id) localStorage.setItem('targetScenarioId', sc._id);
+                          onNavigate('recommendations');
+                        }}
+                        title="Redirect to Recommendations Registry"
+                        style={{
+                          cursor: 'pointer',
+                          color: '#0284c7',
+                          background: 'none',
+                          border: 'none',
+                          padding: '2px 4px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          textDecoration: 'underline',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        🎯 View Rec
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sc.nodeId?._id) localStorage.setItem('targetNodeId', sc.nodeId._id);
+                          if (sc._id) localStorage.setItem('targetScenarioId', sc._id);
+                          onNavigate('pha-worksheets');
+                        }}
+                        title="Redirect to PHA Worksheet"
+                        style={{
+                          cursor: 'pointer',
+                          color: '#0ea5e9',
+                          background: 'none',
+                          border: 'none',
+                          padding: '2px 4px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          textDecoration: 'underline',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        ⚡ Worksheet
+                      </button>
+                    </div>
                   </td>
                   <td className="col-custom">
                     <select

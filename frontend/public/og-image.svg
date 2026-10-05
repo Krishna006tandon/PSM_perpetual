@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+
+  <!-- Subtle Grid lines -->
+  <g stroke="#334155" stroke-width="0.5" opacity="0.3">
+    <line x1="0" y1="105" x2="1200" y2="105" />
+    <line x1="0" y1="210" x2="1200" y2="210" />
+    <line x1="0" y1="315" x2="1200" y2="315" />
+    <line x1="0" y1="420" x2="1200" y2="420" />
+    <line x1="0" y1="525" x2="1200" y2="525" />
+    <line x1="200" y1="0" x2="200" y2="630" />
+    <line x1="400" y1="0" x2="400" y2="630" />
+    <line x1="600" y1="0" x2="600" y2="630" />
+    <line x1="800" y1="0" x2="800" y2="630" />
+    <line x1="1000" y1="0" x2="1000" y2="630" />
+  </g>
+
+  <!-- Glow Effect -->
+  <circle cx="950" cy="200" r="300" fill="#2563eb" opacity="0.15" filter="blur(60px)" />
+  <circle cx="200" cy="500" r="250" fill="#0ea5e9" opacity="0.12" filter="blur(60px)" />
+
+  <!-- Shield Badge -->
+  <g transform="translate(100, 90)">
+    <path d="M40 6 L70 18 V42 C70 61 57 74 40 79 C23 74 10 61 10 42 V18 Z" fill="#0f172a" stroke="url(#textGrad)" stroke-width="3" />
+    <circle cx="40" cy="37" r="10" fill="none" stroke="url(#textGrad)" stroke-width="3.5" />
+    <circle cx="40" cy="37" r="5" fill="#38bdf8" />
+    <path d="M40 47 V62 M30 32 L20 25 M50 32 L60 25" stroke="url(#textGrad)" stroke-width="3" stroke-linecap="round" />
+    <circle cx="40" cy="62" r="3.5" fill="#38bdf8" />
+    <circle cx="20" cy="25" r="3.5" fill="#60a5fa" />
+    <circle cx="60" cy="25" r="3.5" fill="#60a5fa" />
+  </g>
+
+  <!-- Brand Title -->
+  <text x="195" y="145" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-weight="800" font-size="44" fill="#ffffff" letter-spacing="-1">
+    Perpetual <tspan fill="url(#textGrad)">PSM</tspan>
+  </text>
+  <text x="198" y="170" font-family="'Inter', -apple-system, sans-serif" font-weight="700" font-size="14" fill="#94a3b8" letter-spacing="3">
+    ENTERPRISE PROCESS SAFETY MANAGEMENT PLATFORM
+  </text>
+
+  <!-- Main Headline -->
+  <text x="100" y="275" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-weight="800" font-size="48" fill="#ffffff" letter-spacing="-1">
+    Elevate Process Safety.
+  </text>
+  <text x="100" y="335" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-weight="800" font-size="48" fill="url(#textGrad)" letter-spacing="-1">
+    Empower Engineering Teams.
+  </text>
+
+  <!-- Subtitle -->
+  <text x="100" y="390" font-family="'Inter', -apple-system, sans-serif" font-weight="400" font-size="20" fill="#94a3b8">
+    Modern cloud software for HAZOP, LOPA, MOC, and BowTie risk assessments.
+  </text>
+  <text x="100" y="420" font-family="'Inter', -apple-system, sans-serif" font-weight="400" font-size="20" fill="#94a3b8">
+    Guaranteed compliance with OSHA 1910.119, CCPS, and IEC 61511.
+  </text>
+
+  <!-- Feature Pills -->
+  <g transform="translate(100, 480)">
+    <!-- Pill 1 -->
+    <rect x="0" y="0" width="160" height="48" rx="12" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="80" y="30" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#60a5fa" text-anchor="middle">PHA / HAZOP</text>
+
+    <!-- Pill 2 -->
+    <rect x="180" y="0" width="140" height="48" rx="12" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="250" y="30" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#60a5fa" text-anchor="middle">LOPA / SIL</text>
+
+    <!-- Pill 3 -->
+    <rect x="340" y="0" width="180" height="48" rx="12" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="430" y="30" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#60a5fa" text-anchor="middle">MOC Lifecycle</text>
+
+    <!-- Pill 4 -->
+    <rect x="540" y="0" width="170" height="48" rx="12" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="625" y="30" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#60a5fa" text-anchor="middle">BowTie Analysis</text>
+
+    <!-- Pill 5 -->
+    <rect x="730" y="0" width="220" height="48" rx="12" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="840" y="30" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#60a5fa" text-anchor="middle">Action Item Tracking</text>
+  </g>
+
+  <!-- URL Tag at bottom right -->
+  <text x="1100" y="585" font-family="'Inter', sans-serif" font-weight="600" font-size="16" fill="#64748b" text-anchor="end">
+    psm.perpetualsolutions.co.in
+  </text>
+</svg>

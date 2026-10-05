@@ -16,6 +16,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [undoStack, setUndoStack] = useState([]);
   const [undoToast, setUndoToast] = useState(null);
+  const [riskCriteria, setRiskCriteria] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -87,11 +88,76 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       });
       if (studyRes.ok) setAllStudies(await studyRes.json());
 
+      // Fetch Risk Criteria
+      const rcRes = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (rcRes.ok) setRiskCriteria(await rcRes.json());
+
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getRiskColor = (sVal, lVal) => {
+    const s = parseInt(sVal);
+    const l = parseInt(lVal);
+    if (!s || !l || !riskCriteria) return 'transparent';
+    const cell = riskCriteria.matrixCells?.find(c => c.severityLevel === s && c.likelihoodLevel === l);
+    if (!cell) return 'transparent';
+    const cat = riskCriteria.riskCategories?.find(c => c.name === cell.category);
+    return cat ? cat.color : 'transparent';
+  };
+
+  const calculateRiskScore = (sVal, lVal) => {
+    const s = parseInt(sVal);
+    const l = parseInt(lVal);
+    if (isNaN(s) || isNaN(l) || !s || !l) return '';
+    if (riskCriteria?.matrixCells) {
+      const cell = riskCriteria.matrixCells.find(
+        c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l)
+      );
+      if (cell && cell.score) return String(cell.score);
+    }
+    return String(s * l);
+  };
+
+  const renderSeverityOptions = (currentVal) => {
+    const levels = (riskCriteria?.severityLevels && riskCriteria.severityLevels.length > 0)
+      ? riskCriteria.severityLevels.map(l => l.level)
+      : [1, 2, 3, 4, 5];
+    const strVal = currentVal !== undefined && currentVal !== null ? String(currentVal) : '';
+    return (
+      <>
+        <option value=""></option>
+        {strVal && !levels.some(lvl => String(lvl) === strVal) && (
+          <option value={strVal}>{strVal}</option>
+        )}
+        {levels.map(lvl => (
+          <option key={lvl} value={String(lvl)}>{lvl}</option>
+        ))}
+      </>
+    );
+  };
+
+  const renderLikelihoodOptions = (currentVal) => {
+    const levels = (riskCriteria?.likelihoodLevels && riskCriteria.likelihoodLevels.length > 0)
+      ? riskCriteria.likelihoodLevels.map(l => l.level)
+      : [1, 2, 3, 4, 5];
+    const strVal = currentVal !== undefined && currentVal !== null ? String(currentVal) : '';
+    return (
+      <>
+        <option value=""></option>
+        {strVal && !levels.some(lvl => String(lvl) === strVal) && (
+          <option value={strVal}>{strVal}</option>
+        )}
+        {levels.map(lvl => (
+          <option key={lvl} value={String(lvl)}>{lvl}</option>
+        ))}
+      </>
+    );
   };
 
   const handleCellChange = (id, field, value, isCustom = false) => {
@@ -102,7 +168,15 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           newData[field] = value;
           return { ...sc, recommendationData: newData };
         }
-        return { ...sc, [field]: value };
+        const updated = { ...sc, [field]: value };
+        if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+          updated.inherentRiskRR = calculateRiskScore(updated.inherentRiskS, updated.inherentRiskL);
+        } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+          updated.mitigatedRiskRR = calculateRiskScore(updated.mitigatedRiskS, updated.mitigatedRiskL);
+        } else if (field === 'residualRiskS' || field === 'residualRiskL') {
+          updated.residualRiskRR = calculateRiskScore(updated.residualRiskS, updated.residualRiskL);
+        }
+        return updated;
       }
       return sc;
     }));
@@ -120,6 +194,19 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         payload.recommendationData[field] = value;
       } else {
         payload[field] = value;
+        if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+          const s = field === 'inherentRiskS' ? value : sc.inherentRiskS;
+          const l = field === 'inherentRiskL' ? value : sc.inherentRiskL;
+          payload.inherentRiskRR = calculateRiskScore(s, l);
+        } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+          const s = field === 'mitigatedRiskS' ? value : sc.mitigatedRiskS;
+          const l = field === 'mitigatedRiskL' ? value : sc.mitigatedRiskL;
+          payload.mitigatedRiskRR = calculateRiskScore(s, l);
+        } else if (field === 'residualRiskS' || field === 'residualRiskL') {
+          const s = field === 'residualRiskS' ? value : sc.residualRiskS;
+          const l = field === 'residualRiskL' ? value : sc.residualRiskL;
+          payload.residualRiskRR = calculateRiskScore(s, l);
+        }
       }
 
       await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
@@ -250,6 +337,25 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       return (a.order || 0) - (b.order || 0);
     });
   }, [scenarios, nodes]);
+
+  // Auto-scroll and highlight target recommendation if navigated from Action Tracking
+  useEffect(() => {
+    const targetId = localStorage.getItem('targetScenarioId');
+    if (targetId && !loading && sortedScenariosWithRecs.length > 0) {
+      setTimeout(() => {
+        const el = document.getElementById(`rec-row-${targetId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const origBg = el.style.backgroundColor;
+          el.style.backgroundColor = '#fef08a';
+          setTimeout(() => {
+            el.style.backgroundColor = origBg;
+            localStorage.removeItem('targetScenarioId');
+          }, 2500);
+        }
+      }, 300);
+    }
+  }, [loading, sortedScenariosWithRecs]);
 
   // Dynamic sequential recommendation numbering (Issue 11 & 12)
   const recNumberMap = useMemo(() => {
@@ -393,6 +499,15 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               <th>DEVIATION</th>
               <th>CAUSE</th>
               <th>CONSEQUENCE</th>
+              <th>INHERENT S</th>
+              <th>INHERENT L</th>
+              <th>INHERENT RR</th>
+              <th>MITIGATED S</th>
+              <th>MITIGATED L</th>
+              <th>MITIGATED RR</th>
+              <th>RESIDUAL S</th>
+              <th>RESIDUAL L</th>
+              <th>RESIDUAL RR</th>
               ${colHeaders.map(h => `<th>${h}</th>`).join('')}
             </tr>
           </thead>
@@ -406,7 +521,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         lastNodeId = sc.nodeId?._id;
         tableHtml += `
           <tr class="node-hdr">
-            <td colspan="${6 + columns.length}">📁 NODE: ${nodeDesc}</td>
+            <td colspan="${15 + columns.length}">📁 NODE: ${nodeDesc}</td>
           </tr>
         `;
       }
@@ -421,6 +536,15 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <td>${sc.deviationId?.deviationAuto || ''}</td>
           <td>${sc.causeId?.description || ''}</td>
           <td>${sc.consequencesImmediate || ''}</td>
+          <td>${sc.inherentRiskS || ''}</td>
+          <td>${sc.inherentRiskL || ''}</td>
+          <td>${sc.inherentRiskRR || calculateRiskScore(sc.inherentRiskS, sc.inherentRiskL)}</td>
+          <td>${sc.mitigatedRiskS || ''}</td>
+          <td>${sc.mitigatedRiskL || ''}</td>
+          <td>${sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)}</td>
+          <td>${sc.residualRiskS || ''}</td>
+          <td>${sc.residualRiskL || ''}</td>
+          <td>${sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)}</td>
           ${customCells}
         </tr>
       `;
@@ -438,7 +562,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   // Export Recommendation Sheet to CSV (Issue 9)
   const exportToCSV = () => {
     const colHeaders = columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
-    let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE",${colHeaders.join(',')}\n`;
+    let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE","INHERENT S","INHERENT L","INHERENT RR","MITIGATED S","MITIGATED L","MITIGATED RR","RESIDUAL S","RESIDUAL L","RESIDUAL RR",${colHeaders.join(',')}\n`;
 
     const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
     sortedScenariosWithRecs.forEach((sc) => {
@@ -451,6 +575,15 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         escape(sc.deviationId?.deviationAuto),
         escape(sc.causeId?.description),
         escape(sc.consequencesImmediate),
+        escape(sc.inherentRiskS),
+        escape(sc.inherentRiskL),
+        escape(sc.inherentRiskRR || calculateRiskScore(sc.inherentRiskS, sc.inherentRiskL)),
+        escape(sc.mitigatedRiskS),
+        escape(sc.mitigatedRiskL),
+        escape(sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)),
+        escape(sc.residualRiskS),
+        escape(sc.residualRiskL),
+        escape(sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)),
         ...customCells
       ].join(',') + '\n';
     });
@@ -518,16 +651,33 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <table className="dynamic-table">
             <thead>
               <tr>
-                <th style={{width:'60px'}}>#</th>
-                <th className="col-custom">RECOMMENDATION STATEMENT</th>
-                <th className="col-node">NODE</th>
-                <th className="col-dev">DEVIATION</th>
-                <th className="col-cause">CAUSE</th>
-                <th className="col-cons">CONSEQUENCE</th>
-                <th style={{width: '90px', textAlign: 'center'}}>ACTIONS</th>
+                <th rowSpan={2} style={{width:'60px', textAlign:'center'}}>#</th>
+                <th rowSpan={2} className="col-custom" style={{width: '280px'}}>RECOMMENDATION STATEMENT</th>
+                
+                <th colSpan={3} className="th-risk-inherent" style={{textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)'}}>INHERENT RISK</th>
+                <th colSpan={3} className="th-risk-mitigated" style={{textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)'}}>MITIGATED RISK</th>
+                <th colSpan={3} className="th-risk-residual" style={{textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)'}}>RESIDUAL RISK</th>
+                
+                <th rowSpan={2} style={{width: '90px', textAlign: 'center'}}>ACTIONS</th>
                 {columns.map(col => (
-                  <th key={col.id} className="col-custom">{col.label}</th>
+                  <th key={col.id} rowSpan={2} className="col-custom">{col.label}</th>
                 ))}
+              </tr>
+              <tr>
+                {/* Inherent Risk Sub-headers */}
+                <th className="th-risk-sub w-risk-s">S</th>
+                <th className="th-risk-sub w-risk-l">L</th>
+                <th className="th-risk-sub w-risk-rr">IR</th>
+
+                {/* Mitigated Risk Sub-headers */}
+                <th className="th-risk-sub w-risk-s">S</th>
+                <th className="th-risk-sub w-risk-l">L</th>
+                <th className="th-risk-sub w-risk-rr">MR</th>
+
+                {/* Residual Risk Sub-headers */}
+                <th className="th-risk-sub w-risk-s">S</th>
+                <th className="th-risk-sub w-risk-l">L</th>
+                <th className="th-risk-sub w-risk-rr">RR</th>
               </tr>
             </thead>
             <tbody>
@@ -542,12 +692,12 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                   <React.Fragment key={sc._id}>
                     {isNewNode && (
                       <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 'bold' }}>
-                        <td colSpan={7 + columns.length} style={{ padding: '8px 12px', color: '#0f172a', fontSize: '12px' }}>
+                        <td colSpan={12 + columns.length} style={{ padding: '8px 12px', color: '#0f172a', fontSize: '12px' }}>
                           📁 NODE: {sc.nodeId?.description || 'General Node'}
                         </td>
                       </tr>
                     )}
-                    <tr>
+                    <tr id={`rec-row-${sc._id}`}>
                       <td style={{textAlign:'center', fontWeight:'bold', color:'#0369a1'}}>{recNo}</td>
                       <td className="col-custom">
                         <textarea disabled={!canEdit} data-gramm="false" spellCheck={true} 
@@ -556,10 +706,105 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                           onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                         />
                       </td>
-                      <td className="col-node">{sc.nodeId?.description || ''}</td>
-                      <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
-                      <td className="col-cause">{sc.causeId?.description || ''}</td>
-                      <td className="col-cons">{sc.consequencesImmediate || ''}</td>
+
+                      {/* INHERENT RISK */}
+                      <td className="w-risk-s">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.inherentRiskS || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'inherentRiskS', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'inherentRiskS', e.target.value)}
+                        >
+                          {renderSeverityOptions(sc.inherentRiskS)}
+                        </select>
+                      </td>
+                      <td className="w-risk-l">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.inherentRiskL || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'inherentRiskL', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'inherentRiskL', e.target.value)}
+                        >
+                          {renderLikelihoodOptions(sc.inherentRiskL)}
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" style={{
+                        backgroundColor: getRiskColor(sc.inherentRiskS, sc.inherentRiskL),
+                        color: getRiskColor(sc.inherentRiskS, sc.inherentRiskL) !== 'transparent' ? '#000000' : 'inherit',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        verticalAlign: 'middle'
+                      }}>
+                        {sc.inherentRiskRR || calculateRiskScore(sc.inherentRiskS, sc.inherentRiskL)}
+                      </td>
+
+                      {/* MITIGATED RISK */}
+                      <td className="w-risk-s">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.mitigatedRiskS || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskS', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskS', e.target.value)}
+                        >
+                          {renderSeverityOptions(sc.mitigatedRiskS)}
+                        </select>
+                      </td>
+                      <td className="w-risk-l">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.mitigatedRiskL || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'mitigatedRiskL', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'mitigatedRiskL', e.target.value)}
+                        >
+                          {renderLikelihoodOptions(sc.mitigatedRiskL)}
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" style={{
+                        backgroundColor: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL),
+                        color: getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL) !== 'transparent' ? '#000000' : 'inherit',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        verticalAlign: 'middle'
+                      }}>
+                        {sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)}
+                      </td>
+
+                      {/* RESIDUAL RISK */}
+                      <td className="w-risk-s">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.residualRiskS || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}
+                        >
+                          {renderSeverityOptions(sc.residualRiskS)}
+                        </select>
+                      </td>
+                      <td className="w-risk-l">
+                        <select 
+                          disabled={!canEdit}
+                          className="risk-level-select"
+                          value={sc.residualRiskL || ''} 
+                          onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} 
+                          onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}
+                        >
+                          {renderLikelihoodOptions(sc.residualRiskL)}
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" style={{
+                        backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL),
+                        color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000000' : 'inherit',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        verticalAlign: 'middle'
+                      }}>
+                        {sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)}
+                      </td>
                       <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
                         <span 
                           title="Go to Worksheet" 

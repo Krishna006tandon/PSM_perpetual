@@ -1,0 +1,22 @@
+# Robots.txt for Perpetual PSM
+# https://psm.perpetualsolutions.co.in
+
+User-agent: *
+Allow: /
+Allow: /#features
+Allow: /#modules
+Allow: /#compliance
+Allow: /#pricing
+Allow: /#faq
+
+# Disallow private application views, backend endpoints, and admin panels
+Disallow: /api/
+Disallow: /owner
+Disallow: /reset-password
+Disallow: /uploads/
+
+# Crawl delay to prevent overloading
+Crawl-delay: 1
+
+# Sitemap reference
+Sitemap: https://psm.perpetualsolutions.co.in/sitemap.xml

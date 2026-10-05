@@ -246,3 +246,29 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Risk Columns in Registries */
+.th-risk-inherent { background-color: #b45309 !important; color: #ffffff !important; }
+.th-risk-mitigated { background-color: #1e3a8a !important; color: #ffffff !important; }
+.th-risk-residual { background-color: #065f46 !important; color: #ffffff !important; }
+
+.th-risk-sub {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  font-size: 11px !important;
+  padding: 6px 4px !important;
+  text-align: center !important;
+}
+
+.w-risk-s { width: 55px; min-width: 55px; text-align: center; }
+.w-risk-l { width: 55px; min-width: 55px; text-align: center; }
+.w-risk-rr { width: 65px; min-width: 65px; text-align: center; }
+
+.dynamic-table td select.risk-level-select {
+  width: 100%;
+  min-height: 28px;
+  text-align: center;
+  text-align-last: center;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+

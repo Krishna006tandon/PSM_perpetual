@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" width="360" height="80">
+  <defs>
+    <linearGradient id="logoPsmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="logoShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+  </defs>
+  <!-- Shield Badge -->
+  <g transform="translate(10, 10)">
+    <path d="M30 4 L52 13 V30 C52 43.5 42 53 30 56 C18 53 8 43.5 8 30 V13 Z" fill="url(#logoShieldGrad)" stroke="url(#logoPsmGrad)" stroke-width="2.5" />
+    <circle cx="30" cy="26" r="7" fill="none" stroke="url(#logoPsmGrad)" stroke-width="2.5" />
+    <circle cx="30" cy="26" r="3" fill="#38bdf8" />
+    <path d="M30 33 V44 M23 23 L16 17 M37 23 L44 17" stroke="url(#logoPsmGrad)" stroke-width="2" stroke-linecap="round" />
+    <circle cx="30" cy="44" r="2" fill="#06b6d4" />
+    <circle cx="16" cy="17" r="2" fill="#38bdf8" />
+    <circle cx="44" cy="17" r="2" fill="#38bdf8" />
+  </g>
+  <!-- Typography -->
+  <text x="80" y="42" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-weight="800" font-size="28" fill="#1e293b" letter-spacing="-0.5">
+    Perpetual <tspan fill="url(#logoPsmGrad)">PSM</tspan>
+  </text>
+  <text x="82" y="58" font-family="'Inter', -apple-system, sans-serif" font-weight="600" font-size="11" fill="#64748b" letter-spacing="1.5">
+    PROCESS SAFETY MANAGEMENT
+  </text>
+</svg>

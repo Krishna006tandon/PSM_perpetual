@@ -89,4 +89,26 @@ router.delete('/packages/:id', async (req, res) => {
   }
 });
 
+// Backup Management Endpoints
+const { getBackupStatus, performDatabaseBackup } = require('../services/backupService');
+
+router.get('/backup-status', async (req, res) => {
+  try {
+    const status = await getBackupStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/trigger-backup', async (req, res) => {
+  try {
+    const summary = await performDatabaseBackup();
+    res.json({ success: true, summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+

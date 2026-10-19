@@ -9,12 +9,48 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     name: '', price: 0, maxProjects: -1, maxUsers: -1, features: [], billingCycle: 'Monthly'
   });
 
+  const [backupInfo, setBackupInfo] = useState(null);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState('');
+
   const availableFeatures = ['PHA', 'MOC'];
 
   useEffect(() => {
     fetchAnalytics();
     fetchPackages();
+    fetchBackupStatus();
   }, []);
+
+  const fetchBackupStatus = async () => {
+    try {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/backup-status', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) setBackupInfo(await res.json());
+    } catch (e) { console.error('Error fetching backup status:', e); }
+  };
+
+  const handleTriggerBackup = async () => {
+    setIsBackingUp(true);
+    setBackupMsg('');
+    try {
+      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/trigger-backup', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBackupMsg(`✅ Backup successfully created in PSM_Backup (${data.summary?.totalDocuments || 0} records synced)!`);
+        fetchBackupStatus();
+      } else {
+        setBackupMsg(`❌ Failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setBackupMsg(`❌ Network error: ${err.message}`);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   const fetchAnalytics = async () => {
     try {
@@ -109,6 +145,73 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
             <h3>Total Admins</h3>
             <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ff9800' }}>{analytics.totalAdmins}</p>
           </div>
+        </div>
+
+        {/* MongoDB Daily Auto-Backup Section */}
+        <div style={{ background: 'white', borderRadius: '16px', padding: '24px 30px', border: '1px solid #e1e4e8', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#1a1a2e', fontWeight: '800' }}>
+                  🗄️ MongoDB Daily Auto-Backup
+                </h3>
+                <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  Schedule: {backupInfo?.schedule === '0 18 * * *' ? 'Daily 6:00 PM IST' : `${backupInfo?.schedule || 'Daily 6:00 PM'} (IST)`}
+                </span>
+              </div>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                Target Database: <strong style={{ color: '#00a896' }}>PSM_Backup</strong> (Automatically drops yesterday's backup and clones today's live data)
+              </p>
+            </div>
+
+            <button
+              onClick={handleTriggerBackup}
+              disabled={isBackingUp}
+              style={{
+                padding: '10px 20px',
+                background: isBackingUp ? '#ccc' : 'linear-gradient(135deg, #00a896 0%, #028090 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                cursor: isBackingUp ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 12px rgba(0,168,150,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isBackingUp ? '⏳ Syncing Backup...' : '⚡ Backup Now'}
+            </button>
+          </div>
+
+          {backupMsg && (
+            <div style={{ marginTop: '15px', padding: '10px 14px', borderRadius: '6px', background: backupMsg.startsWith('✅') ? '#e8f5e9' : '#ffebee', color: backupMsg.startsWith('✅') ? '#2e7d32' : '#c62828', fontSize: '0.85rem', fontWeight: '600' }}>
+              {backupMsg}
+            </div>
+          )}
+
+          {backupInfo && backupInfo.exists && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #f0f0f0' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Last Backup Time (IST)</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#1a1a2e', fontSize: '0.95rem' }}>{backupInfo.lastBackupDateIST || 'N/A'}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Collections Synced</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#00a896', fontSize: '0.95rem' }}>{backupInfo.totalCollections} Collections</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Documents</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#5e72e4', fontSize: '0.95rem' }}>{(backupInfo.totalDocuments || 0).toLocaleString()} Records</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Duration</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#ff9800', fontSize: '0.95rem' }}>{backupInfo.durationSeconds}s</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', marginTop: '50px' }}>

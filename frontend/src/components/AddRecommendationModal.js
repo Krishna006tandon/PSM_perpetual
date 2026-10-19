@@ -26,17 +26,35 @@ const AddRecommendationModal = ({
     }
   };
 
+  const findMatchingExisting = (text) => {
+    const clean = (text || '').trim().toLowerCase();
+    if (!clean) return null;
+    return existingRecommendations.find(r => (r.text || '').trim().toLowerCase() === clean);
+  };
+
+  const currentMatch = findMatchingExisting(newText);
+
   const handleAddNew = (e) => {
     e.preventDefault();
-    if (!newText.trim()) {
+    const trimmed = newText.trim();
+    if (!trimmed) {
       alert('Please enter recommendation text.');
       return;
     }
-    onConfirm({
-      text: newText.trim(),
-      recommendationNo: nextRecNo,
-      isExactCopy: false
-    });
+    const match = findMatchingExisting(trimmed);
+    if (match) {
+      onConfirm({
+        text: match.text || trimmed,
+        recommendationNo: match.recommendationNo || nextRecNo,
+        isExactCopy: true
+      });
+    } else {
+      onConfirm({
+        text: trimmed,
+        recommendationNo: nextRecNo,
+        isExactCopy: false
+      });
+    }
     onClose();
   };
 
@@ -52,15 +70,25 @@ const AddRecommendationModal = ({
 
   const handleCopyAndEdit = (e) => {
     e.preventDefault();
-    if (!copyEditedText.trim()) {
+    const trimmed = copyEditedText.trim();
+    if (!trimmed) {
       alert('Please enter recommendation text.');
       return;
     }
-    onConfirm({
-      text: copyEditedText.trim(),
-      recommendationNo: nextRecNo, // Assigns new recommendation number!
-      isExactCopy: false
-    });
+    const match = findMatchingExisting(trimmed);
+    if (match) {
+      onConfirm({
+        text: match.text || trimmed,
+        recommendationNo: match.recommendationNo || nextRecNo,
+        isExactCopy: true
+      });
+    } else {
+      onConfirm({
+        text: trimmed,
+        recommendationNo: nextRecNo,
+        isExactCopy: false
+      });
+    }
     onClose();
   };
 
@@ -139,10 +167,12 @@ const AddRecommendationModal = ({
                     RECOMMENDATION STATEMENT
                   </label>
                   <span style={{
-                    fontSize: '11px', fontWeight: '700', backgroundColor: '#e0f2fe',
-                    color: '#0369a1', padding: '2px 8px', borderRadius: '12px'
+                    fontSize: '11px', fontWeight: '700',
+                    backgroundColor: currentMatch ? '#dcfce7' : '#e0f2fe',
+                    color: currentMatch ? '#15803d' : '#0369a1',
+                    padding: '2px 8px', borderRadius: '12px'
                   }}>
-                    Assigned: {nextRecNo}
+                    {currentMatch ? `Reusing: ${currentMatch.recommendationNo || nextRecNo} (Identical Match)` : `Assigned: ${nextRecNo}`}
                   </span>
                 </div>
                 <textarea

@@ -160,9 +160,24 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     );
   };
 
+  const getEffectiveResidualS = (sc) => {
+    if (sc?.residualRiskS && String(sc.residualRiskS).trim() !== '') return String(sc.residualRiskS);
+    if (sc?.mitigatedRiskS && String(sc.mitigatedRiskS).trim() !== '') return String(sc.mitigatedRiskS);
+    if (sc?.inherentRiskS && String(sc.inherentRiskS).trim() !== '') return String(sc.inherentRiskS);
+    if (sc?.residualRiskRR && sc?.residualRiskL) {
+      const rr = parseInt(sc.residualRiskRR);
+      const l = parseInt(sc.residualRiskL);
+      if (!isNaN(rr) && !isNaN(l) && l > 0) return String(Math.round(rr / l));
+    }
+    return '';
+  };
+
   const handleCellChange = (id, field, value, isCustom = false) => {
+    const targetUnique = uniqueRecommendations.find(u => u._id === id || u.occurrences?.some(o => o._id === id));
+    const targetIds = targetUnique?.occurrences ? targetUnique.occurrences.map(o => o._id) : [id];
+
     setScenarios(prev => prev.map(sc => {
-      if (sc._id === id) {
+      if (targetIds.includes(sc._id)) {
         if (isCustom) {
           const newData = { ...(sc.recommendationData || {}) };
           newData[field] = value;
@@ -170,11 +185,24 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         }
         const updated = { ...sc, [field]: value };
         if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+          if (field === 'inherentRiskS') {
+            if (!updated.mitigatedRiskS || updated.mitigatedRiskS === sc.inherentRiskS) updated.mitigatedRiskS = value;
+            if (!updated.residualRiskS || updated.residualRiskS === sc.inherentRiskS) updated.residualRiskS = value;
+          }
           updated.inherentRiskRR = calculateRiskScore(updated.inherentRiskS, updated.inherentRiskL);
-        } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
           updated.mitigatedRiskRR = calculateRiskScore(updated.mitigatedRiskS, updated.mitigatedRiskL);
+          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
+        } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+          if (field === 'mitigatedRiskS' && (!updated.residualRiskS || updated.residualRiskS === sc.mitigatedRiskS)) {
+            updated.residualRiskS = value;
+          }
+          updated.mitigatedRiskRR = calculateRiskScore(updated.mitigatedRiskS, updated.mitigatedRiskL);
+          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
         } else if (field === 'residualRiskS' || field === 'residualRiskL') {
-          updated.residualRiskRR = calculateRiskScore(updated.residualRiskS, updated.residualRiskL);
+          if (field === 'residualRiskL' && !updated.residualRiskS) {
+            updated.residualRiskS = getEffectiveResidualS(updated);
+          }
+          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
         }
         return updated;
       }
@@ -185,38 +213,60 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   const handleBlur = async (id, field, value, isCustom = false) => {
     try {
       const token = localStorage.getItem('token');
-      const sc = scenarios.find(s => s._id === id);
-      if (!sc) return;
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const targetUnique = uniqueRecommendations.find(u => u._id === id || u.occurrences?.some(o => o._id === id));
+      const targetScenarios = targetUnique?.occurrences || [scenarios.find(s => s._id === id)].filter(Boolean);
 
-      let payload = {};
-      if (isCustom) {
-        payload.recommendationData = { ...(sc.recommendationData || {}) };
-        payload.recommendationData[field] = value;
-      } else {
-        payload[field] = value;
-        if (field === 'inherentRiskS' || field === 'inherentRiskL') {
-          const s = field === 'inherentRiskS' ? value : sc.inherentRiskS;
-          const l = field === 'inherentRiskL' ? value : sc.inherentRiskL;
-          payload.inherentRiskRR = calculateRiskScore(s, l);
-        } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-          const s = field === 'mitigatedRiskS' ? value : sc.mitigatedRiskS;
-          const l = field === 'mitigatedRiskL' ? value : sc.mitigatedRiskL;
-          payload.mitigatedRiskRR = calculateRiskScore(s, l);
-        } else if (field === 'residualRiskS' || field === 'residualRiskL') {
-          const s = field === 'residualRiskS' ? value : sc.residualRiskS;
-          const l = field === 'residualRiskL' ? value : sc.residualRiskL;
-          payload.residualRiskRR = calculateRiskScore(s, l);
+      for (const sc of targetScenarios) {
+        let payload = {};
+        if (isCustom) {
+          payload.recommendationData = { ...(sc.recommendationData || {}) };
+          payload.recommendationData[field] = value;
+        } else {
+          payload[field] = value;
+          if (field === 'inherentRiskS' || field === 'inherentRiskL') {
+            const s = field === 'inherentRiskS' ? value : sc.inherentRiskS;
+            const l = field === 'inherentRiskL' ? value : sc.inherentRiskL;
+            payload.inherentRiskRR = calculateRiskScore(s, l);
+            if (field === 'inherentRiskS') {
+              if (!sc.mitigatedRiskS || sc.mitigatedRiskS === sc.inherentRiskS) payload.mitigatedRiskS = value;
+              if (!sc.residualRiskS || sc.residualRiskS === sc.inherentRiskS) payload.residualRiskS = value;
+            }
+            const mS = payload.mitigatedRiskS || sc.mitigatedRiskS;
+            const mL = payload.mitigatedRiskL || sc.mitigatedRiskL;
+            payload.mitigatedRiskRR = calculateRiskScore(mS, mL);
+            const rS = payload.residualRiskS || getEffectiveResidualS(sc);
+            const rL = payload.residualRiskL || sc.residualRiskL;
+            payload.residualRiskRR = calculateRiskScore(rS, rL);
+          } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+            const s = field === 'mitigatedRiskS' ? value : sc.mitigatedRiskS;
+            const l = field === 'mitigatedRiskL' ? value : sc.mitigatedRiskL;
+            payload.mitigatedRiskRR = calculateRiskScore(s, l);
+            if (field === 'mitigatedRiskS' && (!sc.residualRiskS || sc.residualRiskS === sc.mitigatedRiskS)) {
+              payload.residualRiskS = value;
+            }
+            const rS = payload.residualRiskS || getEffectiveResidualS(sc);
+            const rL = payload.residualRiskL || sc.residualRiskL;
+            payload.residualRiskRR = calculateRiskScore(rS, rL);
+          } else if (field === 'residualRiskS' || field === 'residualRiskL') {
+            const effS = field === 'residualRiskS' ? value : getEffectiveResidualS(sc);
+            const l = field === 'residualRiskL' ? value : sc.residualRiskL;
+            if (effS && !sc.residualRiskS) {
+              payload.residualRiskS = effS;
+            }
+            payload.residualRiskRR = calculateRiskScore(effS, l);
+          }
         }
-      }
 
-      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      }
     } catch (error) {
       console.error('Failed to save scenario:', error);
     }
@@ -357,24 +407,60 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     }
   }, [loading, sortedScenariosWithRecs]);
 
-  // Dynamic sequential recommendation numbering (Issue 11 & 12)
-  const recNumberMap = useMemo(() => {
+  const normalizeRecText = (txt) => (txt || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // Unified sequential recommendation numbering and deduplication:
+  // - Duplicate recommendations are identified as the same recommendation (sharing same R-number).
+  // - Avoids creating duplicate rows for repeated recommendations.
+  // - Different recommendations are sequentially and uniquely numbered (R1, R2, R3...).
+  const { recNumberMap, uniqueRecommendations } = useMemo(() => {
     const map = {};
+    const uniqueList = [];
+    const seenMap = new Map(); // key -> unique item
     let counter = 1;
+
     sortedScenariosWithRecs.forEach((sc) => {
-      if (sc.recommendationNo) {
-        map[sc._id] = sc.recommendationNo;
+      const text = (sc.additionalProtection || '').trim();
+      const key = normalizeRecText(text);
+
+      if (!seenMap.has(key)) {
+        const recNo = `R${counter++}`;
+        const effResidualS = getEffectiveResidualS(sc);
+
+        const item = {
+          ...sc,
+          residualRiskS: effResidualS,
+          displayRecNo: recNo,
+          key,
+          occurrences: [sc],
+          nodeNames: [sc.nodeId?.description || 'General Node']
+        };
+        seenMap.set(key, item);
+        uniqueList.push(item);
+        map[sc._id] = recNo;
       } else {
-        map[sc._id] = `R${counter++}`;
+        const existing = seenMap.get(key);
+        existing.occurrences.push(sc);
+        const nodeDesc = sc.nodeId?.description || 'General Node';
+        if (!existing.nodeNames.includes(nodeDesc)) {
+          existing.nodeNames.push(nodeDesc);
+        }
+        map[sc._id] = existing.displayRecNo;
       }
     });
-    return map;
+
+    return { recNumberMap: map, uniqueRecommendations: uniqueList };
   }, [sortedScenariosWithRecs]);
 
   // Delete Recommendation with warning and auto-renumber (Issue 11)
   const handleDeleteRecommendation = async (sc) => {
-    const recNo = recNumberMap[sc._id] || 'this recommendation';
-    if (!window.confirm(`Are you sure you want to delete recommendation ${recNo}? You can undo this action.`)) {
+    const recNo = sc.displayRecNo || recNumberMap[sc._id] || 'this recommendation';
+    const occurrences = sc.occurrences || [sc];
+    const confirmMsg = occurrences.length > 1
+      ? `Recommendation ${recNo} is used in ${occurrences.length} scenarios across nodes (${sc.nodeNames?.join(', ')}). Are you sure you want to delete this recommendation? You can undo this action.`
+      : `Are you sure you want to delete recommendation ${recNo}? You can undo this action.`;
+
+    if (!window.confirm(confirmMsg)) {
       return;
     }
 
@@ -382,26 +468,32 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
       const token = localStorage.getItem('token');
       const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
 
-      setUndoStack(prev => [...prev, {
-        scenarioId: sc._id,
+      // Save all occurrences into undo stack
+      const undoItems = occurrences.map(occ => ({
+        scenarioId: occ._id,
         description: `recommendation ${recNo}`,
         fields: {
-          additionalProtection: sc.additionalProtection,
-          recommendationNo: sc.recommendationNo
+          additionalProtection: occ.additionalProtection,
+          recommendationNo: occ.recommendationNo
         }
-      }]);
+      }));
+
+      setUndoStack(prev => [...prev, ...undoItems]);
       setUndoToast({
         message: `Recommendation ${recNo} deleted.`,
         type: 'recommendation'
       });
 
-      await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
-      });
+      const occIds = new Set(occurrences.map(o => o._id));
+      for (const occ of occurrences) {
+        await fetch(`${apiUrl}/api/scenarios/${occ._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
+        });
+      }
 
-      setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
+      setScenarios(prev => prev.map(s => occIds.has(s._id) ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
     } catch (err) {
       console.error('Error deleting recommendation:', err);
       alert('Failed to delete recommendation.');
@@ -515,19 +607,20 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     `;
 
     let lastNodeId = null;
-    sortedScenariosWithRecs.forEach((sc) => {
-      const nodeDesc = sc.nodeId?.description || 'General Node';
+    uniqueRecommendations.forEach((sc) => {
+      const nodeDesc = sc.nodeNames?.join(', ') || sc.nodeId?.description || 'General Node';
       if (sc.nodeId?._id !== lastNodeId) {
         lastNodeId = sc.nodeId?._id;
         tableHtml += `
           <tr class="node-hdr">
-            <td colspan="${15 + columns.length}">📁 NODE: ${nodeDesc}</td>
+            <td colspan="${15 + columns.length}">📁 NODE: ${sc.nodeId?.description || 'General Node'}</td>
           </tr>
         `;
       }
 
-      const recNo = recNumberMap[sc._id] || '';
+      const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
       const customCells = columns.map(c => `<td>${(sc.recommendationData && sc.recommendationData[c.id]) || ''}</td>`).join('');
+      const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
       tableHtml += `
         <tr>
           <td align="center" style="font-weight: bold;">${recNo}</td>
@@ -542,9 +635,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <td>${sc.mitigatedRiskS || ''}</td>
           <td>${sc.mitigatedRiskL || ''}</td>
           <td>${sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)}</td>
-          <td>${sc.residualRiskS || ''}</td>
+          <td>${effResidualS}</td>
           <td>${sc.residualRiskL || ''}</td>
-          <td>${sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)}</td>
+          <td>${sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)}</td>
           ${customCells}
         </tr>
       `;
@@ -565,13 +658,15 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE","INHERENT S","INHERENT L","INHERENT RR","MITIGATED S","MITIGATED L","MITIGATED RR","RESIDUAL S","RESIDUAL L","RESIDUAL RR",${colHeaders.join(',')}\n`;
 
     const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
-    sortedScenariosWithRecs.forEach((sc) => {
-      const recNo = recNumberMap[sc._id] || '';
+    uniqueRecommendations.forEach((sc) => {
+      const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
+      const nodeDesc = sc.nodeNames?.join(', ') || sc.nodeId?.description || 'General Node';
       const customCells = columns.map(c => escape((sc.recommendationData && sc.recommendationData[c.id]) || ''));
+      const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
       csv += [
         escape(recNo),
         escape(sc.additionalProtection),
-        escape(sc.nodeId?.description),
+        escape(nodeDesc),
         escape(sc.deviationId?.deviationAuto),
         escape(sc.causeId?.description),
         escape(sc.consequencesImmediate),
@@ -581,9 +676,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         escape(sc.mitigatedRiskS),
         escape(sc.mitigatedRiskL),
         escape(sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)),
-        escape(sc.residualRiskS),
+        escape(effResidualS),
         escape(sc.residualRiskL),
-        escape(sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)),
+        escape(sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)),
         ...customCells
       ].join(',') + '\n';
     });
@@ -681,12 +776,13 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               </tr>
             </thead>
             <tbody>
-              {!loading && sortedScenariosWithRecs.map((sc) => {
+              {!loading && uniqueRecommendations.map((sc) => {
                 const isNewNode = sc.nodeId?._id !== renderLastNodeId;
                 if (isNewNode) {
                   renderLastNodeId = sc.nodeId?._id;
                 }
-                const recNo = recNumberMap[sc._id] || '';
+                const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
+                const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
 
                 return (
                   <React.Fragment key={sc._id}>
@@ -705,6 +801,16 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                           onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                         />
+                        {sc.occurrences && sc.occurrences.length > 1 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                              🔗 Repeated in {sc.occurrences.length} scenarios
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#64748b' }}>
+                              ({sc.nodeNames?.join(', ')})
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* INHERENT RISK */}
@@ -778,11 +884,11 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                         <select 
                           disabled={!canEdit}
                           className="risk-level-select"
-                          value={sc.residualRiskS || ''} 
+                          value={effResidualS} 
                           onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} 
                           onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}
                         >
-                          {renderSeverityOptions(sc.residualRiskS)}
+                          {renderSeverityOptions(effResidualS)}
                         </select>
                       </td>
                       <td className="w-risk-l">
@@ -797,13 +903,13 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                         </select>
                       </td>
                       <td className="w-risk-rr" style={{
-                        backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL),
-                        color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000000' : 'inherit',
+                        backgroundColor: getRiskColor(effResidualS, sc.residualRiskL),
+                        color: getRiskColor(effResidualS, sc.residualRiskL) !== 'transparent' ? '#000000' : 'inherit',
                         fontWeight: 'bold',
                         textAlign: 'center',
                         verticalAlign: 'middle'
                       }}>
-                        {sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)}
+                        {sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)}
                       </td>
                       <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
                         <span 

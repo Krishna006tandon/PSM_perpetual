@@ -917,3 +917,300 @@ body.crazy-focus-mode .w-to {
   background-color: rgba(96, 165, 250, 0.15);
 }
 
+/* Full-Row and Sub-Row Insertion Action Buttons */
+.row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.row-action-btn.btn-full-row {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #059669;
+}
+
+.row-action-btn.btn-full-row:hover {
+  background-color: #d1fae5;
+  border-color: #34d399;
+  transform: scale(1.08);
+}
+
+.row-action-btn.btn-sub-row {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.row-action-btn.btn-sub-row:hover {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  transform: scale(1.08);
+}
+
+.row-action-btn.btn-duplicate {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.row-action-btn.btn-duplicate:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+  transform: scale(1.08);
+}
+
+[data-theme='dark'] .row-action-btn.btn-full-row {
+  background-color: rgba(5, 150, 105, 0.2);
+  border-color: #059669;
+  color: #34d399;
+}
+
+[data-theme='dark'] .row-action-btn.btn-full-row:hover {
+  background-color: rgba(5, 150, 105, 0.35);
+  border-color: #10b981;
+}
+
+[data-theme='dark'] .row-action-btn.btn-sub-row {
+  background-color: rgba(29, 78, 216, 0.2);
+  border-color: #2563eb;
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .row-action-btn.btn-sub-row:hover {
+  background-color: rgba(29, 78, 216, 0.35);
+  border-color: #3b82f6;
+}
+
+[data-theme='dark'] .row-action-btn.btn-duplicate {
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+[data-theme='dark'] .row-action-btn.btn-duplicate:hover {
+  background-color: #334155;
+  border-color: #64748b;
+}
+
+/* Context Menu for Table Rows */
+.pha-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background-color: var(--bg-paper, #ffffff);
+  border: 1px solid var(--divider, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 6px 0;
+  min-width: 220px;
+  animation: phaContextMenuFadeIn 0.12s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes phaContextMenuFadeIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.pha-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary, #1e293b);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.pha-context-menu-item:hover {
+  background-color: var(--bg-default, #f1f5f9);
+  color: var(--primary-main, #0284c7);
+}
+
+.pha-context-menu-item.danger {
+  color: #ef4444;
+}
+
+.pha-context-menu-item.danger:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.pha-context-menu-divider {
+  height: 1px;
+  background-color: var(--divider, #e2e8f0);
+  margin: 4px 0;
+}
+
+[data-theme='dark'] .pha-context-menu {
+  background-color: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='dark'] .pha-context-menu-item {
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .pha-context-menu-item:hover {
+  background-color: #334155;
+  color: #38bdf8;
+}
+
+[data-theme='dark'] .pha-context-menu-item.danger:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+[data-theme='dark'] .pha-context-menu-divider {
+  background-color: #334155;
+}
+
+/* Remarks & Point Highlighting */
+.remarks-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+}
+
+.remarks-container textarea {
+  width: 100%;
+  min-height: 44px;
+  resize: vertical;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: var(--pha-table-font-size, 13px);
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.remarks-highlight-bar {
+  opacity: 0.75;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  user-select: none;
+}
+
+.remarks-container:hover .remarks-highlight-bar,
+.remarks-highlight-bar:hover {
+  opacity: 1;
+}
+
+.remarks-highlight-bar button {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.remarks-highlight-bar button:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Print Stylesheet for PHA Worksheet */
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm 6mm;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive toolbars, navigation, floating controls */
+  .pha-toolbar-flush,
+  .pha-context-menu,
+  .remarks-highlight-bar,
+  .action-link,
+  .pha-pagination,
+  .pha-search-bar,
+  header,
+  nav,
+  .sidebar,
+  button,
+  .pha-modal-overlay {
+    display: none !important;
+  }
+
+  /* Container expands fully */
+  .pha-container-flush {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .pha-table-wrap {
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .pha-table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  .pha-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .pha-table th,
+  .pha-table td {
+    border: 1px solid #94a3b8 !important;
+    font-size: 9pt !important;
+    padding: 3px 4px !important;
+    word-break: break-word !important;
+  }
+
+  .pha-table td textarea,
+  .pha-table td input,
+  .pha-table td select {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-size: 9pt !important;
+    width: 100% !important;
+    resize: none !important;
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    color: #000000 !important;
+  }
+
+  .remarks-container textarea {
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Ensure remarks highlighted background prints */
+  .remarks-container textarea[style*="background-color"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+
+

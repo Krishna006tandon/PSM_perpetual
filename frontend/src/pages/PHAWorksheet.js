@@ -71,6 +71,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   });
   const [showRecentlyDeletedModal, setShowRecentlyDeletedModal] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, scenario: null });
 
   // Text size control for worksheet table
   const DEFAULT_FONT_SIZE = 13.5;
@@ -175,29 +176,92 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     };
   }, [scenarios]);
 
+  const normalizeRecText = (txt) => (txt || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+  const getEffectiveResidualS = (sc) => {
+    if (sc?.residualRiskS && String(sc.residualRiskS).trim() !== '') return String(sc.residualRiskS);
+    if (sc?.mitigatedRiskS && String(sc.mitigatedRiskS).trim() !== '') return String(sc.mitigatedRiskS);
+    if (sc?.inherentRiskS && String(sc.inherentRiskS).trim() !== '') return String(sc.inherentRiskS);
+    if (sc?.residualRiskRR && sc?.residualRiskL) {
+      const rr = parseInt(sc.residualRiskRR);
+      const l = parseInt(sc.residualRiskL);
+      if (!isNaN(rr) && !isNaN(l) && l > 0) return String(Math.round(rr / l));
+    }
+    return '';
+  };
+
+  const studyRecNumberMap = useMemo(() => {
+    const map = new Map();
+    (allStudyRecommendations || []).forEach(r => {
+      const key = normalizeRecText(r.text);
+      if (key && !map.has(key)) {
+        map.set(key, r.recommendationNo);
+      }
+    });
+    return map;
+  }, [allStudyRecommendations]);
+
+  // Compute next recommendation number across the study
+  const nextRecNo = useMemo(() => {
+    let max = 0;
+    (allStudyRecommendations || []).forEach(r => {
+      const m = (r.recommendationNo || '').match(/^R(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    return `R${max + 1}`;
+  }, [allStudyRecommendations]);
+
   // Group scenarios visually by Deviation and Cause
   const processedScenarios = useMemo(() => {
     if (!scenarios || scenarios.length === 0) return [];
     
-    // Sort scenarios by deviation ID then cause ID so they ALWAYS group correctly,
+    const getConsKey = (s) => s.consequenceGroupId || s._id;
+    const getSafeKey = (s) => s.safeguardGroupId || s._id;
+
+    // Track the first appearance index of each deviation, cause, and consequence group.
+    // Scenarios from backend are already sorted by order: 1.
+    // This maintains visual continuity without disrupting insertion sequence or sorting by random ObjectIds.
+    const devFirstIndex = new Map();
+    const causeFirstIndex = new Map();
+    const consFirstIndex = new Map();
+
+    scenarios.forEach((s, idx) => {
+      const dId = s.deviationId?._id || (typeof s.deviationId === 'string' ? s.deviationId : '') || '';
+      const cId = s.causeId?._id || (typeof s.causeId === 'string' ? s.causeId : '') || '';
+      const ck = `${dId}_${cId}`;
+      const consK = `${ck}_${getConsKey(s)}`;
+      if (!devFirstIndex.has(dId)) devFirstIndex.set(dId, idx);
+      if (!causeFirstIndex.has(ck)) causeFirstIndex.set(ck, idx);
+      if (!consFirstIndex.has(consK)) consFirstIndex.set(consK, idx);
+    });
+
+    // Sort scenarios by deviation sequence then cause sequence so they ALWAYS group correctly,
     // Respect order within the group and add stable tie-breaker (_id) to prevent rows from swapping order during typing
     const sortedScenarios = [...scenarios].sort((a, b) => {
-      const devA = a.deviationId?._id || '';
-      const devB = b.deviationId?._id || '';
-      if (devA !== devB) return devA.localeCompare(devB);
-      
-      const causeA = a.causeId?._id || '';
-      const causeB = b.causeId?._id || '';
-      if (causeA !== causeB) return causeA.localeCompare(causeB);
-      
+      const devA = a.deviationId?._id || (typeof a.deviationId === 'string' ? a.deviationId : '') || '';
+      const devB = b.deviationId?._id || (typeof b.deviationId === 'string' ? b.deviationId : '') || '';
+      const devDiff = (devFirstIndex.get(devA) ?? 0) - (devFirstIndex.get(devB) ?? 0);
+      if (devDiff !== 0) return devDiff;
+
+      const causeA = a.causeId?._id || (typeof a.causeId === 'string' ? a.causeId : '') || '';
+      const causeB = b.causeId?._id || (typeof b.causeId === 'string' ? b.causeId : '') || '';
+      const causeKeyA = `${devA}_${causeA}`;
+      const causeKeyB = `${devB}_${causeB}`;
+      const causeDiff = (causeFirstIndex.get(causeKeyA) ?? 0) - (causeFirstIndex.get(causeKeyB) ?? 0);
+      if (causeDiff !== 0) return causeDiff;
+
+      const consKeyA = `${causeKeyA}_${getConsKey(a)}`;
+      const consKeyB = `${causeKeyB}_${getConsKey(b)}`;
+      const consDiff = (consFirstIndex.get(consKeyA) ?? 0) - (consFirstIndex.get(consKeyB) ?? 0);
+      if (consDiff !== 0) return consDiff;
+
       const orderA = typeof a.order === 'number' ? a.order : 0;
       const orderB = typeof b.order === 'number' ? b.order : 0;
       if (orderA !== orderB) return orderA - orderB;
 
-      const consA = a.consequenceGroupId || '';
-      const consB = b.consequenceGroupId || '';
-      if (consA !== consB) return consA.localeCompare(consB);
-      
       const idA = a._id || '';
       const idB = b._id || '';
       return idA.localeCompare(idB);
@@ -206,9 +270,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     const result = [];
     let devNum = 0;
     let causeNum = 0;
-    const getConsKey = (s) => s.consequenceGroupId || s._id;
-    const getSafeKey = (s) => s.safeguardGroupId || s._id;
-
     let consNum = 0;
     let safeNum = 0;
 
@@ -292,15 +353,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
     }
     
-    // Dynamic sequential recommendation numbering (Issue 11 & 12)
-    let recCounter = 1;
+    // Dynamic sequential recommendation numbering across the study (Issues 11 & 12, Deduplication)
     for (let i = 0; i < result.length; i++) {
       const sc = result[i];
-      if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
-        if (sc.recommendationNo) {
+      const recText = (sc.additionalProtection || '').trim();
+      if (recText !== '') {
+        const key = normalizeRecText(recText);
+        if (studyRecNumberMap.has(key)) {
+          sc.displayRecNo = studyRecNumberMap.get(key);
+        } else if (sc.recommendationNo) {
           sc.displayRecNo = sc.recommendationNo;
         } else {
-          sc.displayRecNo = `R${recCounter++}`;
+          sc.displayRecNo = nextRecNo;
         }
       } else {
         sc.displayRecNo = '';
@@ -308,27 +372,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
 
     return result;
-  }, [scenarios]);
-
-  // Compute next recommendation number across the study
-  const nextRecNo = useMemo(() => {
-    let max = 0;
-    (allStudyRecommendations || []).forEach(r => {
-      const m = (r.recommendationNo || '').match(/^R(\d+)$/i);
-      if (m) {
-        const num = parseInt(m[1], 10);
-        if (num > max) max = num;
-      }
-    });
-    (scenarios || []).forEach(s => {
-      const m = (s.recommendationNo || s.displayRecNo || '').match(/^R(\d+)$/i);
-      if (m) {
-        const num = parseInt(m[1], 10);
-        if (num > max) max = num;
-      }
-    });
-    return `R${max + 1}`;
-  }, [allStudyRecommendations, scenarios]);
+  }, [scenarios, studyRecNumberMap, nextRecNo]);
 
   const uniqueDropdownOptions = useMemo(() => {
     const guidewords = new Set();
@@ -508,17 +552,38 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (res.ok) {
         const scs = await res.json();
+        
+        const nodeOrderMap = {};
+        (nodes || []).forEach((n, idx) => {
+          nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
+        });
+
+        const sortedScs = [...scs].sort((a, b) => {
+          const nodeA = a.nodeId?._id || a.nodeId;
+          const nodeB = b.nodeId?._id || b.nodeId;
+          const oA = nodeOrderMap[nodeA] ?? 9999;
+          const oB = nodeOrderMap[nodeB] ?? 9999;
+          if (oA !== oB) return oA - oB;
+          return (a.order || 0) - (b.order || 0);
+        });
+
         const recList = [];
-        const seen = new Set();
-        scs.forEach(s => {
+        const seenMap = new Map();
+        let counter = 1;
+
+        sortedScs.forEach(s => {
           const txt = (s.additionalProtection || '').trim();
-          if (txt && !seen.has(txt)) {
-            seen.add(txt);
-            recList.push({
-              text: txt,
-              recommendationNo: s.recommendationNo || '',
-              nodeName: s.nodeId?.description || ''
-            });
+          if (txt) {
+            const key = normalizeRecText(txt);
+            if (!seenMap.has(key)) {
+              const recNo = `R${counter++}`;
+              seenMap.set(key, recNo);
+              recList.push({
+                text: txt,
+                recommendationNo: recNo,
+                nodeName: s.nodeId?.description || ''
+              });
+            }
           }
         });
         setAllStudyRecommendations(recList);
@@ -531,7 +596,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   useEffect(() => {
     fetchStudyRecommendations();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [study._id]);
+  }, [study._id, nodes.length]);
 
   useEffect(() => {
     if (selectedNodeId) {
@@ -682,13 +747,20 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             }
             updatedSc.inherentRiskRR = calculateRiskScore(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
             updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
-            updatedSc.residualRiskRR = calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL);
+            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
           }
           if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
+            if (field === 'mitigatedRiskS' && (!updatedSc.residualRiskS || updatedSc.residualRiskS === sc.mitigatedRiskS)) {
+              updatedSc.residualRiskS = value;
+            }
             updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
+            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
           }
           if (field === 'residualRiskS' || field === 'residualRiskL') {
-            updatedSc.residualRiskRR = calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL);
+            if (field === 'residualRiskL' && !updatedSc.residualRiskS) {
+              updatedSc.residualRiskS = getEffectiveResidualS(updatedSc);
+            }
+            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
           }
           
           return updatedSc;
@@ -723,7 +795,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const mL = payload.mitigatedRiskL || targetSc.mitigatedRiskL;
         payload.mitigatedRiskRR = calculateRiskScore(mS, mL);
         
-        const rS = payload.residualRiskS || targetSc.residualRiskS;
+        const rS = payload.residualRiskS || targetSc.residualRiskS || mS;
         const rL = payload.residualRiskL || targetSc.residualRiskL;
         payload.residualRiskRR = calculateRiskScore(rS, rL);
       }
@@ -731,11 +803,26 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const s = field === 'mitigatedRiskS' ? value : targetSc.mitigatedRiskS;
         const l = field === 'mitigatedRiskL' ? value : targetSc.mitigatedRiskL;
         payload.mitigatedRiskRR = calculateRiskScore(s, l);
+        if (field === 'mitigatedRiskS' && (!targetSc.residualRiskS || targetSc.residualRiskS === targetSc.mitigatedRiskS)) {
+          payload.residualRiskS = value;
+          const rL = targetSc.residualRiskL;
+          payload.residualRiskRR = calculateRiskScore(value, rL);
+        }
       }
       if (field === 'residualRiskS' || field === 'residualRiskL') {
-        const s = field === 'residualRiskS' ? value : targetSc.residualRiskS;
+        const s = field === 'residualRiskS' ? value : getEffectiveResidualS(targetSc);
         const l = field === 'residualRiskL' ? value : targetSc.residualRiskL;
+        if (s && !targetSc.residualRiskS) {
+          payload.residualRiskS = s;
+        }
         payload.residualRiskRR = calculateRiskScore(s, l);
+      }
+      if (field === 'remarksColor') {
+        payload.remarksColor = value;
+        payload.riskData = { ...(targetSc.riskData || {}), remarksColor: value };
+      }
+      if (field === 'additionalProtection') {
+        fetchStudyRecommendations();
       }
 
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
@@ -851,11 +938,30 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         e.preventDefault();
         handleUndo();
       }
+      if (e.key === 'Escape') {
+        setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0, scenario: null } : prev);
+      }
+      if (e.altKey && e.key.toLowerCase() === 'i' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (selectedRowIds.length === 1) {
+          e.preventDefault();
+          const targetSc = scenarios.find(s => s._id === selectedRowIds[0]);
+          if (targetSc) handleInsertFullRow(targetSc, 'below');
+        }
+      }
+    };
+    const handleWindowClick = () => {
+      setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0, scenario: null } : prev);
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleWindowClick);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleWindowClick);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undoStack, study, scenarios]);
+  }, [undoStack, study, scenarios, selectedRowIds]);
 
   useEffect(() => {
     if (!undoToast) return;
@@ -1076,26 +1182,120 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  // Insert a new blank row in between (immediately below the given scenario)
-  const handleInsertRowBelow = async (sc) => {
-    if (!selectedNodeId || !sc) return;
+  // Full-Row Insertion: insert a complete new row (new Deviation, new Cause, new Scenario) between existing rows
+  const handleInsertFullRow = async (targetSc, position = 'below') => {
+    if (!selectedNodeId || !targetSc) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      // 1. Create a brand new blank deviation
+      const devRes = await fetch(`${apiUrl}/api/deviations/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          nodeId: selectedNodeId,
-          deviationId: sc.deviationId?._id || sc.deviationId,
-          causeId: sc.causeId?._id || sc.causeId,
-          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-          insertAfterScenarioId: sc._id
-        })
+        body: JSON.stringify({ deviationAuto: '', guidewords: '', parameter: '' })
+      });
+      if (!devRes.ok) {
+        const err = await devRes.json();
+        throw new Error(err.message || 'Failed to create new deviation for full row');
+      }
+      const newDev = await devRes.json();
+
+      // 2. Create a brand new blank cause
+      const causeRes = await fetch(`${apiUrl}/api/causes/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description: '' })
+      });
+      if (!causeRes.ok) {
+        const err = await causeRes.json();
+        throw new Error(err.message || 'Failed to create new cause for full row');
+      }
+      const newCause = await causeRes.json();
+
+      // 3. Determine positioning relative to existing scenarios
+      const targetIndex = processedScenarios.findIndex(s => s._id === targetSc._id);
+      const payload = {
+        nodeId: selectedNodeId,
+        deviationId: newDev._id,
+        causeId: newCause._id,
+        consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+      };
+
+      if (position === 'above') {
+        if (targetIndex > 0) {
+          payload.insertAfterScenarioId = processedScenarios[targetIndex - 1]._id;
+        } else {
+          payload.insertBeforeScenarioId = targetSc._id;
+        }
+      } else {
+        payload.insertAfterScenarioId = targetSc._id;
+      }
+
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
         const newScenario = await response.json();
         await fetchScenarios(selectedNodeId);
+        setSelectedRowIds([newScenario._id]);
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const rowEl = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            rowEl.classList.add('row-just-added');
+            setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
+          }
+        }, 300);
+      } else {
+        const err = await response.json();
+        alert('Failed to insert full row: ' + (err.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error inserting full row:', error);
+      alert('Failed to insert full row: ' + (error.message || 'Network error'));
+    }
+  };
+
+  // Insert a sub-row in between (immediately below or above the given scenario under same deviation & cause)
+  const handleInsertRowBelow = async (sc, position = 'below') => {
+    if (!selectedNodeId || !sc) return;
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      const targetIndex = processedScenarios.findIndex(s => s._id === sc._id);
+      const payload = {
+        nodeId: selectedNodeId,
+        deviationId: sc.deviationId?._id || sc.deviationId,
+        causeId: sc.causeId?._id || sc.causeId,
+        consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+      };
+
+      if (position === 'above') {
+        if (targetIndex > 0) {
+          payload.insertAfterScenarioId = processedScenarios[targetIndex - 1]._id;
+        } else {
+          payload.insertBeforeScenarioId = sc._id;
+        }
+      } else {
+        payload.insertAfterScenarioId = sc._id;
+      }
+
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const newScenario = await response.json();
+        await fetchScenarios(selectedNodeId);
+        setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const rowEl = document.getElementById(`scenario-row-${newScenario._id}`);
           if (rowEl) {
@@ -1112,6 +1312,22 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       console.error('Error inserting row below:', error);
       alert('Failed to insert row.');
     }
+  };
+
+  // Handle row right-click context menu
+  const handleRowContextMenu = (e, sc) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 230;
+    const menuHeight = 240;
+    const x = e.clientX + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 10 : e.clientX;
+    const y = e.clientY + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 10 : e.clientY;
+    setContextMenu({
+      visible: true,
+      x,
+      y,
+      scenario: sc
+    });
   };
 
   // Copy rows to clipboard (Issue 10)
@@ -2250,11 +2466,35 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           doc.autoTable({
             startY: 80,
             theme: 'grid',
-            head: [['Name', 'Title', 'Department', 'Expertise']],
-            body: data.teamMembers.map(t => [t.name || t.fullName || '', t.title || '', t.department || '', t.expertise || '']),
+            head: [['#', 'Name', 'Role', 'Discipline / Expertise', 'Company / Affiliation', 'Sessions Attended']],
+            body: data.teamMembers.map((t, idx) => {
+              const attendedList = t.attendanceDates 
+                ? (t.attendanceDates instanceof Map 
+                    ? Array.from(t.attendanceDates.entries()).filter(([d, a]) => a).map(([d]) => d)
+                    : Object.entries(t.attendanceDates).filter(([d, a]) => a).map(([d]) => d)
+                  )
+                : [];
+              const attendanceStr = attendedList.length > 0 ? attendedList.join(', ') : 'All / General';
+              return [
+                String(idx + 1),
+                t.fullName || t.name || '-',
+                t.role || t.title || '-',
+                t.discipline || t.expertise || t.department || '-',
+                t.company || t.organization || '-',
+                attendanceStr
+              ];
+            }),
             headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-            styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-            alternateRowStyles: { fillColor: rowLight }
+            styles: { fontSize: 8.5, cellPadding: 6, lineColor: [200, 200, 200] },
+            alternateRowStyles: { fillColor: rowLight },
+            columnStyles: {
+              0: { cellWidth: 20, halign: 'center' },
+              1: { cellWidth: 120 },
+              2: { cellWidth: 100 },
+              3: { cellWidth: 130 },
+              4: { cellWidth: 140 },
+              5: { cellWidth: 160 }
+            }
           });
         }
 
@@ -2277,15 +2517,30 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         doc.rect(0, 0, pageWidth, 60, 'F');
         doc.setFontSize(22);
         doc.setTextColor(255, 255, 255);
-        doc.text("Drawings / References", 40, 38);
+        doc.text("Study Documents & Drawings", 40, 38);
         doc.autoTable({
           startY: 80,
           theme: 'grid',
-          head: [['Document Type', 'Rev', 'File', 'Places Used']],
-          body: data.documents.map(d => [d.documentType || '', d.revisionNumber || '', d.originalFileName || '', d.placesUsed || '']),
+          head: [['#', 'Drawing / Document ID', 'Rev', 'Document Type', 'Description', 'File / Link / Places Used']],
+          body: data.documents.map((d, idx) => [
+            String(idx + 1),
+            d.drawingId || d.documentId || '-',
+            (d.revision !== undefined && d.revision !== null && String(d.revision).trim() !== '') ? String(d.revision) : (d.revisionNumber || '0'),
+            d.documentType || 'P&ID',
+            d.description || d.title || '-',
+            d.hyperlink || d.originalFileName || d.placesUsed || '-'
+          ]),
           headStyles: { fillColor: primaryTeal, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-          styles: { fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200] },
-          alternateRowStyles: { fillColor: rowLight }
+          styles: { fontSize: 8.5, cellPadding: 6, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight },
+          columnStyles: {
+            0: { cellWidth: 22, halign: 'center' },
+            1: { cellWidth: 105 },
+            2: { cellWidth: 32, halign: 'center' },
+            3: { cellWidth: 70, halign: 'center' },
+            4: { cellWidth: 180 },
+            5: { cellWidth: 140 }
+          }
         });
       }
 
@@ -2325,7 +2580,20 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      // Page N: Worksheets per Node
+      // Pre-compute unified recommendation numbering across all nodes for report fidelity
+      const studyRecMap = new Map();
+      let studyRecCount = 1;
+      (data.scenarios || []).forEach(s => {
+        const txt = (s.additionalProtection || '').trim();
+        if (txt) {
+          const key = normalizeRecText(txt);
+          if (!studyRecMap.has(key)) {
+            studyRecMap.set(key, `R${studyRecCount++}`);
+          }
+        }
+      });
+
+      // Page N: Worksheets per Node (including Remarks and Status)
       if (data.nodes && data.nodes.length > 0) {
         data.nodes.forEach((node, nodeIdx) => {
           doc.addPage();
@@ -2351,7 +2619,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             { content: 'SAFEGUARDS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
             { content: 'M-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
             { content: 'RECOMMENDATIONS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-            { content: 'R-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } }
+            { content: 'R-RISK', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'REMARKS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+            { content: 'STATUS', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
           ], [
             { content: 'S', styles: { halign: 'center' } },
             { content: 'L', styles: { halign: 'center' } },
@@ -2453,7 +2723,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             lastConsKey = consKey;
 
             const safe = s.presentProtection || '';
-            const rec = s.additionalProtection ? (s.recommendationNo ? `[${s.recommendationNo}] ${s.additionalProtection}` : s.additionalProtection) : '';
+            const recKey = normalizeRecText(s.additionalProtection);
+            const recNum = studyRecMap.get(recKey) || s.recommendationNo || '';
+            const rec = s.additionalProtection ? (recNum ? `[${recNum}] ${s.additionalProtection}` : s.additionalProtection) : '';
 
             const iS = isSameCons ? '' : (g.iS || '');
             const iL = isSameCons ? '' : (g.iL || '');
@@ -2463,7 +2735,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const mL = isSameCons ? '' : (g.mL || '');
             const mRR = (mS && mL) ? calcScore(mS, mL) : '';
 
-            const rS = isSameCons ? '' : (g.rS || g.iS || '');
+            const rS = isSameCons ? '' : (g.rS || g.mS || g.iS || '');
             const rL = isSameCons ? '' : (g.rL || '');
             const rRR = (rS && rL) ? calcScore(rS, rL) : '';
 
@@ -2477,12 +2749,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               safe,
               mS, mL, mRR,
               rec,
-              rS, rL, rRR
+              rS, rL, rRR,
+              s.remarks || '',
+              s.status || ''
             ];
           });
 
           if (body.length === 0) {
-            body.push(['-', 'No scenarios defined for this node', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+            body.push(['-', 'No scenarios defined for this node', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
           }
 
           doc.autoTable({
@@ -2495,17 +2769,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
             alternateRowStyles: { fillColor: rowLight },
             columnStyles: {
-              0: { cellWidth: 18, halign: 'center' },
-              4: { halign: 'center' },
-              5: { cellWidth: 14, halign: 'center' },
-              6: { cellWidth: 14, halign: 'center' },
-              7: { cellWidth: 18, halign: 'center' },
-              9: { cellWidth: 14, halign: 'center' },
-              10: { cellWidth: 14, halign: 'center' },
-              11: { cellWidth: 18, halign: 'center' },
-              13: { cellWidth: 14, halign: 'center' },
-              14: { cellWidth: 14, halign: 'center' },
-              15: { cellWidth: 18, halign: 'center' }
+              0: { cellWidth: 16, halign: 'center' },
+              4: { cellWidth: 16, halign: 'center' },
+              5: { cellWidth: 12, halign: 'center' },
+              6: { cellWidth: 12, halign: 'center' },
+              7: { cellWidth: 15, halign: 'center' },
+              9: { cellWidth: 12, halign: 'center' },
+              10: { cellWidth: 12, halign: 'center' },
+              11: { cellWidth: 15, halign: 'center' },
+              13: { cellWidth: 12, halign: 'center' },
+              14: { cellWidth: 12, halign: 'center' },
+              15: { cellWidth: 15, halign: 'center' },
+              16: { cellWidth: 48 },
+              17: { cellWidth: 24, halign: 'center' }
             },
             didParseCell: function(cellData) {
                // Color RR cells (indices 7, 11, 15)
@@ -2537,57 +2813,167 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                      }
                   }
                }
+
+               // Color highlighted remarks (index 16)
+               if (cellData.section === 'body' && cellData.column.index === 16) {
+                 const scItem = nodeScenarios[cellData.row.index];
+                 const colorHex = scItem?.remarksColor || scItem?.riskData?.remarksColor;
+                 if (colorHex) {
+                   const rgb = hexToRgb(colorHex);
+                   if (rgb) {
+                     cellData.cell.styles.fillColor = rgb;
+                     cellData.cell.styles.fontStyle = 'bold';
+                   }
+                 }
+               }
             }
           });
         });
       }
 
-      // Page N: Recommendations Summary - Node Wise (Issues 2 & 7)
+      // Page N: Recommendation Register (with Inherent, Mitigated, and Residual Risk)
       doc.addPage();
       doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
       doc.rect(0, 0, pageWidth, 60, 'F');
       doc.setFontSize(22);
       doc.setTextColor(255, 255, 255);
-      doc.text("Manage Recommendations", 40, 38);
-      
-      const allRecs = [];
-      (data.scenarios || []).forEach(s => {
-        if (s.additionalProtection && s.additionalProtection.trim()) {
-           const nNum = s.nodeId?.nodeNumber || s.nodeId?.order || '';
-           const nDesc = s.nodeId?.description || '';
-           const nLabel = nDesc.toLowerCase().startsWith('node') ? nDesc : `Node ${nNum}: ${nDesc}`;
-           allRecs.push({
-             recNo: s.recommendationNo || '',
-             recommendation: s.additionalProtection,
-             personResponsible: (s.recommendationData && s.recommendationData.personResponsible) || '',
-             targetDate: (s.recommendationData && s.recommendationData.targetDate) || '',
-             node: nLabel,
-             nodeOrder: s.nodeId?.order || 0
-           });
+      doc.text("Recommendation Register", 40, 38);
+
+      // Build unified deduplicated recommendation list across the entire study
+      const nodeOrderMap = {};
+      (data.nodes || []).forEach((n, idx) => {
+        nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
+      });
+
+      const sortedAllScenarios = [...(data.scenarios || [])].sort((a, b) => {
+        const nodeA = a.nodeId?._id || a.nodeId;
+        const nodeB = b.nodeId?._id || b.nodeId;
+        const oA = nodeOrderMap[nodeA] ?? 9999;
+        const oB = nodeOrderMap[nodeB] ?? 9999;
+        if (oA !== oB) return oA - oB;
+        return (a.order || 0) - (b.order || 0);
+      });
+
+      const uniqueRecsMap = new Map();
+      let pdfRecCounter = 1;
+
+      sortedAllScenarios.forEach(s => {
+        const txt = (s.additionalProtection || '').trim();
+        if (txt) {
+          const key = normalizeRecText(txt);
+          const nodeDesc = s.nodeId?.description || 'General Node';
+          if (!uniqueRecsMap.has(key)) {
+            const recNo = `R${pdfRecCounter++}`;
+            const effResS = s.residualRiskS || s.mitigatedRiskS || s.inherentRiskS || 
+              (s.residualRiskRR && s.residualRiskL && !isNaN(parseInt(s.residualRiskRR)/parseInt(s.residualRiskL)) ? String(Math.round(parseInt(s.residualRiskRR)/parseInt(s.residualRiskL))) : '');
+
+            uniqueRecsMap.set(key, {
+              recNo,
+              statement: txt,
+              nodes: [nodeDesc],
+              iS: s.inherentRiskS || '',
+              iL: s.inherentRiskL || '',
+              iRR: s.inherentRiskRR || (s.inherentRiskS && s.inherentRiskL ? String(parseInt(s.inherentRiskS) * parseInt(s.inherentRiskL)) : ''),
+              mS: s.mitigatedRiskS || s.inherentRiskS || '',
+              mL: s.mitigatedRiskL || '',
+              mRR: s.mitigatedRiskRR || (s.mitigatedRiskS && s.mitigatedRiskL ? String(parseInt(s.mitigatedRiskS) * parseInt(s.mitigatedRiskL)) : ''),
+              rS: effResS,
+              rL: s.residualRiskL || '',
+              rRR: s.residualRiskRR || (effResS && s.residualRiskL ? String(parseInt(effResS) * parseInt(s.residualRiskL)) : ''),
+              status: s.status || 'Proposed'
+            });
+          } else {
+            const existing = uniqueRecsMap.get(key);
+            if (!existing.nodes.includes(nodeDesc)) {
+              existing.nodes.push(nodeDesc);
+            }
+          }
         }
       });
 
-      // Sort Node-wise (Issue 7)
-      allRecs.sort((a, b) => a.nodeOrder - b.nodeOrder);
+      const recRegisterHead = [[
+        { content: 'Rec #', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Node', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Recommendation Statement', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Inherent Risk', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Mitigated Risk', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Residual Risk', colSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Status', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
+      ], [
+        { content: 'S', styles: { halign: 'center' } },
+        { content: 'L', styles: { halign: 'center' } },
+        { content: 'IR', styles: { halign: 'center' } },
+        { content: 'S', styles: { halign: 'center' } },
+        { content: 'L', styles: { halign: 'center' } },
+        { content: 'MR', styles: { halign: 'center' } },
+        { content: 'S', styles: { halign: 'center' } },
+        { content: 'L', styles: { halign: 'center' } },
+        { content: 'RR', styles: { halign: 'center' } }
+      ]];
 
-      let rNum = 1;
-      const recRows = allRecs.map(r => [
-        r.recNo || `R${rNum++}`,
-        r.recommendation,
-        r.node,
-        r.personResponsible,
-        r.targetDate
+      const recRegisterBody = Array.from(uniqueRecsMap.values()).map(r => [
+        r.recNo,
+        r.nodes.join(', '),
+        r.statement,
+        r.iS, r.iL, r.iRR,
+        r.mS, r.mL, r.mRR,
+        r.rS, r.rL, r.rRR,
+        r.status
       ]);
 
-      if (recRows.length > 0) {
+      if (recRegisterBody.length > 0) {
         doc.autoTable({
           startY: 80,
           theme: 'grid',
-          head: [['Rec #', 'Recommendation Statement', 'Node', 'Person Responsible', 'Target Date']],
-          body: recRows,
-          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 10 },
-          styles: { fontSize: 8.5, cellPadding: 6, lineColor: [200, 200, 200] },
-          alternateRowStyles: { fillColor: rowLight }
+          head: recRegisterHead,
+          body: recRegisterBody,
+          headStyles: { fillColor: primaryDark, textColor: headerText, fontStyle: 'bold', fontSize: 9 },
+          styles: { fontSize: 8, cellPadding: 5, lineColor: [200, 200, 200] },
+          alternateRowStyles: { fillColor: rowLight },
+          columnStyles: {
+            0: { cellWidth: 28, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 165 },
+            3: { cellWidth: 14, halign: 'center' },
+            4: { cellWidth: 14, halign: 'center' },
+            5: { cellWidth: 18, halign: 'center' },
+            6: { cellWidth: 14, halign: 'center' },
+            7: { cellWidth: 14, halign: 'center' },
+            8: { cellWidth: 18, halign: 'center' },
+            9: { cellWidth: 14, halign: 'center' },
+            10: { cellWidth: 14, halign: 'center' },
+            11: { cellWidth: 18, halign: 'center' },
+            12: { cellWidth: 35, halign: 'center' }
+          },
+          didParseCell: function(cellData) {
+            // Color IR (col 5), MR (col 8), RR (col 11) cells
+            if (cellData.section === 'body' && (cellData.column.index === 5 || cellData.column.index === 8 || cellData.column.index === 11)) {
+              const val = parseInt(cellData.cell.raw);
+              if (!isNaN(val) && val > 0) {
+                let s = '', l = '';
+                if (cellData.column.index === 5) {
+                  s = cellData.row.raw?.[3];
+                  l = cellData.row.raw?.[4];
+                } else if (cellData.column.index === 8) {
+                  s = cellData.row.raw?.[6];
+                  l = cellData.row.raw?.[7];
+                } else if (cellData.column.index === 11) {
+                  s = cellData.row.raw?.[9];
+                  l = cellData.row.raw?.[10];
+                }
+
+                const color = getPdfRiskColor(s, l, val);
+                if (color) {
+                  cellData.cell.styles.fillColor = color;
+                  const isDark = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000 < 140;
+                  cellData.cell.styles.textColor = isDark ? 255 : 0;
+                  cellData.cell.styles.fontStyle = 'bold';
+                  cellData.cell.styles.halign = 'center';
+                  cellData.cell.styles.valign = 'middle';
+                }
+              }
+            }
+          }
         });
       } else {
         doc.setTextColor(0);
@@ -2758,13 +3144,54 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               className="toolbar-btn" 
               onClick={() => {
                 const targetSc = scenarios.find(s => s._id === selectedRowIds[0]);
-                if (targetSc) handleInsertRowBelow(targetSc);
+                if (targetSc) handleInsertFullRow(targetSc, 'below');
               }} 
               disabled={selectedRowIds.length !== 1}
-              title="Add a new row in between (immediately below the selected row)"
+              title="Full-Row Insertion: Insert a complete new row (new Deviation & Cause) immediately below the selected row (Alt+I)"
+              style={{
+                fontSize: '12px', 
+                fontWeight: '600', 
+                color: selectedRowIds.length === 1 ? '#047857' : 'inherit',
+                borderColor: selectedRowIds.length === 1 ? '#10b981' : 'inherit',
+                background: selectedRowIds.length === 1 ? '#ecfdf5' : 'inherit'
+              }}
+            >
+              ⊞ Insert Full Row Below
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={() => {
+                const targetSc = scenarios.find(s => s._id === selectedRowIds[0]);
+                if (targetSc) handleInsertFullRow(targetSc, 'above');
+              }} 
+              disabled={selectedRowIds.length !== 1}
+              title="Full-Row Insertion: Insert a complete new row (new Deviation & Cause) immediately above the selected row"
+              style={{
+                fontSize: '12px', 
+                fontWeight: '600', 
+                color: selectedRowIds.length === 1 ? '#047857' : 'inherit',
+                borderColor: selectedRowIds.length === 1 ? '#34d399' : 'inherit'
+              }}
+            >
+              ⊞ Insert Full Row Above
+            </button>
+          )}
+
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={() => {
+                const targetSc = scenarios.find(s => s._id === selectedRowIds[0]);
+                if (targetSc) handleInsertRowBelow(targetSc, 'below');
+              }} 
+              disabled={selectedRowIds.length !== 1}
+              title="Insert a sub-row (new consequence/safeguard under the same deviation & cause) below the selected row"
               style={{fontSize: '12px', fontWeight: '600', color: selectedRowIds.length === 1 ? '#1d4ed8' : 'inherit'}}
             >
-              ➕ Insert Row Below
+              ➕ Insert Sub-Row Below
             </button>
           )}
 
@@ -2958,7 +3385,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <table className="pha-table" style={{ fontSize: `${fontSize}px` }}>
             <thead>
               <tr>
-                <th className="th-primary" rowSpan={2} style={{width: '40px', textAlign: 'center'}}>
+                <th className="th-primary" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}}>
                   <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
                     type="checkbox" 
                     checked={scenarios.length > 0 && selectedRowIds.length === scenarios.length}
@@ -3036,9 +3463,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   key={sc._id}
                   id={`scenario-row-${sc._id}`}
                   className={selectedRowIds.includes(sc._id) ? 'selected-row' : ''}
+                  onContextMenu={(e) => handleRowContextMenu(e, sc)}
                 >
                   <td style={{textAlign: 'center', backgroundColor: 'var(--bg-paper)', verticalAlign: 'middle', padding: '6px 4px'}}>
-                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px'}}>
                       <input disabled={!canEdit} 
                         type="checkbox" 
                         checked={selectedRowIds.includes(sc._id)}
@@ -3050,41 +3478,25 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         <>
                           <button 
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); handleInsertRowBelow(sc); }}
-                            title="Add row in between (Insert new row below this row)"
-                            style={{
-                              background: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#1d4ed8',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              padding: '2px 5px',
-                              fontSize: '11px',
-                              fontWeight: 'bold',
-                              lineHeight: '1',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.borderColor = '#3b82f6'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                            className="row-action-btn btn-full-row"
+                            onClick={(e) => { e.stopPropagation(); handleInsertFullRow(sc, 'below'); }}
+                            title="Full-Row Insertion: Insert a complete new row (new Deviation & Cause) below this row"
+                          >
+                            ⊞
+                          </button>
+                          <button 
+                            type="button"
+                            className="row-action-btn btn-sub-row"
+                            onClick={(e) => { e.stopPropagation(); handleInsertRowBelow(sc, 'below'); }}
+                            title="Insert Sub-Row: Add row under same deviation & cause below"
                           >
                             +
                           </button>
                           <button 
                             type="button"
+                            className="row-action-btn btn-duplicate"
                             onClick={(e) => { e.stopPropagation(); handleDuplicateRows([sc._id], sc._id); }}
                             title="Duplicate this row below"
-                            style={{
-                              background: '#f8fafc',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                              fontSize: '11px',
-                              lineHeight: '1',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
                           >
                             📋
                           </button>
@@ -3361,27 +3773,103 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
                   {sc.isNewCons && (
                     <>
-                      <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
-                          {renderSeverityOptions(sc.residualRiskS)}
-                        </select>
-                      </td>
-                      <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
-                          {renderLikelihoodOptions(sc.residualRiskL)}
-                        </select>
-                      </td>
-                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}><input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || ''} readOnly title="Auto-calculated from matrix"/></td>
+                      {(() => {
+                        const effResS = getEffectiveResidualS(sc);
+                        return (
+                          <>
+                            <td className="w-risk-s" rowSpan={sc.consSpanCount}>
+                              <select disabled={!canEdit} className="risk-level-select" value={effResS} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                                {renderSeverityOptions(effResS)}
+                              </select>
+                            </td>
+                            <td className="w-risk-l" rowSpan={sc.consSpanCount}>
+                              <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                                {renderLikelihoodOptions(sc.residualRiskL)}
+                              </select>
+                            </td>
+                            <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(effResS, sc.residualRiskL)}}>
+                              <input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(effResS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || calculateRiskScore(effResS, sc.residualRiskL)} readOnly title="Auto-calculated from matrix"/>
+                            </td>
+                          </>
+                        );
+                      })()}
                     </>
                   )}
-                  <td className="w-remarks">
-                    <textarea 
-                      spellCheck={true} 
-                      value={sc.remarks || ''} 
-                      onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
-                      onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
-                      placeholder="Add comment..."
-                    />
+                  <td className="w-remarks" style={{ position: 'relative' }}>
+                    <div className="remarks-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <textarea 
+                        spellCheck={true} 
+                        value={sc.remarks || ''} 
+                        onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
+                        onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
+                        placeholder="Add comment..."
+                        style={{
+                          backgroundColor: sc.remarksColor || sc.riskData?.remarksColor || 'transparent',
+                          borderLeft: (sc.remarksColor || sc.riskData?.remarksColor) ? `4px solid #f59e0b` : 'none',
+                          paddingLeft: (sc.remarksColor || sc.riskData?.remarksColor) ? '8px' : '4px',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      />
+                      {canEdit && (
+                        <div className="remarks-highlight-bar" style={{
+                          display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px', padding: '2px 4px',
+                          background: 'rgba(241, 245, 249, 0.9)', borderRadius: '4px', width: 'fit-content'
+                        }}>
+                          <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 'bold', marginRight: '2px' }}>Highlight:</span>
+                          {[
+                            { color: '#fef08a', label: 'Yellow' },
+                            { color: '#bbf7d0', label: 'Green' },
+                            { color: '#bfdbfe', label: 'Blue' },
+                            { color: '#fed7aa', label: 'Orange' },
+                            { color: '#fecdd3', label: 'Pink' }
+                          ].map(c => (
+                            <button
+                              key={c.color}
+                              type="button"
+                              title={`Highlight ${c.label}`}
+                              onClick={() => {
+                                handleCellChange(sc._id, 'remarksColor', c.color);
+                                handleBlur(sc._id, 'remarksColor', c.color);
+                              }}
+                              style={{
+                                width: '13px',
+                                height: '13px',
+                                borderRadius: '50%',
+                                backgroundColor: c.color,
+                                border: (sc.remarksColor || sc.riskData?.remarksColor) === c.color ? '2px solid #0f172a' : '1px solid #cbd5e1',
+                                cursor: 'pointer',
+                                padding: 0
+                              }}
+                            />
+                          ))}
+                          {(sc.remarksColor || sc.riskData?.remarksColor) && (
+                            <button
+                              type="button"
+                              title="Clear Highlight"
+                              onClick={() => {
+                                handleCellChange(sc._id, 'remarksColor', '');
+                                handleBlur(sc._id, 'remarksColor', '');
+                              }}
+                              style={{
+                                width: '13px',
+                                height: '13px',
+                                borderRadius: '50%',
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #cbd5e1',
+                                cursor: 'pointer',
+                                padding: 0,
+                                fontSize: '8px',
+                                lineHeight: '11px',
+                                textAlign: 'center',
+                                color: '#ef4444'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="w-status">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3704,6 +4192,94 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {contextMenu.visible && contextMenu.scenario && (
+        <div 
+          className="pha-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '4px 14px 6px', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', borderBottom: '1px solid var(--divider)', marginBottom: '4px' }}>
+            ROW ACTIONS {contextMenu.scenario.badgeDev ? `(ROW ${contextMenu.scenario.badgeDev}${contextMenu.scenario.badgeCause ? '.' + contextMenu.scenario.badgeCause.split('.')[1] : ''})` : ''}
+          </div>
+          {canEdit && (
+            <>
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  handleInsertFullRow(sc, 'below');
+                }}
+              >
+                <span style={{ color: '#059669', fontWeight: 'bold' }}>⊞</span> Insert Full Row Below
+              </button>
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  handleInsertFullRow(sc, 'above');
+                }}
+              >
+                <span style={{ color: '#059669', fontWeight: 'bold' }}>⊞</span> Insert Full Row Above
+              </button>
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  handleInsertRowBelow(sc, 'below');
+                }}
+              >
+                <span style={{ color: '#2563eb', fontWeight: 'bold' }}>➕</span> Insert Sub-Row Below
+              </button>
+              <div className="pha-context-menu-divider" />
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  handleDuplicateRows([sc._id], sc._id);
+                }}
+              >
+                <span>📋</span> Duplicate Row Below
+              </button>
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  setSelectedRowIds([sc._id]);
+                  setClipboardRowIds([sc._id]);
+                  alert('Copied 1 row to clipboard.');
+                }}
+              >
+                <span>📄</span> Copy Row
+              </button>
+              <div className="pha-context-menu-divider" />
+              <button 
+                type="button"
+                className="pha-context-menu-item danger"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  if (window.confirm('Are you sure you want to delete this scenario row?')) {
+                    handleDelete(sc._id);
+                  }
+                }}
+              >
+                <span>🗑️</span> Delete Row
+              </button>
+            </>
+          )}
         </div>
       )}
     </StudyLayout>

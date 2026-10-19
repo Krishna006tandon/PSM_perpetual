@@ -85,16 +85,28 @@ router.get('/:studyId', async (req, res) => {
 // POST a new scenario row
 router.post('/:studyId', async (req, res) => {
   try {
-    const { insertAfterScenarioId, ...bodyData } = req.body;
+    const { insertAfterScenarioId, insertBeforeScenarioId, ...bodyData } = req.body;
     let newOrder;
 
-    if (insertAfterScenarioId) {
+    if (insertBeforeScenarioId) {
+      const targetScenario = await Scenario.findById(insertBeforeScenarioId);
+      if (targetScenario) {
+        newOrder = targetScenario.order !== undefined ? targetScenario.order : 1;
+        const targetNodeId = req.body.nodeId || targetScenario.nodeId;
+        // Shift target and subsequent rows
+        await Scenario.updateMany(
+          { studyId: req.params.studyId, nodeId: targetNodeId, order: { $gte: newOrder } },
+          { $inc: { order: 1 } }
+        );
+      }
+    } else if (insertAfterScenarioId) {
       const targetScenario = await Scenario.findById(insertAfterScenarioId);
       if (targetScenario) {
         newOrder = (targetScenario.order || 0) + 1;
+        const targetNodeId = req.body.nodeId || targetScenario.nodeId;
         // Shift subsequent rows
         await Scenario.updateMany(
-          { studyId: req.params.studyId, nodeId: req.body.nodeId, order: { $gte: newOrder } },
+          { studyId: req.params.studyId, nodeId: targetNodeId, order: { $gte: newOrder } },
           { $inc: { order: 1 } }
         );
       }

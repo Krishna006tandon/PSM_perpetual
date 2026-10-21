@@ -117,6 +117,8 @@ function App() {
       const handleStudyNav = (tab) => {
         if (tab === 'pha') {
           setCurrentView('pha');
+        } else if (tab === 'settings') {
+          setCurrentView('settings');
         } else {
           setStudyTab(tab);
         }
@@ -389,7 +391,21 @@ function App() {
           theme={theme}
           toggleTheme={toggleTheme}
           currentUser={currentUser}
-          onNavigate={(view) => setCurrentView(view)}
+          hasActiveStudy={!!activeStudy}
+          activeStudy={activeStudy}
+          onNavigate={(view) => {
+            if (view === 'lopa' && activeStudy) {
+              setStudyTab('lopa');
+              setCurrentView('study');
+            } else if (view === 'pha-worksheets' && activeStudy) {
+              setStudyTab('pha-worksheets');
+              setCurrentView('study');
+            } else if (view === 'study' && activeStudy) {
+              setCurrentView('study');
+            } else {
+              setCurrentView(view);
+            }
+          }}
         />
       );
     }

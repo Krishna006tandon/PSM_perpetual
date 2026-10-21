@@ -431,3 +431,230 @@
 [data-theme='dark'] .btn-danger-outline:hover {
   background: rgba(239, 68, 68, 0.15);
 }
+
+/* LOPA Field Mapping Section */
+.section-intro-text {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.lopa-mapping-flow-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background-color: var(--surface-hover, rgba(2, 132, 199, 0.05));
+  border: 1px dashed rgba(2, 132, 199, 0.35);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.mapping-preview-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: var(--bg-paper);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider);
+  box-shadow: var(--shadow-sm);
+}
+
+.mapping-source-badge {
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.mapping-arrow {
+  color: #94a3b8;
+  font-weight: bold;
+}
+
+.mapping-target-badge {
+  font-weight: 700;
+  color: #10b981;
+}
+
+.lopa-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.lopa-mapping-box {
+  background: var(--bg-paper);
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lopa-mapping-box:hover {
+  border-color: #38bdf8;
+  box-shadow: var(--shadow-sm);
+}
+
+.mapping-box-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.mapping-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.mapping-box-header h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mapping-box-header small {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mapping-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mapping-field-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mapping-select, .mapping-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background-color: var(--bg-paper);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.mapping-select:focus, .mapping-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.lopa-mapping-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.btn-save-mapping {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  background-color: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-save-mapping:hover {
+  background-color: #0369a1;
+}
+
+.btn-reset-mapping {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reset-mapping:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.btn-lopa-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background-color: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background-color 0.2s;
+}
+
+.btn-lopa-preview-link:hover {
+  background-color: #059669;
+}
+
+[data-theme='dark'] .lopa-mapping-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .mapping-select,
+[data-theme='dark'] .mapping-input {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .mapping-preview-item {
+  background: #1e293b;
+  border-color: #334155;
+}
+

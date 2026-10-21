@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import './Settings.css';
+import {
+  getLopaMapping,
+  saveLopaMapping,
+  resetLopaMapping,
+  UNIVERSAL_PHA_FIELD_GROUPS,
+  SEVERITY_SOURCES,
+  findFieldLabel
+} from '../utils/lopaMapping';
 
-const Settings = ({ theme, toggleTheme, currentUser, onNavigate }) => {
+const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy, activeStudy }) => {
   // 1. Hide Deviation Decomposition Columns (Guideword, Parameter, Material, Equipment, Instrument)
   // Default is true (Enabled / Hidden by default as requested by user)
   const [hideDecomposition, setHideDecomposition] = useState(() => {
@@ -26,7 +34,10 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate }) => {
     return localStorage.getItem('pha_font_size') || '13.5';
   });
 
-  // 5. Toast notification
+  // 5. LOPA Field Mapping State
+  const [lopaMapping, setLopaMapping] = useState(() => getLopaMapping());
+
+  // 6. Toast notification
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = (msg) => {
@@ -34,6 +45,26 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate }) => {
     setTimeout(() => {
       setToastMessage(null);
     }, 2500);
+  };
+
+  const handleLopaMappingChange = (key, value) => {
+    setLopaMapping((prev) => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleSaveLopaMapping = () => {
+    saveLopaMapping(lopaMapping);
+    showToast('LOPA field mapping saved successfully! Changes applied to LOPA Worksheet.');
+  };
+
+  const handleResetLopaMapping = () => {
+    if (window.confirm('Reset PHA → LOPA field mapping to system defaults?')) {
+      const def = resetLopaMapping();
+      setLopaMapping(def);
+      showToast('LOPA field mapping reset to default configuration');
+    }
   };
 
   const handleToggleHideDecomposition = () => {
@@ -78,6 +109,8 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate }) => {
       setDynamicTextfields(true);
       setSmartRecDeduplication(true);
       setFontSize('13.5');
+      const def = resetLopaMapping();
+      setLopaMapping(def);
 
       showToast('All preferences reset to factory defaults');
     }
@@ -226,6 +259,242 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate }) => {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Section: PHA → LOPA Field Mapping Configuration */}
+        <div className="settings-section-card lopa-mapping-card">
+          <div className="settings-section-header">
+            <h2>🔗 PHA → LOPA Field Mapping Configuration</h2>
+            <span className="section-badge" style={{ backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7' }}>
+              LOPA Integration
+            </span>
+          </div>
+          <p className="section-intro-text">
+            Configure how PHA Worksheet data transfers into Layer of Protection Analysis (LOPA).
+            When a consequence row is ticked with the <strong>LOPA</strong> checkbox in the PHA Worksheet, these mappings dictate what data appears in each LOPA column and report exports.
+          </p>
+
+          <div className="lopa-mapping-flow-preview">
+            <div className="mapping-preview-item">
+              <span className="mapping-source-badge">{findFieldLabel(lopaMapping.scenarioSource)}</span>
+              <span className="mapping-arrow">➔</span>
+              <span className="mapping-target-badge">{lopaMapping.scenarioLabel || 'Scenario'}</span>
+            </div>
+            <div className="mapping-preview-item">
+              <span className="mapping-source-badge">{findFieldLabel(lopaMapping.initiatingEventSource)}</span>
+              <span className="mapping-arrow">➔</span>
+              <span className="mapping-target-badge">{lopaMapping.initiatingEventLabel || 'Initiating Event'}</span>
+            </div>
+            <div className="mapping-preview-item">
+              <span className="mapping-source-badge">{findFieldLabel(lopaMapping.iplSource)}</span>
+              <span className="mapping-arrow">➔</span>
+              <span className="mapping-target-badge">{lopaMapping.iplLabel || 'IPL'}</span>
+            </div>
+            <div className="mapping-preview-item">
+              <span className="mapping-source-badge">{findFieldLabel(lopaMapping.severitySource)}</span>
+              <span className="mapping-arrow">➔</span>
+              <span className="mapping-target-badge">Severity</span>
+            </div>
+          </div>
+
+          <div className="lopa-mapping-grid">
+            {/* 1. Consequence -> Scenario */}
+            <div className="lopa-mapping-box">
+              <div className="mapping-box-header">
+                <span className="mapping-step-badge">1</span>
+                <div>
+                  <h4>Scenario Mapping</h4>
+                  <small>Map ANY PHA field to Scenario</small>
+                </div>
+              </div>
+              <div className="mapping-field-group">
+                <label>Data Source Field:</label>
+                <select
+                  value={lopaMapping.scenarioSource}
+                  onChange={(e) => handleLopaMappingChange('scenarioSource', e.target.value)}
+                  className="mapping-select"
+                >
+                  {UNIVERSAL_PHA_FIELD_GROUPS.map((grp) => (
+                    <optgroup key={grp.group} label={grp.group}>
+                      {grp.options.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  Selected: <strong>{findFieldLabel(lopaMapping.scenarioSource)}</strong>
+                </span>
+              </div>
+              <div className="mapping-field-group" style={{ marginTop: '12px' }}>
+                <label>Table Column Label:</label>
+                <input
+                  type="text"
+                  value={lopaMapping.scenarioLabel}
+                  onChange={(e) => handleLopaMappingChange('scenarioLabel', e.target.value)}
+                  placeholder="e.g. Scenario"
+                  className="mapping-input"
+                />
+              </div>
+            </div>
+
+            {/* 2. Cause -> Initiating Event */}
+            <div className="lopa-mapping-box">
+              <div className="mapping-box-header">
+                <span className="mapping-step-badge">2</span>
+                <div>
+                  <h4>Initiating Event Mapping</h4>
+                  <small>Map ANY PHA field to Initiating Event</small>
+                </div>
+              </div>
+              <div className="mapping-field-group">
+                <label>Data Source Field:</label>
+                <select
+                  value={lopaMapping.initiatingEventSource}
+                  onChange={(e) => handleLopaMappingChange('initiatingEventSource', e.target.value)}
+                  className="mapping-select"
+                >
+                  {UNIVERSAL_PHA_FIELD_GROUPS.map((grp) => (
+                    <optgroup key={grp.group} label={grp.group}>
+                      {grp.options.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  Selected: <strong>{findFieldLabel(lopaMapping.initiatingEventSource)}</strong>
+                </span>
+              </div>
+              <div className="mapping-field-group" style={{ marginTop: '12px' }}>
+                <label>Table Column Label:</label>
+                <input
+                  type="text"
+                  value={lopaMapping.initiatingEventLabel}
+                  onChange={(e) => handleLopaMappingChange('initiatingEventLabel', e.target.value)}
+                  placeholder="e.g. Initiating Event"
+                  className="mapping-input"
+                />
+              </div>
+            </div>
+
+            {/* 3. Safeguard -> IPL */}
+            <div className="lopa-mapping-box">
+              <div className="mapping-step-badge-wrap" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--divider)' }}>
+                <span className="mapping-step-badge">3</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Independent Protection Layer (IPL)</h4>
+                  <small style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Map ANY PHA field to IPL</small>
+                </div>
+              </div>
+              <div className="mapping-field-group">
+                <label>Data Source Field:</label>
+                <select
+                  value={lopaMapping.iplSource}
+                  onChange={(e) => handleLopaMappingChange('iplSource', e.target.value)}
+                  className="mapping-select"
+                >
+                  {UNIVERSAL_PHA_FIELD_GROUPS.map((grp) => (
+                    <optgroup key={grp.group} label={grp.group}>
+                      {grp.options.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  Selected: <strong>{findFieldLabel(lopaMapping.iplSource)}</strong>
+                </span>
+              </div>
+              <div className="mapping-field-group" style={{ marginTop: '12px' }}>
+                <label>Table Column Label:</label>
+                <input
+                  type="text"
+                  value={lopaMapping.iplLabel}
+                  onChange={(e) => handleLopaMappingChange('iplLabel', e.target.value)}
+                  placeholder="e.g. Independent Protection Layer (IPL)"
+                  className="mapping-input"
+                />
+              </div>
+            </div>
+
+            {/* 4. Severity Source */}
+            <div className="lopa-mapping-box">
+              <div className="mapping-box-header">
+                <span className="mapping-step-badge">4</span>
+                <div>
+                  <h4>Severity (S) Source</h4>
+                  <small>From PHA Risk Ranking</small>
+                </div>
+              </div>
+              <div className="mapping-field-group">
+                <label>Severity Score Source:</label>
+                <select
+                  value={lopaMapping.severitySource}
+                  onChange={(e) => handleLopaMappingChange('severitySource', e.target.value)}
+                  className="mapping-select"
+                >
+                  {SEVERITY_SOURCES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  {SEVERITY_SOURCES.find((s) => s.id === lopaMapping.severitySource)?.desc}
+                </span>
+              </div>
+              <div className="mapping-field-group" style={{ marginTop: '12px' }}>
+                <label>Transfer PHA Recommendations:</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                  <label className="toggle-switch" style={{ margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!lopaMapping.transferRecommendations}
+                      onChange={(e) => handleLopaMappingChange('transferRecommendations', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                    {lopaMapping.transferRecommendations ? 'Auto-populate recommendations' : 'Manual entry only'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="lopa-mapping-actions">
+            <button
+              type="button"
+              className="btn-save-mapping"
+              onClick={handleSaveLopaMapping}
+            >
+              💾 Save Mapping Configuration
+            </button>
+            <button
+              type="button"
+              className="btn-reset-mapping"
+              onClick={handleResetLopaMapping}
+            >
+              ↺ Reset to Defaults
+            </button>
+            {hasActiveStudy && (
+              <button
+                type="button"
+                className="btn-lopa-preview-link"
+                onClick={() => onNavigate('lopa')}
+              >
+                🛡️ Open LOPA Worksheet ↗
+              </button>
+            )}
           </div>
         </div>
 

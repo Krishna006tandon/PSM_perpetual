@@ -1,16 +1,34 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import {
+  getLopaMapping,
+  getScenarioText,
+  getInitiatingEventText,
+  getIplText,
+  getSeverityValue,
+  findFieldLabel
+} from '../utils/lopaMapping';
 import './DynamicRegistry.css';
 
 const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [scenarios, setScenarios] = useState([]);
   const [nodes, setNodes] = useState([]);
-  const [deviations, setDeviations] = useState([]);
-  const [causes, setCauses] = useState([]);
   const [columns, setColumns] = useState([]);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedNodeFilter, setSelectedNodeFilter] = useState('ALL');
+  const [lopaMapping, setLopaMapping] = useState(() => getLopaMapping());
+
+  useEffect(() => {
+    const handleMappingChange = () => {
+      setLopaMapping(getLopaMapping());
+    };
+    window.addEventListener('pha_lopa_mapping_changed', handleMappingChange);
+    return () => {
+      window.removeEventListener('pha_lopa_mapping_changed', handleMappingChange);
+    };
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -35,6 +53,9 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       if (scRes.ok) {
         let scData = await scRes.json();
         
+        // Only include scenarios marked for LOPA in PHA Worksheet
+        scData = scData.filter(sc => sc.isLopa === true || sc.isLopa === 'true');
+        
         scData = scData.map(sc => {
           const defaultLopa = {
             freqOfInitiatingEvent: '',
@@ -51,7 +72,8 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
           
           if (!sc.lopaData) {
             sc.lopaData = defaultLopa;
-            if (sc.additionalProtection) {
+            const currentMapping = getLopaMapping();
+            if (currentMapping.transferRecommendations !== false && sc.additionalProtection) {
               sc.lopaData.recommendations.push({ description: sc.additionalProtection, credit: 1 });
             }
           } else {
@@ -67,17 +89,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (nodeRes.ok) setNodes(await nodeRes.json());
-
-      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (devRes.ok) setDeviations(await devRes.json());
-
-      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (causeRes.ok) setCauses(await causeRes.json());
-
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -157,9 +168,20 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     }
   };
 
+  const nodeMap = useMemo(() => {
+    let map = new Map();
+    nodes.forEach((n, i) => map.set(n._id, i + 1));
+    return map;
+  }, [nodes]);
+
   // Group scenarios into Consequences, then individual safeguards are IPLs
   const formattedScenarios = useMemo(() => {
-    const sorted = [...scenarios].sort((a, b) => {
+    let sortedList = [...scenarios];
+    if (selectedNodeFilter !== 'ALL') {
+      sortedList = sortedList.filter(s => (s.nodeId?._id || s.nodeId) === selectedNodeFilter);
+    }
+
+    const sorted = sortedList.sort((a, b) => {
       const n1 = a.nodeId?._id || '';
       const n2 = b.nodeId?._id || '';
       if (n1 !== n2) return n1.localeCompare(n2);
@@ -177,8 +199,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       return t1 - t2;
     });
 
-    let nodeMap = new Map();
-    nodes.forEach((n, i) => nodeMap.set(n._id, i + 1));
+// nodeMap is hoisted above
 
     let devCounter = 1;
     let causeCounter = 1;
@@ -197,7 +218,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       const nId = sc.nodeId?._id || null;
       const devId = sc.deviationId?._id || null;
       const causeId = sc.causeId?._id || null;
-      const consKey = sc.consequencesImmediate || '';
+      const consKey = sc.consequenceGroupId || sc.consequencesImmediate || '';
 
       if (nId !== currentNode) {
         currentNode = nId;
@@ -239,7 +260,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         isNewCons = true;
         for (let j = i; j < sorted.length; j++) {
           const scJ = sorted[j];
-          if (scJ.nodeId?._id === nId && scJ.deviationId?._id === devId && scJ.causeId?._id === causeId && (scJ.consequencesImmediate || '') === consKey) {
+          if (scJ.nodeId?._id === nId && scJ.deviationId?._id === devId && scJ.causeId?._id === causeId && ((scJ.consequenceGroupId || scJ.consequencesImmediate || '') === consKey)) {
             // we will need to calculate max of (1, recs.length) for each of these to get true consSpanCount
             const recsLen = scJ.lopaData?.recommendations?.length || 0;
             consSpanCount += Math.max(1, recsLen);
@@ -261,56 +282,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     }
     
     return result;
-  }, [scenarios, nodes]);
-
-  // Evaluate Custom Formulas
-  const evaluateFormula = (formulaString, sc, parentSc = sc) => {
-    try {
-      if (!formulaString) return '';
-      
-      const pfd = parseFloat(parentSc.lopaData?.cmPfd) || 1;
-      const timeAtRisk = parseFloat(parentSc.lopaData?.cmTimeAtRisk) || 1;
-      const occ = parseFloat(parentSc.lopaData?.cmOccupancy) || 1;
-      const freq = parseFloat(parentSc.lopaData?.freqOfInitiatingEvent) || 1;
-      const iplCredit = parseFloat(sc.lopaData?.iplCredit) || 1;
-      
-      const dict = {
-        '[Severity]': parseFloat(parentSc.inherentRiskS || parentSc.lopaData?.severity) || 0,
-        '[Tolerance]': parseFloat(parentSc.lopaData?.tolerance) || 0,
-        '[Required SIL]': parseFloat(parentSc.lopaData?.requiredSil) || 0,
-        '[Freq of Initiating Event]': freq,
-        '[PFD]': pfd,
-        '[Time at Risk]': timeAtRisk,
-        '[Occupancy]': occ
-      };
-
-      let expr = formulaString;
-      for (const [key, val] of Object.entries(dict)) {
-        expr = expr.split(key).join(val);
-      }
-      
-      // Calculate total credit for formula
-      // We will just do a simple eval for demonstration.
-      return (new Function('return ' + expr))();
-    } catch (e) {
-      return 'Error';
-    }
-  };
-
-  const calculateTotalCredit = (parentSc, includeRecs = false) => {
-    const f = parseFloat(parentSc.lopaData?.freqOfInitiatingEvent) || 0;
-    if (!f) return 0;
-    
-    const pfd = parseFloat(parentSc.lopaData?.cmPfd) || 1;
-    const timeAtRisk = parseFloat(parentSc.lopaData?.cmTimeAtRisk) || 1;
-    const occ = parseFloat(parentSc.lopaData?.cmOccupancy) || 1;
-    
-    // Total IPL credit is product of all IPL credits in the consequence group
-    // But since we pass parentSc, we need to gather all siblings?
-    // Wait, the formula in the image: Total IPL Credit = PDI * Time at Risk * Occupancy * IPL1 * IPL2 ...
-    // Since we map per scenario (Safeguard = IPL), the "Total IPL Credit" should be calculated per Consequence and displayed once!
-    return 0; // Handled inline below for consequence group
-  };
+  }, [scenarios, selectedNodeFilter, nodeMap]);
 
   const calculateRRF = (totalCredit, toleranceStr) => {
     const t = parseFloat(toleranceStr);
@@ -320,9 +292,13 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
   };
 
   const exportToCSV = () => {
-    let csv = "SR.,DEVIATION,CONSEQUENCE,CAUSE,FREQ OF INITIATING EVENT,SEVERITY,CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL NO,IPL,IPL CREDITS,TOTAL IPL CREDIT,TOLERANCE,RRF,REQUIRED SIL,RECOMMENDATION,REC CREDIT,TOTAL REC CREDIT,REC TOLERANCE,REC RRF,REC REQUIRED SIL\\n";
+    const scCol = (lopaMapping.scenarioLabel || 'Scenario').toUpperCase();
+    const ieCol = (lopaMapping.initiatingEventLabel || 'Initiating Event').toUpperCase();
+    const iplCol = (lopaMapping.iplLabel || 'IPL').toUpperCase();
+    let csv = `SR.,NODE,DEVIATION,${scCol},${ieCol},FREQ OF INITIATING EVENT,SEVERITY,CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL NO,${iplCol},IPL CREDITS,TOTAL IPL CREDIT,TOLERANCE,RRF,REQUIRED SIL,RECOMMENDATION,REC CREDIT,TOTAL REC CREDIT,REC TOLERANCE,REC RRF,REC REQUIRED SIL\n`;
     formattedScenarios.forEach((sc) => {
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      const nodeName = sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`;
       
       const freqi = parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0;
       const pfd = parseFloat(sc.lopaData?.cmPfd) || 1;
@@ -331,12 +307,12 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       
       let siblingProduct = 1;
       let siblingRecProduct = 1;
-      for(let s of formattedScenarios) {
+      for (let s of formattedScenarios) {
         if (s.badgeCons === sc.badgeCons) {
            siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
            const srecs = s.lopaData?.recommendations || [];
-           if (srecs.length > 0) {
-             srecs.forEach(r => { siblingRecProduct *= (parseFloat(r.credit) || 1); });
+           for (let r of srecs) {
+             siblingRecProduct *= (parseFloat(r.credit) || 1);
            }
         }
       }
@@ -346,18 +322,34 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       const rrf2 = calculateRRF(totalRecCredit, sc.lopaData?.tolerance);
 
       const recs = sc.lopaData?.recommendations || [];
-      const recText = recs.map(r => r.text || '').join(' | ');
+      const recText = recs.map(r => r.description || r.text || '').join(' | ');
       const recCreditText = recs.map(r => r.credit || '').join(' | ');
 
       csv += [
-        escape(sc.badgeCons), escape(sc.deviationId?.deviationAuto), escape(sc.consequencesImmediate), escape(sc.causeId?.description),
-        escape(sc.lopaData?.freqOfInitiatingEvent), escape(sc.lopaData?.severity),
-        escape(sc.lopaData?.cmPfd), escape(sc.lopaData?.cmTimeAtRisk), escape(sc.lopaData?.cmOccupancy),
-        escape(sc.lopaData?.iplNo), escape(sc.lopaData?.ipl), escape(sc.lopaData?.iplCredit),
-        escape(totalIplCredit), escape(sc.lopaData?.tolerance), escape(rrf1), escape(sc.lopaData?.recommendationRequiredSil),
-        escape(recText), escape(recCreditText),
-        escape(totalRecCredit), escape(sc.lopaData?.tolerance), escape(rrf2), escape(sc.lopaData?.recommendationRequiredSil)
-      ].join(',') + '\\n';
+        escape(sc.badgeCons),
+        escape(nodeName),
+        escape(sc.deviationId?.deviationAuto),
+        escape(getScenarioText(sc, lopaMapping)),
+        escape(getInitiatingEventText(sc, lopaMapping)),
+        escape(sc.lopaData?.freqOfInitiatingEvent),
+        escape(getSeverityValue(sc, lopaMapping)),
+        escape(sc.lopaData?.cmPfd),
+        escape(sc.lopaData?.cmTimeAtRisk),
+        escape(sc.lopaData?.cmOccupancy),
+        escape(sc.badgeSafe || sc.lopaData?.iplNo),
+        escape(getIplText(sc, lopaMapping)),
+        escape(sc.lopaData?.iplCredit),
+        escape(totalIplCredit),
+        escape(sc.lopaData?.tolerance),
+        escape(rrf1),
+        escape(sc.lopaData?.recommendationRequiredSil),
+        escape(recText),
+        escape(recCreditText),
+        escape(totalRecCredit),
+        escape(sc.lopaData?.tolerance),
+        escape(rrf2),
+        escape(sc.lopaData?.recommendationRequiredSil)
+      ].join(',') + '\n';
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -386,13 +378,14 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     const head = [
       [
         { content: 'SN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Node', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Deviation', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Consequence', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Cause', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: lopaMapping.scenarioLabel || 'Scenario', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: lopaMapping.initiatingEventLabel || 'Initiating Event', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Freq', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Sev', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Cond. Modifiers', colSpan: 3, styles: { halign: 'center' } },
-        { content: 'Independent Protection Layers (IPL)', colSpan: 4, styles: { halign: 'center' } },
+        { content: lopaMapping.iplLabel || 'Independent Protection Layers (IPL)', colSpan: 4, styles: { halign: 'center' } },
         { content: 'RRF & SIL', colSpan: 3, styles: { halign: 'center' } },
         { content: 'Recommendations & Mitigated Risk', colSpan: 6, styles: { halign: 'center' } }
       ],
@@ -412,12 +405,12 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       
       let siblingProduct = 1;
       let siblingRecProduct = 1;
-      for(let s of formattedScenarios) {
+      for (let s of formattedScenarios) {
         if (s.badgeCons === sc.badgeCons) {
            siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
            const srecs = s.lopaData?.recommendations || [];
-           if (srecs.length > 0) {
-             srecs.forEach(r => { siblingRecProduct *= (parseFloat(r.credit) || 1); });
+           for (let r of srecs) {
+             siblingRecProduct *= (parseFloat(r.credit) || 1);
            }
         }
       }
@@ -427,14 +420,15 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       const rrf2 = calculateRRF(totalRecCredit, sc.lopaData?.tolerance);
 
       const recs = sc.lopaData?.recommendations || [];
-      const recText = recs.map(r => r.text || '').join(' \\n ');
-      const recCreditText = recs.map(r => r.credit || '').join(' \\n ');
+      const recText = recs.map(r => r.description || r.text || '').join(' \n ');
+      const recCreditText = recs.map(r => r.credit || '').join(' \n ');
 
+      const nodeName = sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`;
       return [
-        sc.badgeCons || '', sc.deviationId?.deviationAuto || '', sc.consequencesImmediate || '', sc.causeId?.description || '',
-        sc.lopaData?.freqOfInitiatingEvent || '', sc.lopaData?.severity || '', 
+        sc.badgeCons || '', nodeName, sc.deviationId?.deviationAuto || '', getScenarioText(sc, lopaMapping), getInitiatingEventText(sc, lopaMapping),
+        sc.lopaData?.freqOfInitiatingEvent || '', getSeverityValue(sc, lopaMapping), 
         sc.lopaData?.cmPfd || '', sc.lopaData?.cmTimeAtRisk || '', sc.lopaData?.cmOccupancy || '',
-        sc.lopaData?.iplNo || '', sc.lopaData?.ipl || '', sc.lopaData?.iplCredit || '', totalIplCredit,
+        sc.badgeSafe || sc.lopaData?.iplNo || '', getIplText(sc, lopaMapping), sc.lopaData?.iplCredit || '', totalIplCredit,
         sc.lopaData?.tolerance || '', rrf1, sc.lopaData?.recommendationRequiredSil || '',
         recText, recCreditText, totalRecCredit, sc.lopaData?.tolerance || '', rrf2, sc.lopaData?.recommendationRequiredSil || ''
       ];
@@ -447,15 +441,16 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { cellWidth: 15 }, // SN
-        1: { cellWidth: 40 }, // Dev
-        2: { cellWidth: 50 }, // Cons
-        3: { cellWidth: 50 }, // Cause
-        4: { cellWidth: 20 }, // Freq
-        5: { cellWidth: 15 }, // Sev
-        6: { cellWidth: 15 }, 7: { cellWidth: 15 }, 8: { cellWidth: 15 }, // CMs
-        9: { cellWidth: 15 }, 10: { cellWidth: 60 }, 11: { cellWidth: 20 }, 12: { cellWidth: 25 }, // IPL
-        13: { cellWidth: 20 }, 14: { cellWidth: 20 }, 15: { cellWidth: 15 }, // RRF
-        16: { cellWidth: 60 }, 17: { cellWidth: 20 }, 18: { cellWidth: 25 }, 19: { cellWidth: 20 }, 20: { cellWidth: 20 }, 21: { cellWidth: 15 } // Rec
+        1: { cellWidth: 35 }, // Node
+        2: { cellWidth: 35 }, // Dev
+        3: { cellWidth: 45 }, // Scenario
+        4: { cellWidth: 45 }, // Initiating Event
+        5: { cellWidth: 20 }, // Freq
+        6: { cellWidth: 15 }, // Sev
+        7: { cellWidth: 15 }, 8: { cellWidth: 15 }, 9: { cellWidth: 15 }, // CMs
+        10: { cellWidth: 15 }, 11: { cellWidth: 55 }, 12: { cellWidth: 20 }, 13: { cellWidth: 25 }, // IPL
+        14: { cellWidth: 20 }, 15: { cellWidth: 20 }, 16: { cellWidth: 15 }, // RRF
+        17: { cellWidth: 55 }, 18: { cellWidth: 20 }, 19: { cellWidth: 25 }, 20: { cellWidth: 20 }, 21: { cellWidth: 20 }, 22: { cellWidth: 15 } // Rec
       },
       margin: { left: 10, right: 10 }
     });
@@ -476,7 +471,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
           <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
-        <div className="dynamic-toolbar" style={{ padding: '0 30px 10px', display: 'flex', gap: '10px' }}>
+        <div className="dynamic-toolbar" style={{ padding: '0 30px 10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
@@ -488,6 +483,38 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
           <button className="btn-manage-columns" onClick={exportToPDF} style={{backgroundColor: '#ef4444', color: 'white', border: 'none'}}>
             <span className="icon">📥</span> EXPORT PDF
           </button>
+          <button 
+            className="btn-manage-columns" 
+            onClick={() => onNavigate && onNavigate('settings')} 
+            style={{backgroundColor: '#475569', color: 'white', border: 'none'}}
+            title="Configure PHA → LOPA Field Mapping"
+          >
+            <span className="icon">⚙️</span> LOPA MAPPING
+          </button>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>FILTER NODE:</span>
+            <select
+              value={selectedNodeFilter}
+              onChange={(e) => setSelectedNodeFilter(e.target.value)}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13px',
+                backgroundColor: 'var(--bg-paper, #ffffff)',
+                color: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="ALL">All Nodes ({scenarios.length} LOPA rows)</option>
+              {nodes.map((n, i) => (
+                <option key={n._id} value={n._id}>
+                  {i + 1}. {n.description || `Node ${i + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="dynamic-table-wrapper" style={{ maxHeight: 'calc(100vh - 200px)', margin: '0' }}>
@@ -495,14 +522,15 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
             <thead>
               <tr>
                 <th rowSpan="2" style={{width:'40px'}}>SN</th>
+                <th rowSpan="2" style={{minWidth:'140px'}}>Node</th>
                 <th rowSpan="2" style={{minWidth:'150px'}}>Deviation</th>
-                <th rowSpan="2" style={{minWidth:'200px'}}>Consequence</th>
-                <th rowSpan="2" style={{minWidth:'200px'}}>Initiating Event (Cause)</th>
+                <th rowSpan="2" style={{minWidth:'220px'}}>{lopaMapping.scenarioLabel || 'Scenario'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.scenarioSource)})</span></th>
+                <th rowSpan="2" style={{minWidth:'200px'}}>{lopaMapping.initiatingEventLabel || 'Initiating Event'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.initiatingEventSource)})</span></th>
                 <th rowSpan="2" style={{minWidth:'100px'}}>Freq of Initiating Event</th>
-                <th rowSpan="2" style={{width:'80px'}}>Severity</th>
+                <th rowSpan="2" style={{width:'80px'}}>Severity<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({lopaMapping.severitySource === 'manual' ? 'Manual' : lopaMapping.severitySource.replace('RiskS', ' (S)')})</span></th>
                 <th colSpan="3" style={{textAlign:'center', background:'var(--surface-hover)'}}>Condition Modifiers</th>
                 <th rowSpan="2" style={{width:'60px'}}>IPL No</th>
-                <th rowSpan="2" style={{minWidth:'250px'}}>IPL</th>
+                <th rowSpan="2" style={{minWidth:'250px'}}>{lopaMapping.iplLabel || 'Independent Protection Layer (IPL)'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.iplSource)})</span></th>
                 <th rowSpan="2" style={{width:'80px'}}>IPL Credits</th>
                 <th rowSpan="2" style={{minWidth:'100px'}}>Total IPL Credit</th>
                 <th rowSpan="2" style={{minWidth:'100px'}}>Tolerance</th>
@@ -525,6 +553,59 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
               </tr>
             </thead>
             <tbody>
+              {!loading && formattedScenarios.length === 0 && (
+                <tr>
+                  <td colSpan={24} style={{ textAlign: 'center', padding: '60px 20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(2, 132, 199, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                        🛡️
+                      </div>
+                      <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '16px' }}>No Scenarios Marked for LOPA</h3>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)', maxWidth: '520px', fontSize: '13px', lineHeight: 1.5 }}>
+                        To perform Layer of Protection Analysis (LOPA), open the <strong>PHA Worksheet</strong> and check the <strong>LOPA</strong> box on any consequence row. Based on your active mapping settings, the Consequence becomes <strong>{lopaMapping.scenarioLabel || 'Scenario'}</strong>, the Cause becomes <strong>{lopaMapping.initiatingEventLabel || 'Initiating Event'}</strong>, and the Safeguards become <strong>{lopaMapping.iplLabel || 'IPLs'}</strong>.
+                      </p>
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                        <button 
+                          type="button"
+                          onClick={() => onNavigate('pha-worksheets')}
+                          style={{
+                            backgroundColor: '#0284c7',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 18px',
+                            borderRadius: '6px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          📋 Go to PHA Worksheet
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => onNavigate && onNavigate('settings')}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--divider, #cbd5e1)',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          ⚙️ Configure LOPA Mapping
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {!loading && formattedScenarios.map((sc, scIndex) => {
                 const recs = sc.lopaData?.recommendations || [];
                 const rowCount = Math.max(1, recs.length);
@@ -532,7 +613,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                 // For Consequence level calculations, we need to gather all siblings
                 let totalIplCredit = 1;
                 let totalRecCredit = 1;
-                let parentSc = sc;
 
                 if (sc.isNewCons) {
                   const freq = parseFloat(sc.lopaData?.freqOfInitiatingEvent) || 0;
@@ -544,15 +624,13 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                   let siblingProduct = 1;
                   let siblingRecProduct = 1;
                   
-                  for(let s of formattedScenarios) {
+                  for (let s of formattedScenarios) {
                     if (s.badgeCons === sc.badgeCons) {
                        siblingProduct *= (parseFloat(s.lopaData?.iplCredit) || 1);
                        // Also multiply recommendations
                        const srecs = s.lopaData?.recommendations || [];
-                       if (srecs.length > 0) {
-                         srecs.forEach(r => {
-                           siblingRecProduct *= (parseFloat(r.credit) || 1);
-                         });
+                       for (let r of srecs) {
+                         siblingRecProduct *= (parseFloat(r.credit) || 1);
                        }
                     }
                   }
@@ -573,10 +651,19 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                     <tr key={`${sc._id}-${i}`}>
                       {sc.isNewCons && isFirstRow && (
                         <>
-                          <td rowSpan={sc.consSpanCount} style={{textAlign:'center'}}>{sc.badgeCons}</td>
+                          <td rowSpan={sc.consSpanCount} style={{textAlign:'center', fontWeight: 'bold'}}>{sc.badgeCons}</td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>
+                            <span style={{ fontWeight: '600', color: '#0369a1' }}>
+                              {sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`}
+                            </span>
+                          </td>
                           <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeDev} {sc.deviationId?.deviationAuto || ''}</td>
-                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeCons} {sc.consequencesImmediate || ''}</td>
-                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeCause} {sc.causeId?.description || ''}</td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>
+                            <strong style={{color: '#b91c1c'}}>{sc.badgeCons}</strong> {getScenarioText(sc, lopaMapping)}
+                          </td>
+                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>
+                            <strong style={{color: '#d97706'}}>{sc.badgeCause}</strong> {getInitiatingEventText(sc, lopaMapping)}
+                          </td>
                           
                           <td rowSpan={sc.consSpanCount}>
                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
@@ -587,7 +674,16 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                             />
                           </td>
                           <td rowSpan={sc.consSpanCount} style={{textAlign: 'center', fontWeight: 'bold'}}>
-                            {sc.inherentRiskS || ''}
+                            {lopaMapping.severitySource === 'manual' ? (
+                              <input disabled={!canEdit} data-gramm="false" spellcheck="false"
+                                type="number" style={{width:'100%', textAlign: 'center'}}
+                                value={sc.lopaData?.severity || ''}
+                                onChange={(e) => handleLopaChange(sc._id, 'severity', e.target.value)}
+                                onBlur={() => handleBlur(sc._id)}
+                              />
+                            ) : (
+                              getSeverityValue(sc, lopaMapping)
+                            )}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
@@ -624,7 +720,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                             </td>
                             <td rowSpan={rowCount} style={{position:'relative', whiteSpace:'normal'}}>
                               <div style={{width:'calc(100% - 20px)', padding:'5px'}}>
-                                {sc.presentProtection || ''}
+                                {getIplText(sc, lopaMapping)}
                               </div>
                             </td>
                             <td rowSpan={rowCount}>

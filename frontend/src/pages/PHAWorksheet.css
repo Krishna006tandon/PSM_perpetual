@@ -600,6 +600,7 @@
 .w-additional { width: 450px; min-width: 450px; }
 .w-remarks { width: 300px; min-width: 300px; }
 .w-status { width: 150px; min-width: 150px; }
+.w-lopa { width: 75px; min-width: 75px; text-align: center; }
 
 /* Readonly fields specific colors */
 .cell-guideword { color: #2563eb !important; font-weight: 500; }

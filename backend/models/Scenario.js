@@ -35,6 +35,7 @@ const scenarioSchema = new mongoose.Schema({
   remarks: { type: String, default: '' },
   remarksColor: { type: String, default: '' },
   status: { type: String, default: '' },
+  isLopa: { type: Boolean, default: false },
 
   // Dynamic custom data maps for new tabs
   safeguardData: { type: Map, of: String, default: {} },

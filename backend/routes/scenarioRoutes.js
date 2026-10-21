@@ -140,6 +140,34 @@ router.post('/:studyId', async (req, res) => {
 });
 
 // PUT to update a specific scenario
+// PUT toggle LOPA for scenario(s) in a consequence group or by ids
+router.put('/:studyId/toggle-lopa', async (req, res) => {
+  try {
+    const { scenarioIds, scenarioId, consequenceGroupId, isLopa } = req.body;
+    let filter = { studyId: req.params.studyId };
+    if (consequenceGroupId && String(consequenceGroupId).trim() !== '') {
+      const orConditions = [{ consequenceGroupId }];
+      if (scenarioIds && Array.isArray(scenarioIds) && scenarioIds.length > 0) {
+        orConditions.push({ _id: { $in: scenarioIds } });
+      } else if (scenarioId) {
+        orConditions.push({ _id: scenarioId });
+      }
+      filter.$or = orConditions;
+    } else if (scenarioIds && Array.isArray(scenarioIds) && scenarioIds.length > 0) {
+      filter._id = { $in: scenarioIds };
+    } else if (scenarioId) {
+      filter._id = scenarioId;
+    } else {
+      return res.status(400).json({ message: 'scenarioIds, scenarioId, or consequenceGroupId required' });
+    }
+
+    await Scenario.updateMany(filter, { $set: { isLopa: Boolean(isLopa) } });
+    res.json({ success: true, message: 'LOPA updated successfully', isLopa: Boolean(isLopa) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   try {
     const updatedScenario = await Scenario.findByIdAndUpdate(

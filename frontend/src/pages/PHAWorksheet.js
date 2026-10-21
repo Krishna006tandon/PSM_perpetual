@@ -1562,7 +1562,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           consequencesUltimate: sc.consequencesUltimate,
           consequenceCategory: sc.consequenceCategory,
           inherentRiskS: sc.inherentRiskS,
-          inherentRiskL: sc.inherentRiskL
+          inherentRiskL: sc.inherentRiskL,
+          isLopa: !!sc.isLopa
         })
       });
       if (response.ok) {
@@ -1576,6 +1577,56 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     } catch (error) {
       console.error('Error adding quick safeguard:', error);
       alert("Network error: Could not add safeguard. Please check your connection.");
+    }
+  };
+
+  const handleToggleLopa = async (sc, checked) => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      // Find all sibling scenarios in the same consequence group (or this single row)
+      const siblingIds = scenarios
+        .filter(s => (sc.consequenceGroupId ? s.consequenceGroupId === sc.consequenceGroupId : s._id === sc._id))
+        .map(s => s._id);
+
+      // 1. Optimistic UI update
+      setScenarios(prev => prev.map(s => {
+        if (siblingIds.includes(s._id)) {
+          return { ...s, isLopa: checked };
+        }
+        return s;
+      }));
+
+      // 2. Persist to backend
+      const res = await fetch(`${apiUrl}/api/scenarios/${study._id}/toggle-lopa`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          scenarioIds: siblingIds,
+          consequenceGroupId: sc.consequenceGroupId,
+          isLopa: checked
+        })
+      });
+
+      if (!res.ok) {
+        // Fallback: update individual scenario documents
+        await Promise.all(siblingIds.map(id => 
+          fetch(`${apiUrl}/api/scenarios/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ isLopa: checked })
+          })
+        ));
+      }
+    } catch (err) {
+      console.error('Error toggling LOPA:', err);
     }
   };
 
@@ -2015,7 +2066,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         rowsToExport = processedScenarios;
       }
 
-      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS\n`;
+      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA\n`;
       let devCounter = 0;
       let lastDevId = null;
 
@@ -2049,7 +2100,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           escape(sc.residualRiskL),
           escape(sc.residualRiskRR),
           escape(sc.remarks),
-          escape(sc.status)
+          escape(sc.status),
+          escape(sc.isLopa ? 'Yes' : 'No')
         ];
 
         if (exportAll) {
@@ -2139,6 +2191,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th colspan="3">RESIDUAL RISK</th>
                 <th rowspan="2">REMARKS</th>
                 <th rowspan="2">STATUS</th>
+                <th rowspan="2">LOPA</th>
               </tr>
               <tr>
                 <th class="th-sub">DEVIATION</th>
@@ -2160,7 +2213,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const renderNodeRows = (nodeScenarios, nodeName) => {
         let rowsHtml = '';
         if (nodeName) {
-          rowsHtml += `<tr><td colspan="23" class="node-banner">📁 NODE: ${nodeName}</td></tr>`;
+          rowsHtml += `<tr><td colspan="24" class="node-banner">📁 NODE: ${nodeName}</td></tr>`;
         }
 
         const sorted = [...nodeScenarios].sort((a, b) => {
@@ -2283,6 +2336,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
           rowsHtml += `<td>${sc.remarks || ''}</td>`;
           rowsHtml += `<td align="center">${sc.status || ''}</td>`;
+          if (isNewCons) {
+            rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.isLopa ? '✓ LOPA' : ''}</td>`;
+          }
           rowsHtml += `</tr>`;
         }
         return rowsHtml;
@@ -3412,6 +3468,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
                 <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
                 <th className="th-primary w-status" rowSpan={2}>STATUS</th>
+                <th className="th-primary w-lopa" rowSpan={2} style={{width: '75px', minWidth: '75px', textAlign: 'center'}}>LOPA</th>
               </tr>
               <tr>
                 {/* Sub headers - Hidden in Focus Mode */}
@@ -3444,7 +3501,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <tbody>
               {!loading && scenarios.length === 0 && (
                 <tr>
-                  <td colSpan={isFocusMode ? 19 : 24}>
+                  <td colSpan={isFocusMode ? 20 : 25}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
                       {canEdit && <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
@@ -3897,6 +3954,51 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       </button>
                     </div>
                   </td>
+                  {sc.isNewCons && (
+                    <td 
+                      className="w-lopa" 
+                      rowSpan={sc.consSpanCount}
+                      style={{
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        backgroundColor: sc.isLopa ? 'rgba(34, 197, 94, 0.08)' : 'inherit',
+                        borderLeft: '1px solid var(--border-color, #e2e8f0)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '4px' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: canEdit ? 'pointer' : 'default', margin: 0 }}>
+                          <input 
+                            disabled={!canEdit}
+                            type="checkbox"
+                            checked={!!sc.isLopa}
+                            onChange={(e) => handleToggleLopa(sc, e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: canEdit ? 'pointer' : 'default', accentColor: '#16a34a' }}
+                            title={sc.isLopa ? "Included in LOPA Worksheet (Click to uncheck)" : "Tick to send this Consequence, Cause & Safeguards to LOPA Worksheet"}
+                          />
+                        </label>
+                        {sc.isLopa && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate('lopa')}
+                            title="Open in LOPA Worksheet"
+                            style={{
+                              fontSize: '9.5px',
+                              fontWeight: '700',
+                              color: '#15803d',
+                              backgroundColor: '#dcfce7',
+                              border: '1px solid #86efac',
+                              borderRadius: '4px',
+                              padding: '2px 5px',
+                              cursor: 'pointer',
+                              lineHeight: 1.2
+                            }}
+                          >
+                            LOPA ↗
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

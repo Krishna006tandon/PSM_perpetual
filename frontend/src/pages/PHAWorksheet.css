@@ -139,6 +139,46 @@
   box-shadow: none !important;
 }
 
+.pha-metadata-value textarea {
+  width: 100%;
+  border: 1.5px dashed var(--editable-border, #fcd34d);
+  background: var(--editable-bg, #fffdf5);
+  outline: none;
+  font-style: normal;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 6px 8px;
+  border-radius: 4px;
+  resize: none !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  min-height: 48px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.pha-metadata-value textarea:hover {
+  background: var(--editable-hover-bg, #ffffff);
+  border-color: var(--editable-hover-border, #f59e0b);
+  border-style: solid;
+}
+
+.pha-metadata-value textarea:focus {
+  background: var(--editable-focus-bg, #ffffff);
+  border-color: var(--editable-focus-border, #2563eb);
+  border-style: solid;
+  box-shadow: 0 0 0 3px var(--editable-focus-ring, rgba(37, 99, 235, 0.2));
+}
+
+.pha-metadata-value textarea[readonly],
+.pha-metadata-value textarea:disabled {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+
 /* Toolbar Specific for PHA */
 .pha-toolbar-flush {
   display: flex;
@@ -440,10 +480,12 @@
   font-size: var(--pha-table-font-size, 13.5px);
   color: var(--editable-text, #0f172a);
   font-weight: 500;
-  resize: vertical;
+  resize: none !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
   border-radius: 4px;
   padding: 6px 8px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
 }
 
@@ -478,7 +520,10 @@
 }
 
 .pha-table td textarea {
-  min-height: 72px;
+  min-height: 36px;
+  resize: none !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
 }
 
 /* Row Added / Duplicated Highlight Animation */
@@ -1092,8 +1137,10 @@ body.crazy-focus-mode .w-to {
 
 .remarks-container textarea {
   width: 100%;
-  min-height: 44px;
-  resize: vertical;
+  min-height: 36px;
+  resize: none !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
   border-radius: 4px;
   font-family: inherit;
   font-size: var(--pha-table-font-size, 13px);

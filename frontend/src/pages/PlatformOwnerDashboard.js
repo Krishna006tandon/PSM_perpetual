@@ -156,11 +156,11 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                   🗄️ MongoDB Daily Auto-Backup
                 </h3>
                 <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                  Schedule: {backupInfo?.schedule === '0 18 * * *' ? 'Daily 6:00 PM IST' : `${backupInfo?.schedule || 'Daily 6:00 PM'} (IST)`}
+                  Schedule: {backupInfo?.schedule === '0 17 * * *' ? 'Daily 5:00 PM IST' : `${backupInfo?.schedule || 'Daily 5:00 PM'} (IST)`}
                 </span>
               </div>
               <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                Target Database: <strong style={{ color: '#00a896' }}>PSM_Backup</strong> (Automatically drops yesterday's backup and clones today's live data)
+                Active Backup DB: <strong style={{ color: '#00a896' }}>{backupInfo?.targetDatabase || 'PSM_Backup_[Date]_[Day]_[Time]'}</strong> (Yesterday's backup is auto-dropped and replaced)
               </p>
             </div>
 
@@ -195,8 +195,12 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           {backupInfo && backupInfo.exists && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #f0f0f0' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Last Backup Time (IST)</span>
-                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#1a1a2e', fontSize: '0.95rem' }}>{backupInfo.lastBackupDateIST || 'N/A'}</p>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Date & Day (IST)</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#1a1a2e', fontSize: '0.95rem' }}>{backupInfo.day ? `${backupInfo.day}, ${backupInfo.date}` : backupInfo.lastBackupDateIST || 'N/A'}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Time (IST)</span>
+                <p style={{ margin: '4px 0 0 0', fontWeight: '700', color: '#028090', fontSize: '0.95rem' }}>{backupInfo.time || 'N/A'}</p>
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Collections Synced</span>

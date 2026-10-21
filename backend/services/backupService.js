@@ -6,6 +6,35 @@ const TARGET_BACKUP_DB = process.env.BACKUP_DB_NAME || 'PSM_Backup';
 const BACKUP_RECIPIENT = process.env.BACKUP_ALERT_EMAIL || process.env.SMTP_USER || process.env.EMAIL_USER || 'perpetualnagpur@gmail.com';
 
 /**
+ * Generates dynamic backup details including Date, Day and Time in IST
+ */
+function getBackupDetails(d = new Date()) {
+  const istString = d.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+  const istDate = new Date(istString);
+
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const dayName = days[istDate.getDay()];
+  const dayOfMonth = String(istDate.getDate()).padStart(2, '0');
+  const monthName = months[istDate.getMonth()];
+  const year = istDate.getFullYear();
+
+  let hours = istDate.getHours();
+  const minutes = String(istDate.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const formattedHour = String(hours).padStart(2, '0');
+
+  return {
+    day: dayName,
+    date: `${dayOfMonth}-${monthName}-${year}`,
+    time: `${formattedHour}:${minutes} ${ampm} IST`,
+    fullFormatted: `${dayName}, ${dayOfMonth} ${monthName} ${year} at ${formattedHour}:${minutes} ${ampm} IST`
+  };
+}
+
+/**
  * Helper to get active transporter for notification emails
  */
 function getEmailTransporter() {
@@ -32,24 +61,32 @@ async function sendBackupEmailNotification(summary, isSuccess, errorMessage = ''
     }
 
     const sender = process.env.EMAIL_USER || process.env.SMTP_USER;
-    const istTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    const istTime = summary?.backupDateIST || new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
 
     let subject = '';
     let htmlContent = '';
 
     if (isSuccess) {
-      subject = `✅ [PSM Auto-Backup] MongoDB Backup (${TARGET_BACKUP_DB}) Created Successfully`;
+      subject = `✅ [PSM Auto-Backup] MongoDB Backup (${TARGET_BACKUP_DB}) - ${summary.day}, ${summary.date} (${summary.time})`;
       htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
           <h2 style="color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px;">
             ✅ MongoDB Daily Backup Completed
           </h2>
-          <p>The automated evening backup has replaced the previous backup with today's fresh live snapshot.</p>
+          <p>The daily backup has replaced the previous backup with today's fresh live snapshot.</p>
           
           <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
             <tr style="background-color: #f9f9f9;">
               <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Target Database:</td>
               <td style="padding: 8px; border: 1px solid #ddd; color: #1565c0; font-weight: bold;">${summary.targetDatabase}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Date & Day:</td>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #2e7d32;">${summary.day}, ${summary.date}</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+              <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Backup Time:</td>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #028090;">${summary.time}</td>
             </tr>
             <tr>
               <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Source Database:</td>
@@ -67,14 +104,10 @@ async function sendBackupEmailNotification(summary, isSuccess, errorMessage = ''
               <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Duration:</td>
               <td style="padding: 8px; border: 1px solid #ddd;">${summary.durationSeconds}s</td>
             </tr>
-            <tr>
-              <td style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Timestamp (IST):</td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${istTime}</td>
-            </tr>
           </table>
 
           <div style="margin-top: 20px; padding: 12px; background-color: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;">
-            ℹ️ <strong>Status:</strong> Your previous backup was cleanly replaced with today's data. Zero storage overflow risk.
+            ℹ️ <strong>Status:</strong> The previous backup was dropped and replaced with this fresh backup. Zero storage accumulation.
           </div>
         </div>
       `;
@@ -85,7 +118,7 @@ async function sendBackupEmailNotification(summary, isSuccess, errorMessage = ''
           <h2 style="color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 10px;">
             ❌ Daily MongoDB Backup Encountered an Error
           </h2>
-          <p>The automated backup scheduled for 6:00 PM failed. Please inspect the server logs.</p>
+          <p>The automated backup scheduled for 5:00 PM failed. Please inspect the server logs.</p>
           <div style="padding: 10px; background-color: #ffebee; border-radius: 6px; color: #b71c1c; font-family: monospace;">
             ${errorMessage}
           </div>
@@ -112,9 +145,12 @@ async function sendBackupEmailNotification(summary, isSuccess, errorMessage = ''
  */
 async function performDatabaseBackup() {
   const startTime = Date.now();
+  const backupDetails = getBackupDetails();
+
   console.log('====================================================');
   console.log('🔄 [Backup Service] Starting MongoDB Daily Backup...');
-  console.log(`⏰ Time (IST): ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })}`);
+  console.log(`⏰ Time: ${backupDetails.fullFormatted}`);
+  console.log(`🎯 Target Database: "${TARGET_BACKUP_DB}"`);
 
   // Ensure mongoose connection is ready
   if (mongoose.connection.readyState !== 1) {
@@ -191,10 +227,13 @@ async function performDatabaseBackup() {
 
   const durationSeconds = Number(((Date.now() - startTime) / 1000).toFixed(2));
 
-  // 4. Record metadata in target DB
+  // 4. Record comprehensive metadata with Date, Day and Time in target DB
   const summary = {
     backupDate: new Date(),
-    backupDateIST: new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
+    backupDateIST: backupDetails.fullFormatted,
+    day: backupDetails.day,
+    date: backupDetails.date,
+    time: backupDetails.time,
     sourceDatabase: sourceDbName,
     targetDatabase: TARGET_BACKUP_DB,
     totalCollections: collectionsToCopy.length,
@@ -207,6 +246,7 @@ async function performDatabaseBackup() {
   await targetDb.collection('_backup_info').insertOne(summary);
 
   console.log(`🎉 [Backup Service] Backup finished in ${durationSeconds}s! Total docs: ${totalDocsCopied}`);
+  console.log(`📅 Backup Snapshot: ${summary.day}, ${summary.date} at ${summary.time}`);
   console.log('====================================================');
 
   // 5. Send notification email
@@ -247,11 +287,14 @@ async function getBackupStatus() {
       sourceDatabase: info.sourceDatabase,
       lastBackupDate: info.backupDate,
       lastBackupDateIST: info.backupDateIST,
+      day: info.day,
+      date: info.date,
+      time: info.time,
       totalCollections: info.totalCollections,
       totalDocuments: info.totalDocuments,
       durationSeconds: info.durationSeconds,
       status: info.status,
-      schedule: process.env.BACKUP_CRON_SCHEDULE || '0 18 * * *',
+      schedule: process.env.BACKUP_CRON_SCHEDULE || '0 17 * * *',
       collections: info.collections
     };
   } catch (err) {
@@ -260,7 +303,7 @@ async function getBackupStatus() {
 }
 
 /**
- * Helper to convert 5-part cron expression to friendly time (e.g. '0 18 * * *' -> '6:00 PM')
+ * Helper to convert 5-part cron expression to friendly time (e.g. '0 17 * * *' -> '5:00 PM')
  */
 function formatCronToHumanReadable(cronExp) {
   try {
@@ -278,11 +321,12 @@ function formatCronToHumanReadable(cronExp) {
 }
 
 /**
- * Initializes the daily cron job scheduled in IST
+ * Initializes the daily cron job scheduled for 5:00 PM (17:00) IST
  */
 function initBackupScheduler() {
   const envSchedule = process.env.BACKUP_CRON_SCHEDULE;
-  const cronExpression = envSchedule || '0 18 * * *';
+  // Scheduled for 5:00 PM (17:00) IST daily
+  const cronExpression = envSchedule || '0 17 * * *';
   const humanReadableTime = formatCronToHumanReadable(cronExpression);
   const sourceInfo = envSchedule ? '(from .env)' : '(default fallback)';
   
@@ -306,5 +350,6 @@ module.exports = {
   performDatabaseBackup,
   getBackupStatus,
   initBackupScheduler,
+  getBackupDetails,
   TARGET_BACKUP_DB
 };

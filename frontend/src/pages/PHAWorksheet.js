@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
 import AddRecommendationModal from '../components/AddRecommendationModal';
 import * as XLSX from 'xlsx';
@@ -3028,11 +3029,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               <span className="pha-metadata-label" style={{marginTop: '4px'}}>INTENTION</span>
               <div className="pha-metadata-value" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word', width: '100%'}}>
                 {canEdit && selectedNode ? (
-                  <textarea 
+                  <AutoResizeTextarea 
                     value={selectedNode.intention || ''}
                     spellCheck={true}
-                    data-gramm="false"
+                    dataGramm="false"
                     placeholder="Design Intention..."
+                    minHeight={48}
                     onChange={(e) => {
                       const val = e.target.value;
                       setNodes(prev => prev.map(n => n._id === selectedNode._id ? { ...n, intention: val } : n));
@@ -3050,21 +3052,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         console.error('Failed to update node intention:', err);
                       }
                     }}
-                    style={{
-                      width: '100%',
-                      minHeight: '44px',
-                      border: '1px solid transparent',
-                      background: 'transparent',
-                      fontFamily: 'inherit',
-                      fontSize: '13px',
-                      lineHeight: '1.5',
-                      color: 'var(--text-primary)',
-                      resize: 'vertical',
-                      outline: 'none',
-                      padding: '4px'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#93c5fd'}
-                    onBlurCapture={(e) => e.target.style.borderColor = 'transparent'}
                   />
                 ) : (
                   <span>{selectedNode ? selectedNode.intention : 'Design Intention...'}</span>
@@ -3797,17 +3784,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   )}
                   <td className="w-remarks" style={{ position: 'relative' }}>
                     <div className="remarks-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <textarea 
+                      <AutoResizeTextarea 
                         spellCheck={true} 
                         value={sc.remarks || ''} 
                         onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                         onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
                         placeholder="Add comment..."
+                        minHeight={36}
                         style={{
                           backgroundColor: sc.remarksColor || sc.riskData?.remarksColor || 'transparent',
                           borderLeft: (sc.remarksColor || sc.riskData?.remarksColor) ? `4px solid #f59e0b` : 'none',
                           paddingLeft: (sc.remarksColor || sc.riskData?.remarksColor) ? '8px' : '4px',
-                          transition: 'background-color 0.2s ease'
+                          transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease'
                         }}
                       />
                       {canEdit && (

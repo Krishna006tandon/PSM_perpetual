@@ -22,6 +22,7 @@ import MocDashboard from './pages/MocDashboard';
 import ResetPassword from './pages/ResetPassword';
 import RecommendationsHub from './pages/RecommendationsHub';
 import BowTieAnalysis from './pages/BowTieAnalysis';
+import Settings from './pages/Settings';
 
 import Auth from './components/Auth';
 
@@ -382,6 +383,17 @@ function App() {
       return <MocDashboard />;
     }
 
+    if (currentView === 'settings') {
+      return (
+        <Settings 
+          theme={theme}
+          toggleTheme={toggleTheme}
+          currentUser={currentUser}
+          onNavigate={(view) => setCurrentView(view)}
+        />
+      );
+    }
+
     if (currentView === 'recommendations' || currentView === 'recommendations-pha' || currentView === 'recommendations-moc') {
       const initialTab = currentView === 'recommendations-moc' ? 'moc' : 'pha';
       return (
@@ -424,6 +436,11 @@ function App() {
             <h3>Recommendations</h3>
             <p>Safety & MOC Action Items</p>
             <span className="status-badge status-info">View Details</span>
+          </div>
+          <div className="card" onClick={() => setCurrentView('settings')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+            <h3>Settings</h3>
+            <p>Preferences & Column Visibility</p>
+            <span className="status-badge status-info">Configure</span>
           </div>
         </div>
       </main>

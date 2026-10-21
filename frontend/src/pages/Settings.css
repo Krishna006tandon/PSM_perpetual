@@ -1,0 +1,433 @@
+.settings-container {
+  flex: 1;
+  padding: 32px 40px;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.settings-header-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.settings-title-area h1 {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px 0;
+}
+
+.settings-title-area p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.settings-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: var(--bg-paper);
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-settings-back:hover {
+  background: var(--primary-main);
+  color: #ffffff;
+  border-color: var(--primary-main);
+}
+
+.settings-content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  max-width: 1080px;
+}
+
+/* Card Section Styles */
+.settings-section-card {
+  background: var(--bg-paper);
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  padding: 24px 28px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s ease;
+}
+
+.settings-section-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.settings-section-header h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-section-header .section-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  background-color: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+/* Setting Item Row */
+.setting-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(203, 213, 225, 0.4);
+}
+
+.setting-item-row:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.setting-item-row:first-of-type {
+  padding-top: 4px;
+}
+
+.setting-info {
+  flex: 1;
+  padding-right: 28px;
+}
+
+.setting-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.setting-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setting-badge-highlight {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.setting-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Toggle Switch */
+.toggle-switch-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 28px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #10b981;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-status-label {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 65px;
+}
+
+.toggle-status-label.enabled {
+  color: #059669;
+}
+
+.toggle-status-label.disabled {
+  color: #64748b;
+}
+
+/* Segmented Buttons for Font Size */
+.segmented-control {
+  display: inline-flex;
+  background: var(--bg-default);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.segmented-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.segmented-btn:hover {
+  color: var(--text-primary);
+}
+
+.segmented-btn.active {
+  background: var(--bg-paper);
+  color: var(--primary-main);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* User Profile Badge */
+.user-profile-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--bg-default);
+  border-radius: 10px;
+  border: 1px solid var(--divider);
+}
+
+.user-avatar-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.user-details h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 3px 0;
+}
+
+.user-details p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Action Buttons Footer */
+.settings-bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btn-secondary-action {
+  padding: 10px 20px;
+  border: 1px solid var(--divider);
+  background: var(--bg-paper);
+  color: var(--text-primary);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary-action:hover {
+  background: #f1f5f9;
+}
+
+.btn-danger-outline {
+  padding: 10px 20px;
+  border: 1px solid #fca5a5;
+  background: transparent;
+  color: #dc2626;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger-outline:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+/* Toast Message */
+.settings-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
+  animation: settingsToastSlideUp 0.25s ease-out;
+}
+
+@keyframes settingsToastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark Mode Adjustments */
+[data-theme='dark'] .btn-settings-back {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .btn-settings-back:hover {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+[data-theme='dark'] .settings-section-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .setting-badge-highlight {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .toggle-slider {
+  background-color: #475569;
+}
+
+[data-theme='dark'] .toggle-status-label.disabled {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .user-profile-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .segmented-control {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .segmented-btn.active {
+  background: #1e293b;
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .btn-secondary-action {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .btn-secondary-action:hover {
+  background: #334155;
+}
+
+[data-theme='dark'] .btn-danger-outline {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+[data-theme='dark'] .btn-danger-outline:hover {
+  background: rgba(239, 68, 68, 0.15);
+}

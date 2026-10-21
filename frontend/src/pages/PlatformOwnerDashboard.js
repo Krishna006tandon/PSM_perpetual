@@ -156,7 +156,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                   🗄️ MongoDB Daily Auto-Backup
                 </h3>
                 <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                  Schedule: {backupInfo?.schedule === '0 17 * * *' ? 'Daily 5:00 PM IST' : `${backupInfo?.schedule || 'Daily 5:00 PM'} (IST)`}
+                  Schedule: {backupInfo?.schedule === '0 19 * * *' ? 'Daily 7:00 PM IST' : `${backupInfo?.schedule || 'Daily 7:00 PM'} (IST)`}
                 </span>
               </div>
               <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>

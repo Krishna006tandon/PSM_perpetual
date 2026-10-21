@@ -118,7 +118,7 @@ async function sendBackupEmailNotification(summary, isSuccess, errorMessage = ''
           <h2 style="color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 10px;">
             ❌ Daily MongoDB Backup Encountered an Error
           </h2>
-          <p>The automated backup scheduled for 5:00 PM failed. Please inspect the server logs.</p>
+          <p>The automated backup scheduled for 7:00 PM failed. Please inspect the server logs.</p>
           <div style="padding: 10px; background-color: #ffebee; border-radius: 6px; color: #b71c1c; font-family: monospace;">
             ${errorMessage}
           </div>
@@ -294,7 +294,7 @@ async function getBackupStatus() {
       totalDocuments: info.totalDocuments,
       durationSeconds: info.durationSeconds,
       status: info.status,
-      schedule: process.env.BACKUP_CRON_SCHEDULE || '0 17 * * *',
+      schedule: process.env.BACKUP_CRON_SCHEDULE || '0 19 * * *',
       collections: info.collections
     };
   } catch (err) {
@@ -325,8 +325,8 @@ function formatCronToHumanReadable(cronExp) {
  */
 function initBackupScheduler() {
   const envSchedule = process.env.BACKUP_CRON_SCHEDULE;
-  // Scheduled for 5:00 PM (17:00) IST daily
-  const cronExpression = envSchedule || '0 17 * * *';
+  // Scheduled for 7:00 PM (19:00) IST daily
+  const cronExpression = envSchedule || '0 19 * * *';
   const humanReadableTime = formatCronToHumanReadable(cronExpression);
   const sourceInfo = envSchedule ? '(from .env)' : '(default fallback)';
   

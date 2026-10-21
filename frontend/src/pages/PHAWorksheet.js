@@ -57,7 +57,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [showImportModal, setShowImportModal] = useState(false);
   const [importMode, setImportMode] = useState('append');
   const [newNodeName, setNewNodeName] = useState('');
-  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(() => {
+    const saved = localStorage.getItem('pha_hide_decomposition');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
   const [clipboardRowIds, setClipboardRowIds] = useState([]);
@@ -434,13 +437,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
 
+  // Cleanup crazy-focus-mode on body
   useEffect(() => {
-    if (isFocusMode) {
-      document.body.classList.add('crazy-focus-mode');
-    } else {
-      document.body.classList.remove('crazy-focus-mode');
-    }
-  }, [isFocusMode]);
+    document.body.classList.remove('crazy-focus-mode');
+  }, []);
 
   useEffect(() => {
     const styleId = 'crazy-focus-style';
@@ -3265,12 +3265,22 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn" onClick={() => exportToCSV(false)} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
           <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px', fontWeight: '600', color: '#dc2626'}}>📥 PDF</button>
           <button 
-            className={`toolbar-btn ${isFocusMode ? 'active' : ''}`} 
-            onClick={() => setIsFocusMode(!isFocusMode)} 
-            title="Toggle Focus Mode" 
-            style={{fontSize: '12px', fontWeight: 'bold', color: isFocusMode ? '#ef4444' : '#10b981', border: `1px solid ${isFocusMode ? '#ef4444' : '#10b981'}`}}
+            className={`toolbar-btn ${!isFocusMode ? 'active' : ''}`} 
+            onClick={() => {
+              const nextVal = !isFocusMode;
+              setIsFocusMode(nextVal);
+              localStorage.setItem('pha_hide_decomposition', String(nextVal));
+            }} 
+            title={isFocusMode ? "Show Deviation Decomposition columns (Guideword, Parameter, Material, Equipment, Instrument)" : "Hide Deviation Decomposition columns"} 
+            style={{
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: isFocusMode ? '#64748b' : '#2563eb', 
+              borderColor: isFocusMode ? '#cbd5e1' : '#93c5fd',
+              backgroundColor: isFocusMode ? 'transparent' : 'rgba(37, 99, 235, 0.08)'
+            }}
           >
-            {isFocusMode ? '✖ Exit Focus' : '⛶ Focus Mode'}
+            {isFocusMode ? '👁️ Show Decomposition' : '🙈 Hide Decomposition'}
           </button>
 
           <div style={{display: 'inline-flex', alignItems: 'center', gap: '3px'}}>

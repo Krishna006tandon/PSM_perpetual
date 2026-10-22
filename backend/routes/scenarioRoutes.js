@@ -236,6 +236,43 @@ router.post('/:studyId/bulk-duplicate', async (req, res) => {
       startOrder = lastScenario ? (lastScenario.order || 0) + 1 : 1;
     }
 
+    const Deviation = require('../models/Deviation');
+    const Cause = require('../models/Cause');
+
+    // Deep clone deviations and causes so cloned scenarios are independent
+    const devMapping = {};
+    const causeMapping = {};
+
+    const devIds = [...new Set(scenariosToClone.map(s => s.deviationId?.toString()).filter(Boolean))];
+    const causeIds = [...new Set(scenariosToClone.map(s => s.causeId?.toString()).filter(Boolean))];
+
+    const sourceDevs = await Deviation.find({ _id: { $in: devIds } });
+    const sourceCauses = await Cause.find({ _id: { $in: causeIds } });
+
+    for (const d of sourceDevs) {
+      const dObj = d.toObject();
+      delete dObj._id;
+      delete dObj.createdAt;
+      delete dObj.updatedAt;
+      dObj.companyCode = req.user.companyCode;
+      dObj.studyId = req.params.studyId;
+      const newD = new Deviation(dObj);
+      const savedD = await newD.save();
+      devMapping[d._id.toString()] = savedD._id;
+    }
+
+    for (const c of sourceCauses) {
+      const cObj = c.toObject();
+      delete cObj._id;
+      delete cObj.createdAt;
+      delete cObj.updatedAt;
+      cObj.companyCode = req.user.companyCode;
+      cObj.studyId = req.params.studyId;
+      const newC = new Cause(cObj);
+      const savedC = await newC.save();
+      causeMapping[c._id.toString()] = savedC._id;
+    }
+
     const groupMapping = {};
 
     const clonedDocs = scenariosToClone.map((sc, i) => {
@@ -249,8 +286,13 @@ router.post('/:studyId/bulk-duplicate', async (req, res) => {
       obj.nodeId = effectiveNodeId;
       obj.order = startOrder + i;
 
-      // Remap consequence and safeguard groups so duplicate rows are independently editable
-      // (while preserving intra-group relationships if multiple rows are duplicated together)
+      if (obj.deviationId && devMapping[obj.deviationId.toString()]) {
+        obj.deviationId = devMapping[obj.deviationId.toString()];
+      }
+      if (obj.causeId && causeMapping[obj.causeId.toString()]) {
+        obj.causeId = causeMapping[obj.causeId.toString()];
+      }
+
       if (obj.consequenceGroupId) {
         if (!groupMapping[obj.consequenceGroupId]) {
           groupMapping[obj.consequenceGroupId] = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -276,6 +318,172 @@ router.post('/:studyId/bulk-duplicate', async (req, res) => {
     res.status(201).json(populated);
   } catch (err) {
     console.error('Error duplicating scenarios:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST bulk paste scenarios (from Excel or PHA clipboard)
+router.post('/:studyId/bulk-paste', async (req, res) => {
+  try {
+    const { rows, targetNodeId, insertAfterScenarioId } = req.body;
+    if (!rows || !Array.isArray(rows) || !rows.length) {
+      return res.status(400).json({ message: 'No rows provided to paste' });
+    }
+
+    const Deviation = require('../models/Deviation');
+    const Cause = require('../models/Cause');
+
+    const effectiveNodeId = targetNodeId;
+    if (!effectiveNodeId) {
+      return res.status(400).json({ message: 'targetNodeId is required' });
+    }
+
+    let startOrder;
+    if (insertAfterScenarioId) {
+      const target = await Scenario.findById(insertAfterScenarioId);
+      if (target) {
+        startOrder = (target.order || 0) + 1;
+        await Scenario.updateMany(
+          { studyId: req.params.studyId, nodeId: effectiveNodeId, order: { $gte: startOrder } },
+          { $inc: { order: rows.length } }
+        );
+      }
+    }
+
+    if (startOrder === undefined) {
+      const lastScenario = await Scenario.findOne({ studyId: req.params.studyId, nodeId: effectiveNodeId }).sort({ order: -1 });
+      startOrder = lastScenario ? (lastScenario.order || 0) + 1 : 1;
+    }
+
+    const devCache = new Map();
+    const causeCache = new Map();
+    const groupMapping = {};
+
+    const docsToInsert = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const devText = (row.deviationText || row.deviation || '').trim();
+      const causeText = (row.causeDescription || row.cause || '').trim();
+
+      // 1. Resolve / Create Deviation
+      let deviationId = null;
+      if (devText) {
+        if (devCache.has(devText)) {
+          deviationId = devCache.get(devText);
+        } else {
+          const newDev = new Deviation({
+            companyCode: req.user.companyCode,
+            studyId: req.params.studyId,
+            deviationAuto: devText,
+            parameter: row.parameter || '',
+            processFlowMaterial: row.processFlowMaterial || '',
+            locationFrom: row.locationFrom || '',
+            locationTo: row.locationTo || '',
+            guidewords: row.guidewords || ''
+          });
+          const savedDev = await newDev.save();
+          devCache.set(devText, savedDev._id);
+          deviationId = savedDev._id;
+        }
+      } else {
+        const newDev = new Deviation({
+          companyCode: req.user.companyCode,
+          studyId: req.params.studyId,
+          deviationAuto: ''
+        });
+        const savedDev = await newDev.save();
+        deviationId = savedDev._id;
+      }
+
+      // 2. Resolve / Create Cause
+      let causeId = null;
+      const causeKey = `${devText}:::${causeText}`;
+      if (causeText) {
+        if (causeCache.has(causeKey)) {
+          causeId = causeCache.get(causeKey);
+        } else {
+          const newCause = new Cause({
+            companyCode: req.user.companyCode,
+            studyId: req.params.studyId,
+            description: causeText,
+            equipment: row.causeEquipment || '',
+            instrument: row.causeInstrument || ''
+          });
+          const savedCause = await newCause.save();
+          causeCache.set(causeKey, savedCause._id);
+          causeId = savedCause._id;
+        }
+      } else {
+        const newCause = new Cause({
+          companyCode: req.user.companyCode,
+          studyId: req.params.studyId,
+          description: ''
+        });
+        const savedCause = await newCause.save();
+        causeId = savedCause._id;
+      }
+
+      // 3. Remap groups
+      let consGroup = row.consequenceGroupId;
+      if (consGroup) {
+        if (!groupMapping[consGroup]) {
+          groupMapping[consGroup] = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        consGroup = groupMapping[consGroup];
+      } else {
+        consGroup = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      }
+
+      let safeGroup = row.safeguardGroupId;
+      if (safeGroup) {
+        if (!groupMapping[safeGroup]) {
+          groupMapping[safeGroup] = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        safeGroup = groupMapping[safeGroup];
+      }
+
+      const scDoc = {
+        companyCode: req.user.companyCode,
+        studyId: req.params.studyId,
+        nodeId: effectiveNodeId,
+        deviationId,
+        causeId,
+        order: startOrder + i,
+        consequencesImmediate: row.consequencesImmediate || '',
+        consequencesUltimate: row.consequencesUltimate || '',
+        category: row.category || '',
+        severityInherent: row.severityInherent !== undefined && row.severityInherent !== '' ? row.severityInherent : null,
+        likelihoodInherent: row.likelihoodInherent !== undefined && row.likelihoodInherent !== '' ? row.likelihoodInherent : null,
+        riskInherent: row.riskInherent || '',
+        safeguards: row.safeguards || '',
+        severityMitigated: row.severityMitigated !== undefined && row.severityMitigated !== '' ? row.severityMitigated : null,
+        likelihoodMitigated: row.likelihoodMitigated !== undefined && row.likelihoodMitigated !== '' ? row.likelihoodMitigated : null,
+        riskMitigated: row.riskMitigated || '',
+        additionalProtection: row.additionalProtection || '',
+        recommendationNo: row.recommendationNo || '',
+        severityResidual: row.severityResidual !== undefined && row.severityResidual !== '' ? row.severityResidual : null,
+        likelihoodResidual: row.likelihoodResidual !== undefined && row.likelihoodResidual !== '' ? row.likelihoodResidual : null,
+        riskResidual: row.riskResidual || '',
+        remarks: row.remarks || '',
+        status: row.status || 'Open',
+        lopaRequired: !!row.lopaRequired,
+        consequenceGroupId: consGroup,
+        safeguardGroupId: safeGroup,
+        customData: row.customData || {}
+      };
+      docsToInsert.push(scDoc);
+    }
+
+    const inserted = await Scenario.insertMany(docsToInsert);
+    const populated = await Scenario.find({ _id: { $in: inserted.map(d => d._id) } })
+      .populate('nodeId')
+      .populate('deviationId')
+      .populate('causeId');
+
+    res.status(201).json(populated);
+  } catch (err) {
+    console.error('Error bulk pasting scenarios:', err);
     res.status(500).json({ message: err.message });
   }
 });

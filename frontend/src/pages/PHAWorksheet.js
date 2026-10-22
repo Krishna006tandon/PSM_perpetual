@@ -44,6 +44,157 @@ export const getCleanDeviationDisplay = (val) => {
   return val;
 };
 
+export const parseExcelTSV = (text) => {
+  if (!text || typeof text !== 'string') return [];
+  const rawLines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (rawLines.length === 0) return [];
+
+  // Parse lines into 2D grid
+  const grid = rawLines.map(line => {
+    if (line.includes('\t')) {
+      return line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''));
+    }
+    return line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+  });
+
+  if (grid.length === 0) return [];
+
+  const headerCandidates = grid[0].map(c => c.toLowerCase());
+  const hasHeaders = headerCandidates.some(h => 
+    h.includes('deviation') || h.includes('cause') || h.includes('consequence') || 
+    h.includes('safeguard') || h.includes('recommendation') || h.includes('risk')
+  );
+
+  let dataRows = hasHeaders ? grid.slice(1) : grid;
+  let colMap = {};
+
+  if (hasHeaders) {
+    headerCandidates.forEach((h, idx) => {
+      if (h.includes('deviation') && colMap.deviation === undefined) colMap.deviation = idx;
+      else if (h.includes('cause') && colMap.cause === undefined) colMap.cause = idx;
+      else if (h.includes('immediate') && colMap.consImm === undefined) colMap.consImm = idx;
+      else if (h.includes('ultimate') && colMap.consUlt === undefined) colMap.consUlt = idx;
+      else if (h.includes('consequence') && colMap.consImm === undefined) colMap.consImm = idx;
+      else if ((h === 'cat' || h.includes('category')) && colMap.category === undefined) colMap.category = idx;
+      else if (h.includes('inherent') && h.includes('s') && colMap.inhS === undefined) colMap.inhS = idx;
+      else if (h.includes('inherent') && h.includes('l') && colMap.inhL === undefined) colMap.inhL = idx;
+      else if ((h.includes('safeguard') || h.includes('protection')) && !h.includes('additional') && colMap.safeguards === undefined) colMap.safeguards = idx;
+      else if (h.includes('mitigated') && h.includes('s') && colMap.mitS === undefined) colMap.mitS = idx;
+      else if (h.includes('mitigated') && h.includes('l') && colMap.mitL === undefined) colMap.mitL = idx;
+      else if ((h.includes('recommendation') || h.includes('additional')) && colMap.recommendations === undefined) colMap.recommendations = idx;
+      else if (h.includes('residual') && h.includes('s') && colMap.resS === undefined) colMap.resS = idx;
+      else if (h.includes('residual') && h.includes('l') && colMap.resL === undefined) colMap.resL = idx;
+      else if (h.includes('remark') && colMap.remarks === undefined) colMap.remarks = idx;
+      else if (h.includes('status') && colMap.status === undefined) colMap.status = idx;
+    });
+  }
+
+  return dataRows.map(row => {
+    if (hasHeaders && Object.keys(colMap).length >= 2) {
+      return {
+        deviationText: colMap.deviation !== undefined ? row[colMap.deviation] || '' : '',
+        causeDescription: colMap.cause !== undefined ? row[colMap.cause] || '' : '',
+        consequencesImmediate: colMap.consImm !== undefined ? row[colMap.consImm] || '' : '',
+        consequencesUltimate: colMap.consUlt !== undefined ? row[colMap.consUlt] || '' : '',
+        category: colMap.category !== undefined ? row[colMap.category] || '' : '',
+        severityInherent: colMap.inhS !== undefined ? row[colMap.inhS] : '',
+        likelihoodInherent: colMap.inhL !== undefined ? row[colMap.inhL] : '',
+        safeguards: colMap.safeguards !== undefined ? row[colMap.safeguards] || '' : '',
+        severityMitigated: colMap.mitS !== undefined ? row[colMap.mitS] : '',
+        likelihoodMitigated: colMap.mitL !== undefined ? row[colMap.mitL] : '',
+        additionalProtection: colMap.recommendations !== undefined ? row[colMap.recommendations] || '' : '',
+        severityResidual: colMap.resS !== undefined ? row[colMap.resS] : '',
+        likelihoodResidual: colMap.resL !== undefined ? row[colMap.resL] : '',
+        remarks: colMap.remarks !== undefined ? row[colMap.remarks] || '' : '',
+        status: colMap.status !== undefined ? row[colMap.status] || 'Open' : 'Open'
+      };
+    }
+
+    const firstColIsNumber = /^\d+(\.\d+)*$/.test(row[0]);
+    const offset = firstColIsNumber ? 1 : 0;
+
+    return {
+      deviationText: row[offset] || '',
+      causeDescription: row[offset + 1] || '',
+      consequencesImmediate: row[offset + 2] || '',
+      consequencesUltimate: row[offset + 3] || '',
+      category: row[offset + 4] || '',
+      severityInherent: row[offset + 5] || '',
+      likelihoodInherent: row[offset + 6] || '',
+      riskInherent: row[offset + 7] || '',
+      safeguards: row[offset + 8] || '',
+      severityMitigated: row[offset + 9] || '',
+      likelihoodMitigated: row[offset + 10] || '',
+      riskMitigated: row[offset + 11] || '',
+      additionalProtection: row[offset + 12] || '',
+      severityResidual: row[offset + 13] || '',
+      likelihoodResidual: row[offset + 14] || '',
+      riskResidual: row[offset + 15] || '',
+      remarks: row[offset + 16] || '',
+      status: row[offset + 17] || 'Open'
+    };
+  }).filter(r => r.deviationText || r.causeDescription || r.consequencesImmediate || r.safeguards);
+};
+
+export const scenariosToTSV = (scList) => {
+  const headers = [
+    'SR.',
+    'DEVIATION',
+    'CAUSE',
+    'CONSEQUENCE (IMMEDIATE)',
+    'CONSEQUENCE (ULTIMATE)',
+    'CAT',
+    'INHERENT S',
+    'INHERENT L',
+    'INHERENT RR',
+    'PRESENT / PLANNED PROTECTION (SAFEGUARDS)',
+    'MITIGATED S',
+    'MITIGATED L',
+    'MITIGATED RR',
+    'ADDITIONAL PROTECTION (RECOMMENDATIONS)',
+    'RESIDUAL S',
+    'RESIDUAL L',
+    'RESIDUAL RR',
+    'REMARKS',
+    'STATUS'
+  ];
+
+  const escapeCell = (c) => {
+    const s = String(c === null || c === undefined ? '' : c).replace(/\r?\n/g, ' ');
+    if (s.includes('\t') || s.includes('"')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const rows = scList.map((sc, i) => {
+    return [
+      escapeCell(sc.badgeDev || (i + 1)),
+      escapeCell(sc.deviationId?.deviationAuto || ''),
+      escapeCell(sc.causeId?.description || ''),
+      escapeCell(sc.consequencesImmediate || ''),
+      escapeCell(sc.consequencesUltimate || ''),
+      escapeCell(sc.category || ''),
+      escapeCell(sc.severityInherent || ''),
+      escapeCell(sc.likelihoodInherent || ''),
+      escapeCell(sc.riskInherent || ''),
+      escapeCell(sc.safeguards || ''),
+      escapeCell(sc.severityMitigated || ''),
+      escapeCell(sc.likelihoodMitigated || ''),
+      escapeCell(sc.riskMitigated || ''),
+      escapeCell(sc.additionalProtection || ''),
+      escapeCell(sc.severityResidual || ''),
+      escapeCell(sc.likelihoodResidual || ''),
+      escapeCell(sc.riskResidual || ''),
+      escapeCell(sc.remarks || ''),
+      escapeCell(sc.status || 'Open')
+    ].join('\t');
+  });
+
+  return [headers.join('\t'), ...rows].join('\r\n');
+};
+
+
 
 
 // A custom Select component that allows adding new options
@@ -112,7 +263,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     selectedTarget: null
   });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
-  const [clipboardRowIds, setClipboardRowIds] = useState([]);
+  const [clipboardScenarios, setClipboardScenarios] = useState(() => {
+    try {
+      const stored = localStorage.getItem('psm_pha_clipboard_scenarios');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed.scenarios)) return parsed.scenarios;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [undoStack, setUndoStack] = useState([]);
   const [undoToast, setUndoToast] = useState(null);
   const [recentlyDeleted, setRecentlyDeleted] = useState(() => {
@@ -1112,6 +1274,27 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           if (targetSc) handleInsertFullRow(targetSc, 'below');
         }
       }
+      // Ctrl+C to copy selected rows when not selecting text inside an input
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName;
+        const hasTextSelected = window.getSelection()?.toString()?.length > 0;
+        if ((tag === 'INPUT' || tag === 'TEXTAREA') && hasTextSelected) {
+          return;
+        }
+        if (selectedRowIds.length > 0) {
+          e.preventDefault();
+          handleCopyRows();
+        }
+      }
+      // Ctrl+V to paste rows when not typing in an input
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') {
+          return;
+        }
+        e.preventDefault();
+        handlePasteRows();
+      }
     };
     const handleWindowClick = () => {
       setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0, scenario: null } : prev);
@@ -1494,23 +1677,270 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     });
   };
 
-  // Copy rows to clipboard (Issue 10)
-  const handleCopyRows = () => {
+  // Copy rows to clipboard (Full Excel TSV + rich JSON)
+  const handleCopyRows = async () => {
     if (selectedRowIds.length === 0) {
       alert('Please select at least one row to copy.');
       return;
     }
-    setClipboardRowIds([...selectedRowIds]);
-    alert(`Copied ${selectedRowIds.length} row(s) to clipboard. You can paste them into this worksheet or another node.`);
-  };
 
-  // Paste rows from clipboard (Issue 10)
-  const handlePasteRows = () => {
-    if (clipboardRowIds.length === 0) {
-      alert('Clipboard is empty. Select rows and click "Copy Rows" first.');
+    const selectedScenarios = processedScenarios.filter(s => selectedRowIds.includes(s._id));
+    if (selectedScenarios.length === 0) {
+      alert('Selected rows could not be found.');
       return;
     }
-    handleDuplicateRows(clipboardRowIds);
+
+    const payload = {
+      type: 'PHA_SCENARIOS_CLIPBOARD_V1',
+      timestamp: Date.now(),
+      studyId: study._id,
+      count: selectedScenarios.length,
+      scenarios: selectedScenarios.map(sc => ({
+        deviationText: sc.deviationId?.deviationAuto || '',
+        guidewords: sc.deviationId?.guidewords || '',
+        parameter: sc.deviationId?.parameter || '',
+        processFlowMaterial: sc.deviationId?.processFlowMaterial || '',
+        locationFrom: sc.deviationId?.locationFrom || '',
+        locationTo: sc.deviationId?.locationTo || '',
+        causeDescription: sc.causeId?.description || '',
+        causeEquipment: sc.causeId?.equipment || '',
+        causeInstrument: sc.causeId?.instrument || '',
+        consequencesImmediate: sc.consequencesImmediate || '',
+        consequencesUltimate: sc.consequencesUltimate || '',
+        category: sc.category || '',
+        severityInherent: sc.severityInherent,
+        likelihoodInherent: sc.likelihoodInherent,
+        riskInherent: sc.riskInherent || '',
+        safeguards: sc.safeguards || '',
+        severityMitigated: sc.severityMitigated,
+        likelihoodMitigated: sc.likelihoodMitigated,
+        riskMitigated: sc.riskMitigated || '',
+        additionalProtection: sc.additionalProtection || '',
+        recommendationNo: sc.recommendationNo || '',
+        severityResidual: sc.severityResidual,
+        likelihoodResidual: sc.likelihoodResidual,
+        riskResidual: sc.riskResidual || '',
+        remarks: sc.remarks || '',
+        status: sc.status || 'Open',
+        lopaRequired: !!sc.lopaRequired,
+        consequenceGroupId: sc.consequenceGroupId,
+        safeguardGroupId: sc.safeguardGroupId
+      }))
+    };
+
+    try {
+      localStorage.setItem('psm_pha_clipboard_scenarios', JSON.stringify(payload));
+    } catch (e) {
+      console.warn('LocalStorage error:', e);
+    }
+
+    setClipboardScenarios(payload.scenarios);
+
+    const tsvText = scenariosToTSV(selectedScenarios);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(tsvText);
+      }
+    } catch (e) {
+      console.warn('Clipboard write error:', e);
+    }
+
+    setUndoToast({
+      message: `📋 Copied ${selectedScenarios.length} row(s) to clipboard! You can paste into another node, worksheet, or Excel (Ctrl+V).`,
+      isSuccess: true
+    });
+  };
+
+  // Paste rows from clipboard (Supports both Excel TSV and PHA Worksheet copy)
+  const handlePasteRows = async () => {
+    if (!selectedNodeId) {
+      alert('Please select a Node first to paste rows into.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      let rowsToPaste = null;
+
+      let clipboardText = '';
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          clipboardText = await navigator.clipboard.readText();
+        }
+      } catch (err) {
+        console.warn('Could not read system clipboard:', err);
+      }
+
+      if (clipboardText && clipboardText.includes('"PHA_SCENARIOS_CLIPBOARD_V1"')) {
+        try {
+          const parsed = JSON.parse(clipboardText);
+          if (Array.isArray(parsed.scenarios) && parsed.scenarios.length > 0) {
+            rowsToPaste = parsed.scenarios;
+          }
+        } catch (e) {}
+      }
+
+      if (!rowsToPaste && clipboardText && (clipboardText.includes('\t') || clipboardText.includes('\n'))) {
+        const parsedRows = parseExcelTSV(clipboardText);
+        if (parsedRows.length > 0) {
+          rowsToPaste = parsedRows;
+        }
+      }
+
+      if (!rowsToPaste) {
+        try {
+          const stored = localStorage.getItem('psm_pha_clipboard_scenarios');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed.scenarios) && parsed.scenarios.length > 0) {
+              rowsToPaste = parsed.scenarios;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!rowsToPaste && clipboardScenarios && clipboardScenarios.length > 0) {
+        rowsToPaste = clipboardScenarios;
+      }
+
+      if (!rowsToPaste || rowsToPaste.length === 0) {
+        alert('Clipboard is empty! Select rows and click Copy, or copy tabular data from Excel first.');
+        setLoading(false);
+        return;
+      }
+
+      const targetAfterId = selectedRowIds.length > 0 ? selectedRowIds[selectedRowIds.length - 1] : null;
+
+      let pastedScenarios = [];
+      let usedFallback = false;
+
+      try {
+        const bulkRes = await fetch(`${apiUrl}/api/scenarios/${study._id}/bulk-paste`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            targetNodeId: selectedNodeId,
+            insertAfterScenarioId: targetAfterId,
+            rows: rowsToPaste
+          })
+        });
+
+        if (bulkRes.ok) {
+          pastedScenarios = await bulkRes.json();
+        } else {
+          usedFallback = true;
+        }
+      } catch (err) {
+        usedFallback = true;
+      }
+
+      if (usedFallback) {
+        const devCache = new Map();
+        const causeCache = new Map();
+
+        for (const row of rowsToPaste) {
+          const devText = (row.deviationText || row.deviation || '').trim();
+          const causeText = (row.causeDescription || row.cause || '').trim();
+
+          let devId = null;
+          if (devText && devCache.has(devText)) {
+            devId = devCache.get(devText);
+          } else {
+            const devRes = await fetch(`${apiUrl}/api/deviations/${study._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ deviationAuto: devText, parameter: devText })
+            });
+            const newDev = await devRes.json();
+            if (newDev?._id) {
+              await fetch(`${apiUrl}/api/deviations/${newDev._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ deviationAuto: devText, parameter: devText })
+              });
+              devId = newDev._id;
+              devCache.set(devText, devId);
+            }
+          }
+
+          let causeId = null;
+          const causeKey = `${devText}:::${causeText}`;
+          if (causeText && causeCache.has(causeKey)) {
+            causeId = causeCache.get(causeKey);
+          } else {
+            const causeRes = await fetch(`${apiUrl}/api/causes/${study._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ description: causeText })
+            });
+            const newCause = await causeRes.json();
+            if (newCause?._id) {
+              causeId = newCause._id;
+              causeCache.set(causeKey, causeId);
+            }
+          }
+
+          const scRes = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              nodeId: selectedNodeId,
+              deviationId: devId,
+              causeId: causeId,
+              consequencesImmediate: row.consequencesImmediate || '',
+              consequencesUltimate: row.consequencesUltimate || '',
+              category: row.category || '',
+              severityInherent: row.severityInherent || null,
+              likelihoodInherent: row.likelihoodInherent || null,
+              riskInherent: row.riskInherent || '',
+              safeguards: row.safeguards || '',
+              severityMitigated: row.severityMitigated || null,
+              likelihoodMitigated: row.likelihoodMitigated || null,
+              riskMitigated: row.riskMitigated || '',
+              additionalProtection: row.additionalProtection || '',
+              recommendationNo: row.recommendationNo || '',
+              severityResidual: row.severityResidual || null,
+              likelihoodResidual: row.likelihoodResidual || null,
+              riskResidual: row.riskResidual || '',
+              remarks: row.remarks || '',
+              status: row.status || 'Open',
+              consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+            })
+          });
+          if (scRes.ok) {
+            const scData = await scRes.json();
+            pastedScenarios.push(scData);
+          }
+        }
+      }
+
+      await fetchScenarios(selectedNodeId);
+      if (pastedScenarios.length > 0) {
+        setSelectedRowIds(pastedScenarios.map(s => s._id));
+        const firstPastedId = pastedScenarios[0]._id;
+        setTimeout(() => {
+          const rowEl = document.getElementById(`scenario-row-${firstPastedId}`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            rowEl.classList.add('row-just-added');
+            setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
+          }
+        }, 300);
+      }
+
+      setUndoToast({
+        message: `📋 Successfully pasted ${rowsToPaste.length} row(s) into this worksheet!`,
+        isSuccess: true
+      });
+    } catch (err) {
+      console.error('Error pasting rows:', err);
+      alert('Failed to paste rows. Please check connection and clipboard permissions.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Duplicate entire worksheet / node (Issue 3)
@@ -3840,11 +4270,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <button 
               className="toolbar-btn" 
               onClick={handlePasteRows} 
-              disabled={clipboardRowIds.length === 0}
-              title="Paste copied rows into this worksheet"
-              style={{fontSize: '12px', color: clipboardRowIds.length > 0 ? '#2563eb' : 'inherit'}}
+              disabled={!selectedNodeId}
+              title="Paste copied rows from worksheet or Excel (Ctrl+V)"
+              style={{
+                fontSize: '12px', 
+                color: (clipboardScenarios && clipboardScenarios.length > 0) ? '#2563eb' : 'inherit',
+                fontWeight: (clipboardScenarios && clipboardScenarios.length > 0) ? '600' : 'normal'
+              }}
             >
-              📋 Paste {clipboardRowIds.length > 0 ? `(${clipboardRowIds.length})` : ''}
+              📋 Paste {(clipboardScenarios && clipboardScenarios.length > 0) ? `(${clipboardScenarios.length})` : ''}
             </button>
           )}
 
@@ -5049,8 +5483,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   const sc = contextMenu.scenario;
                   setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
                   setSelectedRowIds([sc._id]);
-                  setClipboardRowIds([sc._id]);
-                  alert('Copied 1 row to clipboard.');
+                  handleDuplicateRows([sc._id], sc._id);
                 }}
               >
                 <span>📄</span> Copy Row

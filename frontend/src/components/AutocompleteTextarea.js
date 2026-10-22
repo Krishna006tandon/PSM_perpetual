@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import './AutocompleteTextarea.css';
 
+const getItemText = (item) => {
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  return item.text || '';
+};
+
 const AutocompleteTextarea = ({
   value,
   onChange,
@@ -9,6 +15,7 @@ const AutocompleteTextarea = ({
   onKeyDown,
   onFocus,
   suggestions = [],
+  dropdownMode = false,
   disabled,
   style,
   className,
@@ -81,14 +88,55 @@ const AutocompleteTextarea = ({
     };
   }, [adjustHeight]);
 
+  const filterDropdownSuggestions = useCallback((query) => {
+    if (!Array.isArray(suggestions)) return [];
+    const q = (query || '').trim().toLowerCase();
+    if (!q || q === 'of from to') {
+      return suggestions;
+    }
+    const filtered = suggestions.filter(item => {
+      if (item.isHeader) return false;
+      const text = getItemText(item).toLowerCase();
+      const num = item.num ? String(item.num) : '';
+      return text.includes(q) || num === q;
+    });
+    return filtered.length > 0 ? filtered : suggestions;
+  }, [suggestions]);
+
+  const handleFocusInternal = (e) => {
+    if (onFocus) onFocus(e);
+    if (dropdownMode && Array.isArray(suggestions) && suggestions.length > 0) {
+      setFilteredSuggestions(suggestions);
+      setShowSuggestions(true);
+      const currentText = (value || '').trim().toLowerCase();
+      const selectable = suggestions.filter(s => !s.isHeader);
+      const idx = selectable.findIndex(s => getItemText(s).toLowerCase() === currentText);
+      setActiveSuggestionIndex(idx >= 0 ? idx : 0);
+    }
+  };
+
+  const handleClickInternal = () => {
+    if (dropdownMode && Array.isArray(suggestions) && suggestions.length > 0) {
+      setFilteredSuggestions(suggestions);
+      setShowSuggestions(true);
+    }
+  };
+
   const handleChange = (e) => {
     if (onChange) onChange(e);
     adjustHeight();
 
     const text = e.target.value;
-    const cursorPosition = e.target.selectionStart;
 
-    // Get text before cursor and find the last word
+    if (dropdownMode) {
+      const list = filterDropdownSuggestions(text);
+      setFilteredSuggestions(list);
+      setShowSuggestions(true);
+      setActiveSuggestionIndex(0);
+      return;
+    }
+
+    const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = text.substring(0, cursorPosition);
     const match = textBeforeCursor.match(/[a-zA-Z0-9_]+$/);
 
@@ -118,6 +166,21 @@ const AutocompleteTextarea = ({
 
   const insertSuggestion = (suggestion) => {
     if (!textareaRef.current) return;
+
+    if (dropdownMode) {
+      const selectedText = getItemText(suggestion);
+      if (onChange) onChange({ target: { value: selectedText } });
+      if (onBlur) onBlur({ target: { value: selectedText } });
+      setShowSuggestions(false);
+      setTimeout(() => {
+        adjustHeight();
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 0);
+      return;
+    }
+
     const text = textareaRef.current.value;
     const cursorPosition = textareaRef.current.selectionStart;
     const textBeforeCursor = text.substring(0, cursorPosition);
@@ -148,20 +211,20 @@ const AutocompleteTextarea = ({
 
   const handleKeyDown = (e) => {
     if (showSuggestions) {
+      const selectable = filteredSuggestions.filter(s => !s.isHeader);
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setActiveSuggestionIndex(
-          (prevIndex) => (prevIndex + 1) % filteredSuggestions.length
-        );
+        setActiveSuggestionIndex((prevIndex) => (prevIndex + 1) % (selectable.length || 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setActiveSuggestionIndex(
-          (prevIndex) => (prevIndex - 1 + filteredSuggestions.length) % filteredSuggestions.length
-        );
+        setActiveSuggestionIndex((prevIndex) => (prevIndex - 1 + (selectable.length || 1)) % (selectable.length || 1));
       } else if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        const selected = filteredSuggestions[activeSuggestionIndex];
-        insertSuggestion(selected);
+        const selectable = filteredSuggestions.filter(s => !s.isHeader);
+        if (selectable.length > 0) {
+          e.preventDefault();
+          const selected = selectable[activeSuggestionIndex] || selectable[0];
+          insertSuggestion(selected);
+        }
       } else if (e.key === 'Escape') {
         setShowSuggestions(false);
       }
@@ -171,6 +234,7 @@ const AutocompleteTextarea = ({
   };
 
   const handleSuggestionClick = (suggestion) => {
+    if (suggestion.isHeader) return;
     insertSuggestion(suggestion);
   };
 
@@ -208,27 +272,91 @@ const AutocompleteTextarea = ({
         onBlur={(e) => {
           if (onBlur) onBlur(e);
         }}
-        onFocus={onFocus}
+        onFocus={handleFocusInternal}
+        onClick={handleClickInternal}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         data-gramm="false"
         spellCheck={true}
       />
       {showSuggestions && (
-        <ul className="suggestions-list">
-          {filteredSuggestions.map((suggestion, index) => {
+        <ul className="suggestions-list" style={{ maxHeight: '280px', overflowY: 'auto', zIndex: 9999 }}>
+          {filteredSuggestions.map((item, index) => {
+            if (item.isHeader) {
+              return (
+                <li
+                  key={`header-${index}`}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#94a3b8',
+                    padding: '6px 10px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    borderTop: '1px solid #334155',
+                    borderBottom: '1px solid #334155',
+                    cursor: 'default',
+                    userSelect: 'none',
+                    textAlign: 'center'
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  ⚡ {item.text}
+                </li>
+              );
+            }
+
+            const itemText = getItemText(item);
+            const selectable = filteredSuggestions.filter(s => !s.isHeader);
+            const selectableIndex = selectable.indexOf(item);
             let itemClassName = "suggestion-item";
-            if (index === activeSuggestionIndex) {
+            if (selectableIndex === activeSuggestionIndex) {
               itemClassName += " suggestion-active";
             }
+
+            const isCurrentVal = (value || '').trim().toLowerCase() === itemText.toLowerCase();
+
             return (
               <li
                 className={itemClassName}
-                key={suggestion}
-                onClick={() => handleSuggestionClick(suggestion)}
-                title={suggestion}
+                key={`sugg-${item.num || index}-${itemText}`}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // prevent blur so click registers reliably
+                  handleSuggestionClick(item);
+                }}
+                title={itemText}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '7px 12px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #f1f5f9'
+                }}
               >
-                {suggestion}
+                {item.num && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '22px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    backgroundColor: item.num <= 10 ? '#dbeafe' : '#fef3c7',
+                    color: item.num <= 10 ? '#1e40af' : '#92400e',
+                    fontSize: '11px',
+                    fontWeight: '700'
+                  }}>
+                    {item.num}
+                  </span>
+                )}
+                <span style={{ fontWeight: isCurrentVal ? '700' : '500', color: '#1e293b', flex: 1 }}>
+                  {itemText}
+                </span>
+                {isCurrentVal && (
+                  <span style={{ color: '#10b981', fontSize: '13px', fontWeight: 'bold' }}>✓</span>
+                )}
               </li>
             );
           })}

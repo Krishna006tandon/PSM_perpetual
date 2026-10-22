@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
+import TolerabilityMatrixModal, { getTolerabilityMatrix } from '../components/TolerabilityMatrixModal';
 import {
   getLopaMapping,
   getScenarioText,
@@ -20,6 +21,76 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
   const [loading, setLoading] = useState(true);
   const [selectedNodeFilter, setSelectedNodeFilter] = useState('ALL');
   const [lopaMapping, setLopaMapping] = useState(() => getLopaMapping());
+  const [isTolerabilityModalOpen, setIsTolerabilityModalOpen] = useState(false);
+  const [studyCriteria, setStudyCriteria] = useState(null);
+  const [tolerabilityMatrix, setTolerabilityMatrix] = useState(() => {
+    return getTolerabilityMatrix(study._id, null);
+  });
+  const [columnPreset, setColumnPreset] = useState(() => {
+    const stored = localStorage.getItem('lopa_column_preset');
+    return (stored === 'advanced' || stored === 'haz360') ? 'advanced' : 'standard';
+  });
+
+  const handlePresetChange = (preset) => {
+    setColumnPreset(preset);
+    localStorage.setItem('lopa_column_preset', preset);
+  };
+
+  const isAdvanced = columnPreset === 'advanced' || columnPreset === 'haz360';
+
+  const getSuggestedSIL = (rrfVal) => {
+    const r = parseFloat(rrfVal);
+    if (!r || r <= 1) return '';
+    if (r < 10) return '<1';
+    if (r >= 10 && r < 100) return '1';
+    if (r >= 100 && r < 1000) return '2';
+    if (r >= 1000 && r < 10000) return '3';
+    return '4';
+  };
+
+  const getRtfForSeverity = (sev) => {
+    if (!sev && sev !== 0) return '';
+    const num = parseInt(sev.toString().replace(/\D/g, ''), 10);
+    if (isNaN(num)) return '';
+    const match = tolerabilityMatrix.find(m => m.level === num);
+    return match ? match.rtf : '';
+  };
+
+  const handleBatchApplyRtf = async (updatedMatrix) => {
+    setTolerabilityMatrix(updatedMatrix);
+    const updatedScenarios = scenarios.map(sc => {
+      const sev = getSeverityValue(sc, lopaMapping);
+      const num = parseInt((sev || '').toString().replace(/\D/g, ''), 10);
+      const match = updatedMatrix.find(m => m.level === num);
+      if (match && match.rtf && !sc.lopaData?.tolerance) {
+        return {
+          ...sc,
+          lopaData: {
+            ...sc.lopaData,
+            tolerance: match.rtf
+          }
+        };
+      }
+      return sc;
+    });
+    setScenarios(updatedScenarios);
+
+    // Persist changes to server
+    try {
+      const token = localStorage.getItem('token');
+      for (const sc of updatedScenarios) {
+        if (sc.lopaData?.tolerance) {
+          await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ lopaData: sc.lopaData })
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to batch save tolerance RTF:', err);
+    }
+  };
 
   useEffect(() => {
     const handleMappingChange = () => {
@@ -90,6 +161,15 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (nodeRes.ok) setNodes(await nodeRes.json());
+
+      const critRes = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (critRes.ok) {
+        const critData = await critRes.json();
+        setStudyCriteria(critData);
+        setTolerabilityMatrix(getTolerabilityMatrix(study._id, critData));
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -296,7 +376,9 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     const scCol = (lopaMapping.scenarioLabel || 'Scenario').toUpperCase();
     const ieCol = (lopaMapping.initiatingEventLabel || 'Initiating Event').toUpperCase();
     const iplCol = (lopaMapping.iplLabel || 'IPL').toUpperCase();
-    let csv = `SR.,NODE,DEVIATION,${scCol},${ieCol},FREQ OF INITIATING EVENT,SEVERITY,CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL NO,${iplCol},IPL CREDITS,TOTAL IPL CREDIT,TOLERANCE,RRF,REQUIRED SIL,RECOMMENDATION,REC CREDIT,TOTAL REC CREDIT,REC TOLERANCE,REC RRF,REC REQUIRED SIL\n`;
+    let csv = isAdvanced
+      ? `LOPA ID,NODE,CONSEQUENCE DESCRIPTION,INITIATING EVENT,IEF (PER YR),SEVERITY (S),CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL TAG,IPL DESCRIPTION,IPL PFD,MEF,RTF,RRF,TARGET SIL,PROPOSED SIF / RECOMMENDATION,REC PFD,FINAL MITIGATED FREQUENCY,RTF,RESIDUAL RRF,RESIDUAL SIL\n`
+      : `SR.,NODE,${scCol},${ieCol},FREQ OF INITIATING EVENT,SEVERITY,CM PFD,CM TIME AT RISK,CM OCCUPANCY,IPL NO,${iplCol},IPL CREDITS,TOTAL IPL CREDIT,TOLERANCE,RRF,REQUIRED SIL,RECOMMENDATION,REC CREDIT,TOTAL REC CREDIT,REC TOLERANCE,REC RRF,REC REQUIRED SIL\n`;
     formattedScenarios.forEach((sc) => {
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
       const nodeName = sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`;
@@ -329,7 +411,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       csv += [
         escape(sc.badgeCons),
         escape(nodeName),
-        escape(sc.deviationId?.deviationAuto),
         escape(getScenarioText(sc, lopaMapping)),
         escape(getInitiatingEventText(sc, lopaMapping)),
         escape(sc.lopaData?.freqOfInitiatingEvent),
@@ -343,7 +424,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         escape(totalIplCredit),
         escape(sc.lopaData?.tolerance),
         escape(rrf1),
-        escape(sc.lopaData?.recommendationRequiredSil),
+        escape(sc.lopaData?.requiredSil || (isAdvanced ? getSuggestedSIL(rrf1) : '')),
         escape(recText),
         escape(recCreditText),
         escape(totalRecCredit),
@@ -378,23 +459,22 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
     
     const head = [
       [
-        { content: 'SN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: isAdvanced ? 'LOPA ID' : 'SN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Node', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Deviation', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: lopaMapping.scenarioLabel || 'Scenario', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: lopaMapping.initiatingEventLabel || 'Initiating Event', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Freq', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Sev', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Cond. Modifiers', colSpan: 3, styles: { halign: 'center' } },
-        { content: lopaMapping.iplLabel || 'Independent Protection Layers (IPL)', colSpan: 4, styles: { halign: 'center' } },
-        { content: 'RRF & SIL', colSpan: 3, styles: { halign: 'center' } },
-        { content: 'Recommendations & Mitigated Risk', colSpan: 6, styles: { halign: 'center' } }
+        { content: isAdvanced ? 'Consequence Description' : (lopaMapping.scenarioLabel || 'Scenario'), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: isAdvanced ? 'Initiating Event (IE)' : (lopaMapping.initiatingEventLabel || 'Initiating Event'), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: isAdvanced ? 'IEF' : 'Freq', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: isAdvanced ? 'Sev (S)' : 'Sev', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: isAdvanced ? 'Cond. Modifiers (CM)' : 'Cond. Modifiers', colSpan: 3, styles: { halign: 'center' } },
+        { content: isAdvanced ? 'IPLs (Existing Safeguards)' : (lopaMapping.iplLabel || 'Independent Protection Layers (IPL)'), colSpan: 4, styles: { halign: 'center' } },
+        { content: isAdvanced ? 'MEF, RTF & SIL' : 'RRF & SIL', colSpan: 3, styles: { halign: 'center' } },
+        { content: isAdvanced ? 'Proposed SIF & Residual Risk' : 'Recommendations & Mitigated Risk', colSpan: 6, styles: { halign: 'center' } }
       ],
       [
-        'PFD', 'Time', 'Occ',
-        'No', 'IPL', 'Credit', 'Total',
-        'Tol', 'RRF', 'SIL',
-        'Rec', 'Credit', 'Total', 'Tol', 'RRF', 'SIL'
+        isAdvanced ? 'Pe' : 'PFD', isAdvanced ? 'Pt' : 'Time', isAdvanced ? 'Po' : 'Occ',
+        isAdvanced ? 'Tag' : 'No', 'IPL', isAdvanced ? 'PFD' : 'Credit', isAdvanced ? 'MEF' : 'Total',
+        isAdvanced ? 'RTF' : 'Tol', 'RRF', isAdvanced ? 'Target SIL' : 'SIL',
+        isAdvanced ? 'SIF / Rec' : 'Rec', isAdvanced ? 'PFD' : 'Credit', isAdvanced ? 'FMF' : 'Total', isAdvanced ? 'RTF' : 'Tol', isAdvanced ? 'Res. RRF' : 'RRF', isAdvanced ? 'Res. SIL' : 'SIL'
       ]
     ];
 
@@ -426,7 +506,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
 
       const nodeName = sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`;
       return [
-        sc.badgeCons || '', nodeName, sc.deviationId?.deviationAuto || '', getScenarioText(sc, lopaMapping), getInitiatingEventText(sc, lopaMapping),
+        sc.badgeCons || '', nodeName, getScenarioText(sc, lopaMapping), getInitiatingEventText(sc, lopaMapping),
         sc.lopaData?.freqOfInitiatingEvent || '', getSeverityValue(sc, lopaMapping), 
         sc.lopaData?.cmPfd || '', sc.lopaData?.cmTimeAtRisk || '', sc.lopaData?.cmOccupancy || '',
         sc.badgeSafe || sc.lopaData?.iplNo || '', getIplText(sc, lopaMapping), sc.lopaData?.iplCredit || '', totalIplCredit,
@@ -493,6 +573,57 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
             <span className="icon">⚙️</span> LOPA MAPPING
           </button>
 
+          <button 
+            className="btn-manage-columns" 
+            onClick={() => setIsTolerabilityModalOpen(true)} 
+            style={{backgroundColor: '#0891b2', color: 'white', border: 'none'}}
+            title="View & Configure Risk Tolerability Criteria (Severity vs RTF Matrix)"
+          >
+            <span className="icon">🎯</span> TOLERABILITY MATRIX
+          </button>
+
+          {/* Format Selector: Standard (PSM) vs CCPS / IEC Format */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-secondary, #f1f5f9)', padding: '3px 6px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary, #64748b)', padding: '0 4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Format:
+            </span>
+            <button
+              type="button"
+              onClick={() => handlePresetChange('standard')}
+              style={{
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontSize: '12px',
+                fontWeight: columnPreset === 'standard' ? '600' : '500',
+                backgroundColor: columnPreset === 'standard' ? '#0284c7' : 'transparent',
+                color: columnPreset === 'standard' ? '#ffffff' : 'var(--text-primary, #334155)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Standard (PSM)
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePresetChange('advanced')}
+              title="CCPS / IEC 61511 Industrial Standard Format (MEF, RTF, FMF, Target SIL)"
+              style={{
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontSize: '12px',
+                fontWeight: isAdvanced ? '600' : '500',
+                backgroundColor: isAdvanced ? '#7c3aed' : 'transparent',
+                color: isAdvanced ? '#ffffff' : 'var(--text-primary, #334155)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              ⚡ CCPS / IEC Format
+            </button>
+          </div>
+
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>FILTER NODE:</span>
             <select
@@ -522,35 +653,127 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
           <table className="dynamic-table lopa-table" style={{ borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
             <thead>
               <tr>
-                <th rowSpan="2" style={{width:'40px'}}>SN</th>
+                <th rowSpan="2" style={{width:'40px'}} title={isAdvanced ? "LOPA Scenario Identifier" : "Scenario Number"}>
+                  {isAdvanced ? 'LOPA ID' : 'SN'}
+                </th>
                 <th rowSpan="2" style={{minWidth:'140px'}}>Node</th>
-                <th rowSpan="2" style={{minWidth:'150px'}}>Deviation</th>
-                <th rowSpan="2" style={{minWidth:'220px'}}>{lopaMapping.scenarioLabel || 'Scenario'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.scenarioSource)})</span></th>
-                <th rowSpan="2" style={{minWidth:'200px'}}>{lopaMapping.initiatingEventLabel || 'Initiating Event'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.initiatingEventSource)})</span></th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Freq of Initiating Event</th>
-                <th rowSpan="2" style={{width:'80px'}}>Severity<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({lopaMapping.severitySource === 'manual' ? 'Manual' : lopaMapping.severitySource.replace('RiskS', ' (S)')})</span></th>
-                <th colSpan="3" style={{textAlign:'center', background:'var(--surface-hover)'}}>Condition Modifiers</th>
-                <th rowSpan="2" style={{width:'60px'}}>IPL No</th>
-                <th rowSpan="2" style={{minWidth:'250px'}}>{lopaMapping.iplLabel || 'Independent Protection Layer (IPL)'}<br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.iplSource)})</span></th>
-                <th rowSpan="2" style={{width:'80px'}}>IPL Credits</th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Total IPL Credit</th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Tolerance</th>
-                <th rowSpan="2" style={{width:'80px'}}>RRF</th>
-                <th rowSpan="2" style={{width:'80px'}}>Required SIL</th>
-                <th rowSpan="2" style={{minWidth:'250px'}}>Recommendation</th>
-                <th rowSpan="2" style={{width:'80px'}}>Rec Credit</th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Total Credit</th>
-                <th rowSpan="2" style={{minWidth:'100px'}}>Tolerance</th>
-                <th rowSpan="2" style={{width:'80px'}}>RRF</th>
-                <th rowSpan="2" style={{width:'80px'}}>Required SIL</th>
+                <th rowSpan="2" style={{minWidth:'220px'}}>
+                  {isAdvanced ? 'Consequence Description' : (lopaMapping.scenarioLabel || 'Scenario')}
+                  <br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.scenarioSource)})</span>
+                </th>
+                <th rowSpan="2" style={{minWidth:'200px'}}>
+                  {isAdvanced ? 'Initiating Event (IE)' : (lopaMapping.initiatingEventLabel || 'Initiating Event')}
+                  <br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.initiatingEventSource)})</span>
+                </th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>
+                  {isAdvanced ? (
+                    <>
+                      IEF (per yr)<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Initiating Event Freq)</span>
+                    </>
+                  ) : 'Freq of Initiating Event'}
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? 'Severity (S)' : 'Severity'}
+                  <br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({lopaMapping.severitySource === 'manual' ? 'Manual' : lopaMapping.severitySource.replace('RiskS', ' (S)')})</span>
+                </th>
+                <th colSpan="3" style={{textAlign:'center', background:'var(--surface-hover)'}}>
+                  {isAdvanced ? 'Conditional Modifiers (CM)' : 'Condition Modifiers'}
+                </th>
+                <th rowSpan="2" style={{width:'60px'}}>
+                  {isAdvanced ? 'IPL Tag' : 'IPL No'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'250px'}}>
+                  {isAdvanced ? 'IPL Description (Existing)' : (lopaMapping.iplLabel || 'Independent Protection Layer (IPL)')}
+                  <br/><span style={{fontSize:'8.5px', fontWeight:'normal'}}>({findFieldLabel(lopaMapping.iplSource)})</span>
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? (
+                    <>
+                      IPL PFD<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Risk Reduction)</span>
+                    </>
+                  ) : 'IPL Credits'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>
+                  {isAdvanced ? (
+                    <>
+                      MEF<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Mitigated Event Freq)</span>
+                    </>
+                  ) : 'Total IPL Credit'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>
+                  {isAdvanced ? (
+                    <>
+                      RTF<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Risk Tolerance Freq)</span>
+                    </>
+                  ) : 'Tolerance'}
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  RRF<br/>
+                  <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(MEF / RTF)</span>
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? (
+                    <>
+                      Target SIL<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Required SIF)</span>
+                    </>
+                  ) : 'Required SIL'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'250px'}}>
+                  {isAdvanced ? 'Proposed SIF / Recommendation' : 'Recommendation'}
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? (
+                    <>
+                      Rec PFD<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Credit)</span>
+                    </>
+                  ) : 'Rec Credit'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>
+                  {isAdvanced ? (
+                    <>
+                      FMF<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Final Mitigated Freq)</span>
+                    </>
+                  ) : 'Total Credit'}
+                </th>
+                <th rowSpan="2" style={{minWidth:'100px'}}>
+                  {isAdvanced ? (
+                    <>
+                      RTF<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Post-Mitigation)</span>
+                    </>
+                  ) : 'Tolerance'}
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? (
+                    <>
+                      Residual RRF<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Residual Gap)</span>
+                    </>
+                  ) : 'RRF'}
+                </th>
+                <th rowSpan="2" style={{width:'80px'}}>
+                  {isAdvanced ? (
+                    <>
+                      Residual SIL<br/>
+                      <span style={{fontSize:'8.5px', fontWeight:'normal'}}>(Target SIL)</span>
+                    </>
+                  ) : 'Required SIL'}
+                </th>
                 {columns.filter(c => !c.isSystem).map(col => (
                   <th key={col.id} rowSpan="2" className="col-custom">{col.label}</th>
                 ))}
               </tr>
               <tr>
-                <th style={{width:'60px', fontSize:'11px'}}>PFD</th>
-                <th style={{width:'60px', fontSize:'11px'}}>Time at Risk</th>
-                <th style={{width:'60px', fontSize:'11px'}}>Occupancy</th>
+                <th style={{width:'60px', fontSize:'11px'}}>{isAdvanced ? 'PFD (Pe)' : 'PFD'}</th>
+                <th style={{width:'60px', fontSize:'11px'}}>{isAdvanced ? 'Time (Pt)' : 'Time at Risk'}</th>
+                <th style={{width:'60px', fontSize:'11px'}}>{isAdvanced ? 'Occ (Po)' : 'Occupancy'}</th>
               </tr>
             </thead>
             <tbody>
@@ -658,7 +881,6 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                               {sc.nodeId?.description ? `${nodeMap.get(sc.nodeId?._id) || 1}. ${sc.nodeId.description}` : `Node ${nodeMap.get(sc.nodeId?._id) || 1}`}
                             </span>
                           </td>
-                          <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>{sc.badgeDev} {sc.deviationId?.deviationAuto || ''}</td>
                           <td rowSpan={sc.consSpanCount} style={{whiteSpace:'normal'}}>
                             <strong style={{color: '#b91c1c'}}>{sc.badgeCons}</strong> {getScenarioText(sc, lopaMapping)}
                           </td>
@@ -743,23 +965,71 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                             {totalIplCredit}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                                type="number" style={{width:'100%'}}
+                            <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                              <input disabled={!canEdit} data-gramm="false" spellcheck="false" 
+                                type="text" style={{width:'100%', textAlign: 'center'}}
+                                placeholder={getRtfForSeverity(getSeverityValue(sc, lopaMapping)) || (isAdvanced ? 'RTF' : 'Tolerance')}
+                                title={getRtfForSeverity(getSeverityValue(sc, lopaMapping)) ? `Tolerability Matrix RTF for Severity ${getSeverityValue(sc, lopaMapping)}: ${getRtfForSeverity(getSeverityValue(sc, lopaMapping))} (Click 🎯 to apply)` : 'Target Risk Tolerance Frequency'}
                                 value={sc.lopaData?.tolerance || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'tolerance', e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
                               />
+                              {!sc.lopaData?.tolerance && getRtfForSeverity(getSeverityValue(sc, lopaMapping)) && canEdit && (
+                                <button
+                                  type="button"
+                                  title={`Auto-apply Tolerability Matrix RTF (${getRtfForSeverity(getSeverityValue(sc, lopaMapping))})`}
+                                  onClick={() => handleLopaChange(sc._id, 'tolerance', getRtfForSeverity(getSeverityValue(sc, lopaMapping)))}
+                                  style={{
+                                    position: 'absolute',
+                                    right: '2px',
+                                    fontSize: '9px',
+                                    padding: '1px 3px',
+                                    background: '#0284c7',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  🎯
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
                             {rrf1}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                                type="number" style={{width:'100%'}}
+                            <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                              <input disabled={!canEdit} data-gramm="false" spellcheck="false" 
+                                type="number" style={{width:'100%', textAlign: 'center'}}
+                                placeholder={getSuggestedSIL(rrf1) ? `SIL ${getSuggestedSIL(rrf1)}` : 'SIL'}
+                                title={getSuggestedSIL(rrf1) ? `IEC 61511 / CCPS Suggested Target: SIL ${getSuggestedSIL(rrf1)} (Click badge to apply)` : 'Required SIL'}
                                 value={sc.lopaData?.requiredSil || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'requiredSil', e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
                               />
+                              {!sc.lopaData?.requiredSil && getSuggestedSIL(rrf1) && canEdit && (
+                                <button
+                                  type="button"
+                                  title={`Auto-apply CCPS calculated SIL ${getSuggestedSIL(rrf1)}`}
+                                  onClick={() => handleLopaChange(sc._id, 'requiredSil', getSuggestedSIL(rrf1))}
+                                  style={{
+                                    position: 'absolute',
+                                    right: '2px',
+                                    fontSize: '9px',
+                                    padding: '1px 3px',
+                                    background: '#7c3aed',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ⚡
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </>
                       )}
@@ -802,19 +1072,43 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                           <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
                             {totalRecCredit}
                           </td>
-                          <td rowSpan={sc.consSpanCount}>
-                             {sc.lopaData?.tolerance || ''}
+                          <td rowSpan={sc.consSpanCount} style={{textAlign:'center', fontWeight:'600'}}>
+                             {sc.lopaData?.tolerance || getRtfForSeverity(getSeverityValue(sc, lopaMapping)) || ''}
                           </td>
                           <td rowSpan={sc.consSpanCount} style={{background:'rgba(34, 197, 94, 0.1)', fontWeight:'bold', textAlign:'center'}}>
                             {rrf2}
                           </td>
                           <td rowSpan={sc.consSpanCount}>
-                             <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                                type="number" style={{width:'100%'}}
+                            <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                              <input disabled={!canEdit} data-gramm="false" spellcheck="false" 
+                                type="number" style={{width:'100%', textAlign: 'center'}}
+                                placeholder={rrf2 && parseFloat(rrf2) <= 1 ? 'Satisfied' : (getSuggestedSIL(rrf2) ? `SIL ${getSuggestedSIL(rrf2)}` : 'SIL')}
+                                title={rrf2 && parseFloat(rrf2) <= 1 ? 'Residual Risk Tolerable (No further SIL required)' : `Residual Target: SIL ${getSuggestedSIL(rrf2)}`}
                                 value={sc.lopaData?.recommendationRequiredSil || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, 'recommendationRequiredSil', e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
                               />
+                              {!sc.lopaData?.recommendationRequiredSil && (rrf2 && parseFloat(rrf2) <= 1 ? '0' : getSuggestedSIL(rrf2)) && canEdit && (
+                                <button
+                                  type="button"
+                                  title="Auto-apply CCPS calculated residual SIL"
+                                  onClick={() => handleLopaChange(sc._id, 'recommendationRequiredSil', rrf2 && parseFloat(rrf2) <= 1 ? '0' : getSuggestedSIL(rrf2))}
+                                  style={{
+                                    position: 'absolute',
+                                    right: '2px',
+                                    fontSize: '9px',
+                                    padding: '1px 3px',
+                                    background: '#7c3aed',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ⚡
+                                </button>
+                              )}
+                            </div>
                           </td>
                           {columns.filter(c => !c.isSystem).map(col => (
                             <td key={col.id} rowSpan={sc.consSpanCount}>
@@ -854,6 +1148,17 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
               setColumns(newCols);
               setIsManageColumnsOpen(false);
             }}
+          />
+        )}
+
+        {isTolerabilityModalOpen && (
+          <TolerabilityMatrixModal
+            studyId={study._id}
+            studyCriteria={studyCriteria}
+            onClose={() => setIsTolerabilityModalOpen(false)}
+            onSaveMatrix={(newMatrix) => setTolerabilityMatrix(newMatrix)}
+            onBatchApplyRtf={handleBatchApplyRtf}
+            scenariosCount={scenarios.length}
           />
         )}
       </div>

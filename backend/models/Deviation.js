@@ -39,9 +39,25 @@ const deviationSchema = new mongoose.Schema({
   customData: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
+// Helper to build deviationAuto from components
+const computeDeviationText = (doc) => {
+  const parts = [];
+  if (doc.guidewords && doc.guidewords.trim()) parts.push(doc.guidewords.trim());
+  if (doc.parameter && doc.parameter.trim()) parts.push(doc.parameter.trim());
+  if (doc.processFlowMaterial && doc.processFlowMaterial.trim()) parts.push(`of ${doc.processFlowMaterial.trim()}`);
+  if (doc.locationFrom && doc.locationFrom.trim()) parts.push(`from ${doc.locationFrom.trim()}`);
+  if (doc.locationTo && doc.locationTo.trim()) parts.push(`to ${doc.locationTo.trim()}`);
+  return parts.join(' ').trim();
+};
+
 // Pre-save hook to automatically compute deviationAuto
 deviationSchema.pre('save', function() {
-  this.deviationAuto = `${this.guidewords || ''} ${this.parameter || ''} of ${this.processFlowMaterial || ''} from ${this.locationFrom || ''} to ${this.locationTo || ''}`.trim();
+  const computed = computeDeviationText(this);
+  if (computed) {
+    this.deviationAuto = computed;
+  } else if (!this.deviationAuto || this.deviationAuto.replace(/\s+/g, ' ').trim() === 'of from to') {
+    this.deviationAuto = '';
+  }
 });
 
 // Pre-findOneAndUpdate hook to automatically compute deviationAuto on update

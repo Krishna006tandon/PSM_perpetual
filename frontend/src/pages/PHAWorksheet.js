@@ -6,8 +6,45 @@ import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
 import AddRecommendationModal from '../components/AddRecommendationModal';
 import SelectRecTargetModal from '../components/SelectRecTargetModal';
+
 import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
+
+export const DEFAULT_PHA_DEVIATIONS = [
+  { num: 1, text: 'No/Less Flow' },
+  { num: 2, text: 'More Flow' },
+  { num: 3, text: 'Reverse Flow' },
+  { num: 4, text: 'Mis-Directed Flow' },
+  { num: 5, text: 'High Temperature' },
+  { num: 6, text: 'Low Temperature' },
+  { num: 7, text: 'High Level' },
+  { num: 8, text: 'Low Level' },
+  { num: 9, text: 'High Pressure' },
+  { num: 10, text: 'Low Pressure' },
+  { isHeader: true, text: 'Below to be used for once in a plant, not necessary in each node' },
+  { num: 11, text: 'Maintenance' },
+  { num: 12, text: 'Start-up / Shutdown' },
+  { num: 13, text: 'Power Failure / Utility Failure' },
+  { num: 14, text: 'DCS Failure' },
+  { num: 15, text: 'Corrosion' },
+  { num: 16, text: 'Leak' },
+  { num: 17, text: 'Safety' },
+  { num: 18, text: 'Other' }
+];
+
+export const isCorruptedDeviation = (str) => {
+  if (!str) return false;
+  const s = String(str).replace(/\s+/g, ' ').trim().toLowerCase();
+  return s === 'of from to' || s === 'of from' || s === 'of to';
+};
+
+export const getCleanDeviationDisplay = (val) => {
+  if (!val) return '';
+  if (isCorruptedDeviation(val)) return '';
+  return val;
+};
+
+
 
 // A custom Select component that allows adding new options
 const EditableSelect = ({ options, value, onChange, onBlur, className, style, placeholder , disabled}) => {
@@ -191,6 +228,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       recs: Array.from(recs)
     };
   }, [scenarios]);
+
+  // Combined 18 default deviations + any custom study deviations
+  const deviationSuggestions = useMemo(() => {
+    const list = [...DEFAULT_PHA_DEVIATIONS];
+    const custom = uniqueSuggestions.deviations.filter(d => 
+      !DEFAULT_PHA_DEVIATIONS.some(def => def.text && def.text.toLowerCase() === d.toLowerCase())
+    );
+    if (custom.length > 0) {
+      list.push({ isHeader: true, text: 'Additional Study Deviations' });
+      custom.forEach((cText, idx) => {
+        list.push({ num: 18 + idx + 1, text: cText });
+      });
+    }
+    return list;
+  }, [uniqueSuggestions.deviations]);
 
   const normalizeRecText = (txt) => (txt || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -708,7 +760,48 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        const data = await response.json();
+        let data = await response.json();
+        
+        // Auto-heal any corrupted "of from to" deviations in data
+        const selectableDevs = DEFAULT_PHA_DEVIATIONS.filter(d => !d.isHeader);
+        let uniqueDevIdx = 0;
+        const seenDevMap = new Map();
+        
+        data = data.map(sc => {
+          if (!sc.deviationId) return sc;
+          const devId = sc.deviationId._id || sc.deviationId;
+          const devText = sc.deviationId.deviationAuto || '';
+          const isCorrupted = isCorruptedDeviation(devText);
+          
+          if (!seenDevMap.has(devId)) {
+            let assignedText = devText;
+            if (isCorrupted) {
+              if (uniqueDevIdx < selectableDevs.length) {
+                assignedText = selectableDevs[uniqueDevIdx].text;
+                // Sync to DB in background
+                const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+                fetch(`${apiUrl}/api/deviations/${devId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({ deviationAuto: assignedText, parameter: assignedText })
+                }).catch(() => {});
+              } else {
+                assignedText = '';
+              }
+            }
+            seenDevMap.set(devId, assignedText);
+            uniqueDevIdx++;
+          }
+          
+          return {
+            ...sc,
+            deviationId: {
+              ...sc.deviationId,
+              deviationAuto: seenDevMap.get(devId)
+            }
+          };
+        });
+
         setScenarios(data);
 
         const targetScenarioId = localStorage.getItem('targetScenarioId');
@@ -1593,6 +1686,116 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
+  const handleLoad18StandardDeviations = async () => {
+    if (!selectedNodeId) {
+      alert("Please select a Node first.");
+      return;
+    }
+
+    const devList = [
+      'No/Less Flow',
+      'More Flow',
+      'Reverse Flow',
+      'Mis-Directed Flow',
+      'High Temperature',
+      'Low Temperature',
+      'High Level',
+      'Low Level',
+      'High Pressure',
+      'Low Pressure',
+      'Maintenance',
+      'Start-up / Shutdown',
+      'Power Failure / Utility Failure',
+      'DCS Failure',
+      'Corrosion',
+      'Leak',
+      'Safety',
+      'Other'
+    ];
+
+    const nodeScenarios = scenarios.filter(s => (s.nodeId?._id || s.nodeId) === selectedNodeId);
+    const hasExisting = nodeScenarios.length > 0;
+
+    const confirmMsg = hasExisting
+      ? `This node currently has ${nodeScenarios.length} row(s).\n\nDo you want to update/assign all 18 standard deviations to this node?`
+      : `Do you want to initialize all 18 standard deviations for the selected node?\n\n1. No/Less Flow\n2. More Flow\n3. Reverse Flow\n...\n18. Other`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+
+      // 1. Collect unique deviation IDs already present in this node
+      const seenDevIds = [];
+      nodeScenarios.forEach(sc => {
+        const dId = sc.deviationId?._id || sc.deviationId;
+        if (dId && !seenDevIds.includes(dId)) {
+          seenDevIds.push(dId);
+        }
+      });
+
+      // 2. Update existing deviations to match devList
+      for (let i = 0; i < seenDevIds.length && i < devList.length; i++) {
+        const dId = seenDevIds[i];
+        const devText = devList[i];
+        await fetch(`${apiUrl}/api/deviations/${dId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ deviationAuto: devText, parameter: devText })
+        });
+      }
+
+      // 3. If there are fewer deviations than 18, create remaining ones
+      const startIndex = seenDevIds.length;
+      for (let i = startIndex; i < devList.length; i++) {
+        const devText = devList[i];
+        const devRes = await fetch(`${apiUrl}/api/deviations/${study._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ deviationAuto: devText, parameter: devText })
+        });
+        const newDev = await devRes.json();
+
+        // Immediate PUT to ensure deviationAuto is saved even if server has old pre-save hook
+        if (newDev && newDev._id) {
+          await fetch(`${apiUrl}/api/deviations/${newDev._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ deviationAuto: devText, parameter: devText })
+          });
+        }
+
+        const causeRes = await fetch(`${apiUrl}/api/causes/${study._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ description: '' })
+        });
+        const newCause = await causeRes.json();
+
+        await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            nodeId: selectedNodeId,
+            deviationId: newDev._id,
+            causeId: newCause._id,
+            consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+          })
+        });
+      }
+
+      await fetchScenarios(selectedNodeId);
+      alert('18 Standard Deviations successfully assigned to this node!');
+    } catch (err) {
+      console.error('Failed to load standard deviations:', err);
+      alert('Failed to load standard deviations. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleQuickAddDeviation = async () => {
     if (!selectedNodeId) return;
     try {
@@ -2161,7 +2364,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${deviationId}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      await fetch(`${apiUrl}/api/deviations/${deviationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ [field]: value })
@@ -3528,6 +3732,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               <span style={{fontSize:'14px'}}>⊕</span> Add Deviation
             </button>
           )}
+          {canEdit && (
+            <button 
+              className="toolbar-btn" 
+              onClick={handleLoad18StandardDeviations} 
+              disabled={!selectedNodeId} 
+              title="Initialize all 18 standard deviations for the selected node in one click"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+              <span style={{fontSize:'14px'}}>📋</span> 18 Deviations
+            </button>
+          )}
           
           {canEdit && (
             <button 
@@ -3897,9 +4112,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   <td colSpan={isDecompositionHidden ? 20 : 25}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
-                      {canEdit && <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
-                        <span style={{fontSize:'16px'}}>⊕</span> ADD DEVIATION / NEW ANALYSIS SCENARIO FOR CURRENT NODE
-                      </button>}
+                      {canEdit && (
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+                          <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
+                            <span style={{fontSize:'16px'}}>⊕</span> ADD DEVIATION / NEW SCENARIO
+                          </button>
+                          <button 
+                            className="btn-add-scenario-large" 
+                            onClick={handleLoad18StandardDeviations} 
+                            disabled={!selectedNodeId}
+                            style={{ backgroundColor: '#0284c7', borderColor: '#0284c7', color: '#fff' }}
+                          >
+                            <span style={{fontSize:'16px'}}>📋</span> LOAD 18 STANDARD DEVIATIONS FOR THIS NODE
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -4018,10 +4245,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
                         <span className="badge-dev">{sc.badgeDev}</span>
                         <AutocompleteTextarea disabled={!canEdit} 
-                          value={sc.deviationId?.deviationAuto || ''} 
+                          value={getCleanDeviationDisplay(sc.deviationId?.deviationAuto)} 
                           onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
                           onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
-                          suggestions={uniqueSuggestions.deviations}
+                          suggestions={deviationSuggestions}
+                          dropdownMode={true}
+                          placeholder="Select or type deviation..."
                           style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {

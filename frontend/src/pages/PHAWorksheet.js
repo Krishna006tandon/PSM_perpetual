@@ -5,6 +5,7 @@ import AutocompleteTextarea from '../components/AutocompleteTextarea';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
 import AddRecommendationModal from '../components/AddRecommendationModal';
+import SelectRecTargetModal from '../components/SelectRecTargetModal';
 import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
 
@@ -62,6 +63,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     return saved !== null ? saved === 'true' : true;
   });
   const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
+  const [recTargetModal, setRecTargetModal] = useState({
+    isOpen: false,
+    scenario: null,
+    options: [],
+    selectedTarget: null
+  });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
   const [clipboardRowIds, setClipboardRowIds] = useState([]);
   const [undoStack, setUndoStack] = useState([]);
@@ -271,6 +278,33 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       return idA.localeCompare(idB);
     });
     
+    // First determine isNewDev, isNewCause, isNewCons, isNewSafe, and isNewRec for each row
+    const isNewRecList = [];
+    for (let i = 0; i < sortedScenarios.length; i++) {
+      const sc = sortedScenarios[i];
+      const prevSc = i > 0 ? sortedScenarios[i - 1] : null;
+      
+      const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+      const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+      const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
+      
+      let isNewRec = isNewCons;
+      if (!isNewRec && prevSc) {
+        if (sc.recommendationGroupId) {
+          isNewRec = sc.recommendationGroupId !== prevSc.recommendationGroupId;
+        } else if (sc.recommendationAgainst && sc.recommendationAgainst !== prevSc.recommendationAgainst) {
+          isNewRec = true;
+        } else if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
+          if (!prevSc.additionalProtection || prevSc.additionalProtection.trim() === '') {
+            isNewRec = true;
+          } else if (sc.additionalProtection.trim() !== prevSc.additionalProtection.trim()) {
+            isNewRec = true;
+          }
+        }
+      }
+      isNewRecList.push(isNewRec);
+    }
+    
     const result = [];
     let devNum = 0;
     let causeNum = 0;
@@ -285,6 +319,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
       const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
       const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
+      const isNewRec = isNewRecList[i];
       
       if (isNewDev) {
         devNum++;
@@ -306,6 +341,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       let causeSpanCount = 0;
       let consSpanCount = 0;
       let safeSpanCount = 0;
+      let recSpanCount = 0;
       
       if (isNewDev) {
         for (let j = i; j < sortedScenarios.length; j++) {
@@ -339,6 +375,21 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           else break;
         }
       }
+
+      if (isNewRec) {
+        recSpanCount = 1;
+        for (let j = i + 1; j < sortedScenarios.length; j++) {
+          const nextSc = sortedScenarios[j];
+          const sameDev = nextSc.deviationId?._id === sc.deviationId?._id;
+          const sameCause = nextSc.causeId?._id === sc.causeId?._id;
+          const sameCons = getConsKey(nextSc) === getConsKey(sc);
+          if (sameDev && sameCause && sameCons && !isNewRecList[j]) {
+            recSpanCount++;
+          } else {
+            break;
+          }
+        }
+      }
       
       result.push({
         ...sc,
@@ -350,6 +401,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         consSpanCount,
         isNewSafe,
         safeSpanCount,
+        isNewRec,
+        recSpanCount,
         badgeDev: `${devNum}`,
         badgeCause: `${devNum}.${causeNum}`,
         badgeCons: `${devNum}.${causeNum}.${consNum}`,
@@ -1250,6 +1303,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             rowEl.classList.add('row-just-added');
             setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
+            const textarea = rowEl.querySelector('.w-deviation textarea');
+            if (textarea) textarea.focus();
           }
         }, 300);
       } else {
@@ -1405,23 +1460,39 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setIsModalOpen(false);
   };
 
-  const handleQuickAddConsequence = async (deviationId, causeId) => {
+  const handleQuickAddConsequence = async (deviationId, causeId, targetScenarioId = null) => {
     if (!deviationId || !causeId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const payload = { 
+        nodeId: selectedNodeId, 
+        deviationId, 
+        causeId,
+        consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+      };
+      if (targetScenarioId) {
+        payload.insertAfterScenarioId = targetScenarioId;
+      }
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ 
-          nodeId: selectedNodeId, 
-          deviationId, 
-          causeId,
-          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
-        })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const newScenario = await response.json();
-        setScenarios(prev => [...prev, newScenario]);
+        await fetchScenarios(selectedNodeId);
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+            const textarea = newRow.querySelector('.w-cons-imm textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 300);
       }
     } catch (error) {
       console.error('Error adding quick consequence:', error);
@@ -1429,32 +1500,49 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  const handleQuickAddCause = async (deviationId) => {
+  const handleQuickAddCause = async (deviationId, targetScenarioId = null) => {
     if (!deviationId) return;
     try {
       const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       // 1. Create a blank cause
-      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+      const causeRes = await fetch(`${apiUrl}/api/causes/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description: '' })
       });
       const newCause = await causeRes.json();
       
+      const payload = { 
+        nodeId: selectedNodeId, 
+        deviationId, 
+        causeId: newCause._id,
+        consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+      };
+      if (targetScenarioId) {
+        payload.insertAfterScenarioId = targetScenarioId;
+      }
+      
       // 2. Create scenario with existing deviation and new cause
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ 
-          nodeId: selectedNodeId, 
-          deviationId, 
-          causeId: newCause._id,
-          consequenceGroupId: 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
-        })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const newScenario = await response.json();
-        setScenarios(prev => [...prev, newScenario]);
+        await fetchScenarios(selectedNodeId);
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+            const textarea = newRow.querySelector('.w-cause textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 300);
       }
     } catch (error) {
       console.error('Error adding quick cause:', error);
@@ -1535,6 +1623,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!sc.deviationId || !sc.causeId) return;
     try {
       const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       
       let groupId = sc.consequenceGroupId;
       
@@ -1543,36 +1632,44 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         groupId = 'grp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         
         // Update the current scenario in the backend
-        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ consequenceGroupId: groupId })
         });
       }
 
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
           nodeId: selectedNodeId, 
-          deviationId: sc.deviationId._id, 
-          causeId: sc.causeId._id,
+          deviationId: sc.deviationId?._id || sc.deviationId, 
+          causeId: sc.causeId?._id || sc.causeId,
           consequenceGroupId: groupId,
           consequencesImmediate: sc.consequencesImmediate,
           consequencesUltimate: sc.consequencesUltimate,
           consequenceCategory: sc.consequenceCategory,
           inherentRiskS: sc.inherentRiskS,
           inherentRiskL: sc.inherentRiskL,
-          isLopa: !!sc.isLopa
+          isLopa: !!sc.isLopa,
+          insertAfterScenarioId: sc._id
         })
       });
       if (response.ok) {
         const newScenario = await response.json();
-        setScenarios(prev => {
-          // Ensure the original scenario in state also gets the new groupId if it was just generated
-          const updatedPrev = prev.map(s => s._id === sc._id ? { ...s, consequenceGroupId: groupId } : s);
-          return [...updatedPrev, newScenario];
-        });
+        await fetchScenarios(selectedNodeId);
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+            const textarea = newRow.querySelector('.w-protection textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 300);
       }
     } catch (error) {
       console.error('Error adding quick safeguard:', error);
@@ -1635,19 +1732,20 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       let groupId = sc.safeguardGroupId;
       
       if (!groupId) {
         groupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         
-        await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ safeguardGroupId: groupId })
         });
       }
 
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -1690,19 +1788,230 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  const handleDirectAddRecommendation = async (sc) => {
+  const handleOpenRecTargetModal = (sc) => {
     if (!sc) return;
-    // If current row's recommendation input is empty, focus it directly!
-    if (!sc.additionalProtection || !sc.additionalProtection.trim()) {
-      const row = document.getElementById(`scenario-row-${sc._id}`);
-      const textarea = row ? row.querySelector('.w-additional textarea') : null;
-      if (textarea) {
-        textarea.focus();
+
+    // Find all sibling scenarios in this consequence group
+    const consKey = sc.consequenceGroupId || sc._id;
+    const consScenarios = processedScenarios.filter(s => (s.consequenceGroupId || s._id) === consKey);
+
+    const consOption = {
+      type: 'consequence',
+      id: consKey,
+      badge: sc.badgeCons || 'Consequence',
+      label: `Consequence ${sc.badgeCons || ''}`.trim(),
+      description: sc.consequencesImmediate || sc.consequencesUltimate || '(Current Consequence)'
+    };
+
+    const safeguardOptions = [];
+    const seenSafeKeys = new Set();
+    consScenarios.forEach(s => {
+      const sSafeKey = s.safeguardGroupId || s._id;
+      if (!seenSafeKeys.has(sSafeKey) && (s.presentProtection || '').trim() !== '') {
+        seenSafeKeys.add(sSafeKey);
+        safeguardOptions.push({
+          type: 'safeguard',
+          id: s._id,
+          safeguardGroupId: s.safeguardGroupId,
+          badge: s.badgeSafe || 'Safeguard',
+          label: `Safeguard ${s.badgeSafe || ''}`.trim(),
+          description: s.presentProtection,
+          scenario: s
+        });
+      }
+    });
+
+    const options = [consOption, ...safeguardOptions];
+    
+    let defaultSelected = options[0];
+    if (sc.recommendationAgainst) {
+      const found = options.find(o => o.label === sc.recommendationAgainst || sc.recommendationAgainst.includes(o.badge));
+      if (found) defaultSelected = found;
+    }
+
+    setRecTargetModal({
+      isOpen: true,
+      scenario: sc,
+      options,
+      selectedTarget: defaultSelected
+    });
+  };
+
+  const handleConfirmRecTarget = async (selectedTarget) => {
+    if (!selectedTarget || !recTargetModal.scenario) return;
+    const currentSc = recTargetModal.scenario;
+    setRecTargetModal({ isOpen: false, scenario: null, options: [], selectedTarget: null });
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const targetLabel = selectedTarget.label;
+
+      const currentIsEmpty = !currentSc.additionalProtection || !currentSc.additionalProtection.trim();
+
+      if (currentIsEmpty) {
+        const recGroupId = currentSc.recommendationGroupId || ('rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
+        const newRecNo = currentSc.recommendationNo || nextRecNo;
+
+        setScenarios(prev => prev.map(s => {
+          if (s._id === currentSc._id) {
+            return {
+              ...s,
+              recommendationAgainst: targetLabel,
+              recommendationGroupId: recGroupId,
+              recommendationNo: newRecNo
+            };
+          }
+          return s;
+        }));
+
+        await fetch(`${apiUrl}/api/scenarios/${currentSc._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            recommendationAgainst: targetLabel,
+            recommendationGroupId: recGroupId,
+            recommendationNo: newRecNo
+          })
+        });
+
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const row = document.getElementById(`scenario-row-${currentSc._id}`);
+          const textarea = row ? row.querySelector('.w-additional textarea') : null;
+          if (textarea) textarea.focus();
+        }, 100);
         return;
       }
+
+      // If current scenario ALREADY has text, we want to ADD a new recommendation!
+      const consKey = currentSc.consequenceGroupId || currentSc._id;
+      const consScenarios = scenarios.filter(s => (s.consequenceGroupId || s._id) === consKey);
+
+      let freeRow = null;
+      if (selectedTarget.type === 'safeguard' && selectedTarget.scenario) {
+        const targetRow = consScenarios.find(s => s._id === selectedTarget.scenario._id);
+        if (targetRow && (!targetRow.additionalProtection || !targetRow.additionalProtection.trim()) && !targetRow.recommendationGroupId) {
+          freeRow = targetRow;
+        }
+      }
+
+      if (!freeRow) {
+        freeRow = consScenarios.find(s => s._id !== currentSc._id && (!s.additionalProtection || !s.additionalProtection.trim()) && !s.recommendationGroupId);
+      }
+
+      if (freeRow) {
+        const newRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        const newRecNo = nextRecNo;
+
+        setScenarios(prev => prev.map(s => {
+          if (s._id === freeRow._id) {
+            return {
+              ...s,
+              recommendationAgainst: targetLabel,
+              recommendationGroupId: newRecGroupId,
+              recommendationNo: newRecNo
+            };
+          }
+          return s;
+        }));
+
+        await fetch(`${apiUrl}/api/scenarios/${freeRow._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            recommendationAgainst: targetLabel,
+            recommendationGroupId: newRecGroupId,
+            recommendationNo: newRecNo
+          })
+        });
+
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const row = document.getElementById(`scenario-row-${freeRow._id}`);
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const textarea = row.querySelector('.w-additional textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 200);
+        return;
+      }
+
+      // If NO free row exists, insert a new scenario sub-row into the database!
+      let safeguardGroupId = currentSc.safeguardGroupId;
+      let presentProtection = currentSc.presentProtection || '';
+
+      if (selectedTarget.type === 'safeguard' && selectedTarget.scenario) {
+        safeguardGroupId = selectedTarget.scenario.safeguardGroupId;
+        presentProtection = selectedTarget.scenario.presentProtection || '';
+        if (!safeguardGroupId) {
+          safeguardGroupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+          await fetch(`${apiUrl}/api/scenarios/${selectedTarget.scenario._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ safeguardGroupId })
+          });
+        }
+      } else {
+        if (!safeguardGroupId) {
+          safeguardGroupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+          await fetch(`${apiUrl}/api/scenarios/${currentSc._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ safeguardGroupId })
+          });
+        }
+      }
+
+      const newRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      const postPayload = {
+        nodeId: selectedNodeId,
+        deviationId: currentSc.deviationId?._id || currentSc.deviationId,
+        causeId: currentSc.causeId?._id || currentSc.causeId,
+        consequenceGroupId: currentSc.consequenceGroupId,
+        consequencesImmediate: currentSc.consequencesImmediate,
+        consequencesUltimate: currentSc.consequencesUltimate,
+        consequenceCategory: currentSc.consequenceCategory,
+        inherentRiskS: currentSc.inherentRiskS,
+        inherentRiskL: currentSc.inherentRiskL,
+        safeguardGroupId: safeguardGroupId,
+        presentProtection: presentProtection,
+        mitigatedRiskS: currentSc.mitigatedRiskS,
+        mitigatedRiskL: currentSc.mitigatedRiskL,
+        isLopa: !!currentSc.isLopa,
+        additionalProtection: '',
+        recommendationNo: nextRecNo,
+        recommendationAgainst: targetLabel,
+        recommendationGroupId: newRecGroupId,
+        insertAfterScenarioId: currentSc._id
+      };
+
+      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(postPayload)
+      });
+
+      if (response.ok) {
+        const newScenario = await response.json();
+        await fetchScenarios(selectedNodeId);
+        fetchStudyRecommendations();
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+            const textarea = newRow.querySelector('.w-additional textarea');
+            if (textarea) textarea.focus();
+          }
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error adding targeted recommendation:', error);
+      alert('Failed to add recommendation target. Please try again.');
     }
-    // If it already has recommendation text, directly add a new recommendation sub-row right below!
-    await handleQuickAddRecommendation(sc, '', nextRecNo);
   };
 
   const openAddRecModal = (sc) => {
@@ -1801,9 +2110,20 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
+          body: JSON.stringify({ 
+            additionalProtection: '', 
+            recommendationNo: '',
+            recommendationAgainst: '',
+            recommendationGroupId: ''
+          })
         });
-        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { 
+          ...s, 
+          additionalProtection: '', 
+          recommendationNo: '',
+          recommendationAgainst: '',
+          recommendationGroupId: ''
+        } : s));
       }
       fetchStudyRecommendations();
     } catch (err) {
@@ -2238,6 +2558,30 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         let recIndex = 1;
         let devCounter = 0;
 
+        const isNewRecList = [];
+        for (let i = 0; i < sorted.length; i++) {
+          const sc = sorted[i];
+          const prevSc = i > 0 ? sorted[i - 1] : null;
+          const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+          const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+          const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
+          let isNewRec = isNewCons;
+          if (!isNewRec && prevSc) {
+            if (sc.recommendationGroupId) {
+              isNewRec = sc.recommendationGroupId !== prevSc.recommendationGroupId;
+            } else if (sc.recommendationAgainst && sc.recommendationAgainst !== prevSc.recommendationAgainst) {
+              isNewRec = true;
+            } else if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
+              if (!prevSc.additionalProtection || prevSc.additionalProtection.trim() === '') {
+                isNewRec = true;
+              } else if (sc.additionalProtection.trim() !== prevSc.additionalProtection.trim()) {
+                isNewRec = true;
+              }
+            }
+          }
+          isNewRecList.push(isNewRec);
+        }
+
         for (let i = 0; i < sorted.length; i++) {
           const sc = sorted[i];
           const prevSc = i > 0 ? sorted[i - 1] : null;
@@ -2249,6 +2593,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
           const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
           const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
+          const isNewRec = isNewRecList[i];
 
           let devSpan = 1;
           if (isNewDev) {
@@ -2278,6 +2623,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           if (isNewSafe) {
             for (let j = i + 1; j < sorted.length; j++) {
               if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc) && getSafeKey(sorted[j]) === getSafeKey(sc)) safeSpan++;
+              else break;
+            }
+          }
+
+          let recSpan = 1;
+          if (isNewRec) {
+            for (let j = i + 1; j < sorted.length; j++) {
+              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc) && !isNewRecList[j]) recSpan++;
               else break;
             }
           }
@@ -2326,7 +2679,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${mrColor}; font-weight: bold; color: ${mrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.mitigatedRiskRR || ''}</td>`;
           }
 
-          rowsHtml += `<td>${recLabel}${sc.additionalProtection || ''}</td>`;
+          if (isNewRec) {
+            const againstBadge = sc.recommendationAgainst ? `[${sc.recommendationAgainst}] ` : '';
+            rowsHtml += `<td rowspan="${recSpan}">${recLabel}${againstBadge}${sc.additionalProtection || ''}</td>`;
+          }
 
           if (isNewCons) {
             rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.residualRiskS || ''}</b></td>`;
@@ -3422,9 +3778,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </span>
           
           <div className="pha-shortcuts">
-            <span>e Enter = add nested row</span> | 
-            <span>Shift+e = new first lvl cell</span> | 
-            <span>Labels: Deviation, Cause, Consequence, Safeguard</span>
+            <span><strong>Enter:</strong> Add row at current column level</span> | 
+            <span><strong>Shift+Enter:</strong> Multi-line text</span> | 
+            <span>Deviation ➔ Cause ➔ Consequence ➔ Safeguard ➔ Recommendation</span>
           </div>
         </div>
 
@@ -3630,8 +3986,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           onBlur={(e) => handleDeviationTextBlur(sc.deviationId?._id, e.target.value)}
                           suggestions={uniqueSuggestions.deviations}
                           style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.target.blur();
+                              handleInsertFullRow(sc, 'below');
+                            }
+                          }}
                         />
-                        <span className="action-link add-cause" onClick={() => handleQuickAddCause(sc.deviationId?._id)}>+ ADD CAUSE</span>
                       </td>
                     </>
                   )}
@@ -3648,7 +4010,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             e.target.blur();
-                            handleQuickAddCause(sc.deviationId?._id);
+                            handleQuickAddCause(sc.deviationId?._id, sc._id);
                           }
                         }}
                         style={{display:'inline-block', width:'calc(100% - 40px)', verticalAlign:'top', marginBottom: '4px'}}
@@ -3672,7 +4034,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           onBlur={(e) => handleCauseFieldBlur(sc.causeId?._id, 'instrument', e.target.value)}
                         />
                       </div>
-                      <span className="action-link add-cons" style={{marginLeft: '35px', display: 'inline-flex'}} onClick={() => handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id)}>+ ADD CONSEQUENCE</span>
                     </td>
                   )}
                   
@@ -3691,11 +4052,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
                               e.target.blur();
-                              handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id);
+                              handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id, sc._id);
                             }
                           }}
                         />
-                        <span className="action-link add-safe" onClick={() => handleQuickAddSafeguard(sc)}>+ ADD SAFEGUARD</span>
                       </td>
                       <td className="w-cons-ult bg-consequence" rowSpan={sc.consSpanCount}>
                         <AutocompleteTextarea disabled={!canEdit} 
@@ -3703,6 +4063,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           onChange={(e) => handleCellChange(sc._id, 'consequencesUltimate', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'consequencesUltimate', e.target.value)}
                           suggestions={uniqueSuggestions.consUlt}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.target.blur();
+                              handleQuickAddConsequence(sc.deviationId?._id, sc.causeId?._id, sc._id);
+                            }
+                          }}
                         />
                       </td>
                       <td className="w-cat bg-consequence" rowSpan={sc.consSpanCount}>
@@ -3764,66 +4131,75 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     </>
                   )}
                   
-                  <td className="w-additional">
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                      <div style={{display: 'flex', alignItems: 'flex-start', gap: '4px'}}>
-                        <span style={{fontWeight: 'bold', fontSize: '11px', color: '#2563eb', paddingTop: '4px', minWidth: '28px'}}>
-                          {sc.displayRecNo ? `${sc.displayRecNo}.` : ''}
-                        </span>
+                  {sc.isNewRec && (
+                    <td className="w-additional" rowSpan={sc.recSpanCount}>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
+                            {sc.displayRecNo && (
+                              <span style={{fontWeight: 'bold', fontSize: '11px', color: '#2563eb'}}>
+                                {sc.displayRecNo}.
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRecTargetModal(sc)}
+                              title="Click to set or change recommendation target (Consequence / Safeguard)"
+                              style={{
+                                background: (sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#fef3c7' : '#e0e7ff',
+                                color: (sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#92400e' : '#3730a3',
+                                border: '1px solid ' + ((sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#fde68a' : '#c7d2fe'),
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                fontWeight: '600',
+                                padding: '1px 6px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <span>{(sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '🛡️' : '📌'}</span>
+                              <span>{sc.recommendationAgainst || 'Consequence'}</span>
+                            </button>
+                          </div>
+                          {canEdit && sc.additionalProtection && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRecommendation(sc)}
+                              title={`Delete recommendation ${sc.displayRecNo || ''}`}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                padding: '2px 4px',
+                                lineHeight: 1
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                         <AutocompleteTextarea disabled={!canEdit} 
                           style={{flex: 1}}
                           value={sc.additionalProtection || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
                           suggestions={uniqueSuggestions.recs}
+                          placeholder="Enter recommendation (Press Enter to add/target, Shift+Enter for new line)"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
                               e.target.blur();
-                              handleDirectAddRecommendation(sc);
+                              handleOpenRecTargetModal(sc);
                             }
                           }}
                         />
-                        {canEdit && sc.additionalProtection && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRecommendation(sc)}
-                            title={`Delete recommendation ${sc.displayRecNo}`}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              padding: '4px 2px',
-                              lineHeight: 1
-                            }}
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
-                      {canEdit && (
-                        <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
-                          <span 
-                            className="action-link add-rec" 
-                            style={{cursor: 'pointer'}} 
-                            onClick={() => handleDirectAddRecommendation(sc)}
-                            title="Directly add recommendation row here"
-                          >
-                            + ADD RECOMMENDATION
-                          </span>
-                          <span 
-                            style={{fontSize: '11px', color: '#64748b', cursor: 'pointer', textDecoration: 'underline'}} 
-                            onClick={() => openAddRecModal(sc)}
-                            title="Pick from existing study recommendations in library"
-                          >
-                            (from library)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </td>
+                    </td>
+                  )}
 
                   {sc.isNewCons && (
                     <>
@@ -4113,6 +4489,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         nextRecNo={nextRecNo}
       />
 
+      <SelectRecTargetModal
+        isOpen={recTargetModal.isOpen}
+        onClose={() => setRecTargetModal({ isOpen: false, scenario: null, options: [], selectedTarget: null })}
+        scenario={recTargetModal.scenario}
+        options={recTargetModal.options}
+        initialSelectedTarget={recTargetModal.selectedTarget}
+        onConfirm={handleConfirmRecTarget}
+      />
+
       {/* Floating Undo Notification Toast */}
       {undoToast && (
         <div className="pha-undo-toast">
@@ -4363,6 +4748,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 }}
               >
                 <span>📄</span> Copy Row
+              </button>
+              <button 
+                type="button"
+                className="pha-context-menu-item"
+                onClick={() => {
+                  const sc = contextMenu.scenario;
+                  setContextMenu({ visible: false, x: 0, y: 0, scenario: null });
+                  openAddRecModal(sc);
+                }}
+              >
+                <span>💡</span> Pick Recommendation (from library)
               </button>
               <div className="pha-context-menu-divider" />
               <button 

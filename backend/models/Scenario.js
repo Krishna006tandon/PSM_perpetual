@@ -32,6 +32,8 @@ const scenarioSchema = new mongoose.Schema({
   
   additionalProtection: { type: String, default: '' },
   recommendationNo: { type: String, default: '' },
+  recommendationAgainst: { type: String, default: '' },
+  recommendationGroupId: { type: String, default: '' },
   remarks: { type: String, default: '' },
   remarksColor: { type: String, default: '' },
   status: { type: String, default: '' },

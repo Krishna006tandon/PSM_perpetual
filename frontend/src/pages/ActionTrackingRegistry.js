@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './DynamicRegistry.css';
 
 const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit }) => {
@@ -225,10 +226,11 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
     // Default to text
     return (
-      <textarea data-gramm="false" spellcheck="false" 
+      <AutoResizeTextarea dataGramm="false" spellCheck={true} 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
+        minHeight={36}
       />
     );
   };
@@ -282,10 +284,11 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                   <td style={{textAlign:'center'}}>R{index + 1}</td>
                   <td className="col-node">{sc.nodeId?.description || ''}</td>
                   <td className="col-custom">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <AutoResizeTextarea dataGramm="false" spellCheck={true} 
                       value={sc.additionalProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                      minHeight={36}
                     />
                   </td>
                   <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
@@ -377,10 +380,11 @@ const ActionTrackingRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                     </select>
                   </td>
                   <td className="col-custom">
-                    <textarea data-gramm="false" spellcheck="false" 
+                    <AutoResizeTextarea dataGramm="false" spellCheck={true} 
                       value={sc.remarks || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'remarks', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'remarks', e.target.value)}
+                      minHeight={36}
                     />
                   </td>
                   {columns.map(col => (

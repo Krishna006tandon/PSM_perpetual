@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import StudyLayout from '../components/StudyLayout';
 import './RiskRegistry.css';
 
@@ -200,9 +201,9 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       </td>
                       {criteria.consequenceCategories.map(cat => (
                         <td key={cat}>
-                          <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                          <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true}
                             className="w-full"
-                            rows="2"
+                            minHeight={38}
                             value={(s.consequences && s.consequences[cat]) || ''} 
                             onChange={e => handleConsequenceChange(s.level, cat, e.target.value)}
                           />
@@ -243,7 +244,12 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         <input disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" value={l.name} onChange={e => handleLikelihoodChange(l.level, 'name', e.target.value)} />
                       </td>
                       <td>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" rows="2" value={l.description} onChange={e => handleLikelihoodChange(l.level, 'description', e.target.value)} />
+                        <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true}
+                          className="w-full"
+                          minHeight={38}
+                          value={l.description} 
+                          onChange={e => handleLikelihoodChange(l.level, 'description', e.target.value)}
+                        />
                       </td>
                       <td>
                         <input disabled={!canEdit}  data-gramm="false" spellcheck="false" className="w-full" value={l.frequency} onChange={e => handleLikelihoodChange(l.level, 'frequency', e.target.value)} />

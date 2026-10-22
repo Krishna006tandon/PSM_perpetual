@@ -142,7 +142,8 @@
   border: 1px solid #e0e0e0;
 }
 
-.equipment-table input {
+.equipment-table input,
+.equipment-table textarea {
   width: 100%;
   border: 1.5px solid var(--editable-border, #fcd34d);
   background: var(--editable-bg, #fffdf5);
@@ -154,13 +155,15 @@
   transition: all 0.2s ease;
 }
 
-.equipment-table input:hover {
+.equipment-table input:hover,
+.equipment-table textarea:hover {
   background: var(--editable-hover-bg, #ffffff);
   border-color: var(--editable-hover-border, #f59e0b);
   box-shadow: 0 1px 4px rgba(245, 158, 11, 0.18);
 }
 
-.equipment-table input:focus {
+.equipment-table input:focus,
+.equipment-table textarea:focus {
   border-color: var(--editable-focus-border, #004d80);
   background: var(--editable-focus-bg, #ffffff);
   outline: none;

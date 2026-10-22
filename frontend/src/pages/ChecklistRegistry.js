@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './DynamicRegistry.css';
 
 const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
@@ -250,10 +251,11 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
 
     // Default to text
     return (
-      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+      <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
+        minHeight={36}
       />
     );
   };
@@ -292,15 +294,15 @@ const ChecklistRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                 <tr key={sc._id}>
                   <td style={{textAlign:'center'}}>{index + 1}</td>
                   <td className="col-custom">
-                    <textarea 
+                    <AutoResizeTextarea 
                       disabled={!canEdit} 
-                      data-gramm="false" 
-                      spellCheck={false}
+                      dataGramm="false" 
+                      spellCheck={true}
                       value={(sc.checklistData && sc.checklistData.quickNotes) || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'quickNotes', e.target.value, true)}
                       onBlur={(e) => handleBlur(sc._id, 'quickNotes', e.target.value, true)}
                       placeholder="Add quick notes..."
-                      rows={2}
+                      minHeight={36}
                     />
                   </td>
                   {columns.map(col => (

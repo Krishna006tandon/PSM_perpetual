@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './DynamicRegistry.css';
 
 const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
@@ -357,10 +358,11 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
     // Default to text
     return (
-      <textarea disabled={!canEdit} data-gramm="false" spellCheck={true} 
+      <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
+        minHeight={36}
       />
     );
   };
@@ -796,10 +798,11 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                     <tr id={`rec-row-${sc._id}`}>
                       <td style={{textAlign:'center', fontWeight:'bold', color:'#0369a1'}}>{recNo}</td>
                       <td className="col-custom">
-                        <textarea disabled={!canEdit} data-gramm="false" spellCheck={true} 
+                        <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
                           value={sc.additionalProtection || ''} 
                           onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
                           onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                          minHeight={36}
                         />
                         {sc.occurrences && sc.occurrences.length > 1 && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>

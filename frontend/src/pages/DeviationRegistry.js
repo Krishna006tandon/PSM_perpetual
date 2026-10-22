@@ -145,9 +145,7 @@ const DeviationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       );
     }
     return (
-      <input disabled={!canEdit}  
-        data-gramm="false" spellcheck="false"
-        type="text" 
+      <AutoResizeTextarea disabled={!canEdit}  
         value={value} 
         onChange={(e) => handleCellChange(dev._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(dev._id, col.id, e.target.value, true)}

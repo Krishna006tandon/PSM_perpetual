@@ -59,9 +59,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [importMode, setImportMode] = useState('append');
   const [newNodeName, setNewNodeName] = useState('');
   const [isFocusMode, setIsFocusMode] = useState(() => {
+    const saved = localStorage.getItem('pha_focus_mode');
+    return saved !== null ? saved === 'true' : false;
+  });
+  const [hideDecomposition, setHideDecomposition] = useState(() => {
     const saved = localStorage.getItem('pha_hide_decomposition');
     return saved !== null ? saved === 'true' : true;
   });
+  const isDecompositionHidden = isFocusMode || hideDecomposition;
   const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
   const [recTargetModal, setRecTargetModal] = useState({
     isOpen: false,
@@ -490,10 +495,17 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
 
-  // Cleanup crazy-focus-mode on body
+  // Toggle crazy-focus-mode on body
   useEffect(() => {
-    document.body.classList.remove('crazy-focus-mode');
-  }, []);
+    if (isFocusMode) {
+      document.body.classList.add('crazy-focus-mode');
+    } else {
+      document.body.classList.remove('crazy-focus-mode');
+    }
+    return () => {
+      document.body.classList.remove('crazy-focus-mode');
+    };
+  }, [isFocusMode]);
 
   useEffect(() => {
     const styleId = 'crazy-focus-style';
@@ -993,6 +1005,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         handleUndo();
       }
       if (e.key === 'Escape') {
+        if (isFocusMode) {
+          setIsFocusMode(false);
+        }
         setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0, scenario: null } : prev);
       }
       if (e.altKey && e.key.toLowerCase() === 'i' && !e.shiftKey) {
@@ -1015,7 +1030,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       window.removeEventListener('click', handleWindowClick);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undoStack, study, scenarios, selectedRowIds]);
+  }, [undoStack, study, scenarios, selectedRowIds, isFocusMode]);
 
   useEffect(() => {
     if (!undoToast) return;
@@ -3677,23 +3692,45 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn" onClick={() => exportToCSV(false)} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
           <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px', fontWeight: '600', color: '#dc2626'}}>📥 PDF</button>
           <button 
-            className={`toolbar-btn ${!isFocusMode ? 'active' : ''}`} 
+            className={`toolbar-btn ${isFocusMode ? 'active' : ''}`} 
             onClick={() => {
               const nextVal = !isFocusMode;
               setIsFocusMode(nextVal);
-              localStorage.setItem('pha_hide_decomposition', String(nextVal));
+              localStorage.setItem('pha_focus_mode', String(nextVal));
             }} 
-            title={isFocusMode ? "Show Deviation Decomposition columns (Guideword, Parameter, Material, Equipment, Instrument)" : "Hide Deviation Decomposition columns"} 
+            title={isFocusMode ? "Exit Focus Mode (Esc)" : "Enter Focus Mode (Full Screen Focused View)"} 
             style={{
               fontSize: '12px', 
-              fontWeight: '600', 
-              color: isFocusMode ? '#64748b' : '#2563eb', 
-              borderColor: isFocusMode ? '#cbd5e1' : '#93c5fd',
-              backgroundColor: isFocusMode ? 'transparent' : 'rgba(37, 99, 235, 0.08)'
+              fontWeight: 'bold', 
+              color: isFocusMode ? '#ef4444' : '#10b981', 
+              borderColor: isFocusMode ? '#ef4444' : '#10b981',
+              backgroundColor: isFocusMode ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+              boxShadow: isFocusMode ? '0 0 8px rgba(239, 68, 68, 0.35)' : 'none'
             }}
           >
-            {isFocusMode ? '👁️ Show Decomposition' : '🙈 Hide Decomposition'}
+            {isFocusMode ? '✖ Exit Focus' : '⛶ Focus Mode'}
           </button>
+
+          {!isFocusMode && (
+            <button 
+              className={`toolbar-btn ${!hideDecomposition ? 'active' : ''}`} 
+              onClick={() => {
+                const nextVal = !hideDecomposition;
+                setHideDecomposition(nextVal);
+                localStorage.setItem('pha_hide_decomposition', String(nextVal));
+              }} 
+              title={hideDecomposition ? "Show Deviation Decomposition columns (Guideword, Parameter, Material, Equipment, Instrument)" : "Hide Deviation Decomposition columns"} 
+              style={{
+                fontSize: '12px', 
+                fontWeight: '600', 
+                color: hideDecomposition ? '#64748b' : '#2563eb', 
+                borderColor: hideDecomposition ? '#cbd5e1' : '#93c5fd',
+                backgroundColor: hideDecomposition ? 'transparent' : 'rgba(37, 99, 235, 0.08)'
+              }}
+            >
+              {hideDecomposition ? '👁️ Show Decomposition' : '🙈 Hide Decomposition'}
+            </button>
+          )}
 
           <div style={{display: 'inline-flex', alignItems: 'center', gap: '3px'}}>
             <button 
@@ -3805,7 +3842,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary w-sr" rowSpan={2}>SR.</th>
                 
                 {/* Decomposition of Deviation - Hidden in Focus Mode */}
-                {!isFocusMode && <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>}
+                {!isDecompositionHidden && <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>}
                 
                 <th className="th-primary w-deviation" rowSpan={2}>DEVIATION</th>
                 <th className="th-primary w-cause" rowSpan={2}>CAUSE</th>
@@ -3828,7 +3865,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               </tr>
               <tr>
                 {/* Sub headers - Hidden in Focus Mode */}
-                {!isFocusMode && (
+                {!isDecompositionHidden && (
                   <>
                     <th className="th-sub w-guideword">DEVIATION</th>
                     <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
@@ -3857,7 +3894,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <tbody>
               {!loading && scenarios.length === 0 && (
                 <tr>
-                  <td colSpan={isFocusMode ? 20 : 25}>
+                  <td colSpan={isDecompositionHidden ? 20 : 25}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
                       {canEdit && <button className="btn-add-scenario-large" onClick={handleQuickAddDeviation} disabled={!selectedNodeId}>
@@ -3918,7 +3955,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     <>
                       <td className="w-sr bg-deviation" rowSpan={sc.devSpanCount} style={{textAlign: 'center', fontWeight: 'bold', color: '#1d4ed8'}}>{sc.badgeDev}</td>
                       
-                      {!isFocusMode && (
+                      {!isDecompositionHidden && (
                         <>
                           <td className="w-guideword bg-deviation" rowSpan={sc.devSpanCount}>
                             <EditableSelect disabled={!canEdit}  
@@ -4497,6 +4534,46 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         initialSelectedTarget={recTargetModal.selectedTarget}
         onConfirm={handleConfirmRecTarget}
       />
+
+      {/* Floating Exit Focus Mode Button */}
+      {isFocusMode && (
+        <button
+          type="button"
+          onClick={() => setIsFocusMode(false)}
+          title="Exit Focus Mode (Esc)"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 99999,
+            padding: '10px 18px',
+            backgroundColor: '#ef4444',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '24px',
+            fontWeight: '700',
+            fontSize: '13px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(239, 68, 68, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <span>✖</span>
+          <span>Exit Focus Mode</span>
+          <kbd style={{
+            background: 'rgba(255,255,255,0.25)',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: 'normal'
+          }}>Esc</kbd>
+        </button>
+      )}
 
       {/* Floating Undo Notification Toast */}
       {undoToast && (

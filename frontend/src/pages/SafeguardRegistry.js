@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './DynamicRegistry.css';
 
 const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
@@ -217,10 +218,11 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
 
     // Default to text
     return (
-      <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+      <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
         value={value} 
         onChange={(e) => handleCellChange(sc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(sc._id, col.id, e.target.value, true)}
+        minHeight={36}
       />
     );
   };
@@ -267,10 +269,11 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
                   <td className="col-cons">{sc.consequencesImmediate || ''}</td>
                   <td className="col-custom">
-                    <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                    <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
                       value={sc.presentProtection || ''} 
                       onChange={(e) => handleCellChange(sc._id, 'presentProtection', e.target.value)}
                       onBlur={(e) => handleBlur(sc._id, 'presentProtection', e.target.value)}
+                      minHeight={36}
                     />
                   </td>
                   {columns.map(col => (

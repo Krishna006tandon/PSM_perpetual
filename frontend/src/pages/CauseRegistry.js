@@ -143,9 +143,7 @@ const CauseRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       );
     }
     return (
-      <input disabled={!canEdit}  
-        data-gramm="false" spellcheck="false"
-        type="text" 
+      <AutoResizeTextarea disabled={!canEdit}  
         value={value} 
         onChange={(e) => handleCellChange(cause._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(cause._id, col.id, e.target.value, true)}

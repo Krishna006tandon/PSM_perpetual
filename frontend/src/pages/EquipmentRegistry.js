@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './NodeRegistry.css'; // Reuse table styles
 
 const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
@@ -151,13 +152,13 @@ const EquipmentRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
               {!loading && equipments.map((eq, index) => (
                 <tr key={index}>
                   <td className="col-num">{index + 1}</td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} onBlur={handleSave} /></td>
-                  <td><input disabled={!canEdit}  data-gramm="false" spellcheck="false" type="text" value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} onBlur={handleSave} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} value={eq.tagNo || ''} onChange={(e) => handleCellChange(index, 'tagNo', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} value={eq.equipmentName || ''} onChange={(e) => handleCellChange(index, 'equipmentName', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} value={eq.operationCondition || ''} onChange={(e) => handleCellChange(index, 'operationCondition', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} value={eq.capacity || ''} onChange={(e) => handleCellChange(index, 'capacity', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} value={eq.moc || ''} onChange={(e) => handleCellChange(index, 'moc', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} value={eq.designTemp || ''} onChange={(e) => handleCellChange(index, 'designTemp', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
+                  <td><AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} value={eq.designPressure || ''} onChange={(e) => handleCellChange(index, 'designPressure', e.target.value)} onBlur={handleSave} minHeight={28} style={{border:'none', background:'transparent', padding:'4px', width:'100%'}} /></td>
                 </tr>
               ))}
               {equipments.length === 0 && (

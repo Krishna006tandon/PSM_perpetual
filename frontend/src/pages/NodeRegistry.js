@@ -145,9 +145,7 @@ const NodeRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       );
     }
     return (
-      <input disabled={!canEdit}  
-        data-gramm="false" spellCheck={true}
-        type="text" 
+      <AutoResizeTextarea disabled={!canEdit}  
         value={value} 
         onChange={(e) => handleCellChange(node._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(node._id, col.id, e.target.value, true)}

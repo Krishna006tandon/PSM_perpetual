@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import {
   getLopaMapping,
   getScenarioText,
@@ -765,11 +766,13 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
 
                       {/* Recommendations (Multiple per Scenario) */}
                       <td style={{position:'relative', whiteSpace:'normal'}}>
-                        <textarea disabled={!canEdit}  data-gramm="false" spellcheck="false" 
+                        <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
                           value={rec.description || ''}
                           onChange={(e) => handleArrayChange(sc._id, 'recommendations', i, 'description', e.target.value)}
                           onBlur={() => handleBlur(sc._id)}
-                          style={{width:'calc(100% - 20px)'}}
+                          style={{width:'calc(100% - 24px)', border:'none', background:'transparent', padding:'4px'}}
+                          placeholder="Enter recommendation..."
+                          minHeight={32}
                         />
                         {i < recs.length && canEdit && (
                           <button onClick={() => removeArrayItem(sc._id, 'recommendations', i)} style={{position:'absolute', right:'2px', top:'5px', color:'red', background:'none', border:'none', cursor:'pointer'}}>x</button>
@@ -815,11 +818,12 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
                           </td>
                           {columns.filter(c => !c.isSystem).map(col => (
                             <td key={col.id} rowSpan={sc.consSpanCount}>
-                              <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                                style={{width:'100%'}}
+                              <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
+                                style={{width:'100%', border:'none', background:'transparent', padding:'4px'}}
                                 value={(sc.lopaData || {})[col.id] || ''} 
                                 onChange={(e) => handleLopaChange(sc._id, col.id, e.target.value)}
                                 onBlur={() => handleBlur(sc._id)}
+                                minHeight={32}
                               />
                             </td>
                           ))}

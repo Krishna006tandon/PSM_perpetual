@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
+import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import AddDocumentModal from '../components/AddDocumentModal';
 import './StudyDocuments.css';
 
@@ -12,7 +13,6 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
   
-  const fileInputRef = useRef(null);
 
   const fetchDocuments = async () => {
     try {
@@ -111,12 +111,13 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
       );
     }
     return (
-      <input disabled={!canEdit}  
-        data-gramm="false" spellcheck="false"
-        type="text" 
+      <AutoResizeTextarea disabled={!canEdit}  
+        dataGramm="false" spellCheck={true}
         value={value} 
         onChange={(e) => handleCellChange(doc._id, col.id, e.target.value, true)}
         onBlur={(e) => handleBlur(doc._id, col.id, e.target.value, true)}
+        minHeight={32}
+        style={{border:'none', background:'transparent', padding:'4px', width: '100%'}}
       />
     );
   };
@@ -349,19 +350,21 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
                 >
                   <td className="col-num">{index + 1}</td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
-                      value={doc.drawingId} 
+                    <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} 
+                      value={doc.drawingId || ''} 
                       onChange={(e) => handleCellChange(doc._id, 'drawingId', e.target.value)}
                       onBlur={(e) => handleBlur(doc._id, 'drawingId', e.target.value)}
+                      minHeight={32}
+                      style={{border:'none', background:'transparent', padding:'4px', width: '100%'}}
                     />
                   </td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
-                      value={doc.revision} 
+                    <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} 
+                      value={doc.revision || ''} 
                       onChange={(e) => handleCellChange(doc._id, 'revision', e.target.value)}
                       onBlur={(e) => handleBlur(doc._id, 'revision', e.target.value)}
+                      minHeight={32}
+                      style={{border:'none', background:'transparent', padding:'4px', width: '100%'}}
                     />
                   </td>
                   <td>
@@ -382,20 +385,22 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
                     </select>
                   </td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
-                      value={doc.description} 
+                    <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={true} 
+                      value={doc.description || ''} 
                       onChange={(e) => handleCellChange(doc._id, 'description', e.target.value)}
                       onBlur={(e) => handleBlur(doc._id, 'description', e.target.value)}
+                      minHeight={32}
+                      style={{border:'none', background:'transparent', padding:'4px', width: '100%'}}
                     />
                   </td>
                   <td>
-                    <input disabled={!canEdit}  data-gramm="false" spellcheck="false" 
-                      type="text" 
+                    <AutoResizeTextarea disabled={!canEdit} dataGramm="false" spellCheck={false} 
                       placeholder="https://..."
-                      value={doc.hyperlink} 
+                      value={doc.hyperlink || ''} 
                       onChange={(e) => handleCellChange(doc._id, 'hyperlink', e.target.value)}
                       onBlur={(e) => handleBlur(doc._id, 'hyperlink', e.target.value)}
+                      minHeight={32}
+                      style={{border:'none', background:'transparent', padding:'4px', width: '100%'}}
                     />
                   </td>
                   <td className="attachment-cell" onClick={() => {
@@ -413,6 +418,11 @@ const StudyDocuments = ({ study, onBack, onNavigate, theme, toggleTheme , canEdi
                       onChange={(e) => handleFileUpload(e, doc._id)}
                     />
                   </td>
+                  {columns.map(col => (
+                    <td key={col.id} className="col-custom">
+                      {renderCustomCell(doc, col)}
+                    </td>
+                  ))}
                   <td className="action-cell">
                     {canEdit && <button className="btn-delete-row" onClick={() => handleDelete(doc._id)}>
                       🗑️

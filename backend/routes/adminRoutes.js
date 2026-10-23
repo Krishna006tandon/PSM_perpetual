@@ -63,7 +63,15 @@ router.get('/packages', async (req, res) => {
 
 router.post('/packages', async (req, res) => {
   try {
-    const pkg = new SubscriptionPackage(req.body);
+    const data = { ...req.body };
+    if (data.hasAnnual && data.annualPrice) {
+      data.price = Number(data.annualPrice);
+      data.billingCycle = data.hasOneTime ? 'Both' : 'Yearly';
+    } else if (data.hasOneTime && data.oneTimePrice) {
+      data.price = Number(data.oneTimePrice);
+      data.billingCycle = 'One-time';
+    }
+    const pkg = new SubscriptionPackage(data);
     const saved = await pkg.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -73,7 +81,15 @@ router.post('/packages', async (req, res) => {
 
 router.put('/packages/:id', async (req, res) => {
   try {
-    const updated = await SubscriptionPackage.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const data = { ...req.body };
+    if (data.hasAnnual && data.annualPrice) {
+      data.price = Number(data.annualPrice);
+      data.billingCycle = data.hasOneTime ? 'Both' : 'Yearly';
+    } else if (data.hasOneTime && data.oneTimePrice) {
+      data.price = Number(data.oneTimePrice);
+      data.billingCycle = 'One-time';
+    }
+    const updated = await SubscriptionPackage.findByIdAndUpdate(req.params.id, data, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -84,6 +100,33 @@ router.delete('/packages/:id', async (req, res) => {
   try {
     await SubscriptionPackage.findByIdAndDelete(req.params.id);
     res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Users & Features Management for Owner
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find({ role: { $ne: 'SuperAdmin' } })
+      .select('-password')
+      .populate('packageId')
+      .sort({ createdAt: -1 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/users/:id/features', async (req, res) => {
+  try {
+    const { features } = req.body;
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { features: Array.isArray(features) ? features : [] },
+      { new: true }
+    ).select('-password');
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

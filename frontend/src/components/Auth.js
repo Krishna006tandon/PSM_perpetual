@@ -45,6 +45,16 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
   const initiateRazorpayPayment = async (orderData) => {
     return new Promise(async (resolve, reject) => {
       try {
+        if (!window.Razorpay) {
+          await new Promise((res, rej) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = res;
+            script.onerror = () => rej(new Error('Failed to load Razorpay SDK. Please check your internet connection.'));
+            document.body.appendChild(script);
+          });
+        }
+
         const configRes = await fetch('https://api.perpetualsolutions.co.in/api/payments/config');
         const configData = await configRes.json();
         
@@ -52,7 +62,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
           key: configData.key_id,
           amount: orderData.amount,
           currency: orderData.currency,
-          name: 'Perpetual PSM',
+          name: 'PS-MagnaShield',
           description: `Subscription: ${selectedPackage.name}`,
           order_id: orderData.id,
           handler: async function (response) {
@@ -100,6 +110,8 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
             contact,
             numberOfUsers: Number(numberOfUsers) || 1,
             packageId: selectedPackage._id,
+            billingType: selectedPackage.chosenBilling || selectedPackage.billingCycle || 'Annual',
+            selectedFeatures: Array.isArray(selectedPackage.features) ? selectedPackage.features : ['PHA', 'MOC', 'LOPA', 'BOWTIE'],
             razorpay_order_id: paymentResponse.razorpay_order_id,
             razorpay_payment_id: paymentResponse.razorpay_payment_id,
             razorpay_signature: paymentResponse.razorpay_signature
@@ -111,6 +123,9 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
         
         alert("Payment successful! Your password has been emailed to you.");
         localStorage.setItem('token', data.token);
+        if (data.user?.features) {
+          localStorage.setItem('userFeatures', JSON.stringify(data.user.features));
+        }
         onAuthSuccess(data.token);
 
       } else {
@@ -182,11 +197,47 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Select Package</label>
-              <select disabled style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--primary-main)', backgroundColor: 'rgba(59,130,246,0.05)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', appearance: 'none', fontWeight: '700' }}>
-                <option>{selectedPackage.name} - ₹{(selectedPackage.price).toLocaleString('en-IN')}</option>
-              </select>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(59,130,246,0.05)', padding: '16px', borderRadius: '10px', border: '1px solid var(--primary-main)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: '800' }}>{selectedPackage.name}</span>
+                <span style={{ color: 'var(--primary-main)', fontSize: '1.1rem', fontWeight: '800' }}>
+                  ₹{(selectedPackage.price).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <span>Payment Plan:</span>
+                <strong style={{ color: 'var(--text-primary)' }}>{selectedPackage.chosenBilling || selectedPackage.billingCycle || 'Annual'}</strong>
+              </div>
+              <div style={{ marginTop: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Unlocked Modules:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                  {[
+                    { key: 'PHA', label: 'HAZOP / PHA' },
+                    { key: 'LOPA', label: 'LOPA' },
+                    { key: 'MOC', label: 'MOC' },
+                    { key: 'BOWTIE', label: 'BOW Tie' },
+                    { key: 'INCIDENT', label: 'Incident' }
+                  ].map(item => {
+                    const isUnlocked = Array.isArray(selectedPackage.features) && selectedPackage.features.includes(item.key);
+                    return (
+                      <span
+                        key={item.key}
+                        style={{
+                          background: isUnlocked ? '#e8f5e9' : '#f5f5f5',
+                          color: isUnlocked ? '#2e7d32' : '#999',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.78rem',
+                          fontWeight: 'bold',
+                          border: isUnlocked ? '1px solid #c8e6c9' : '1px solid #ddd'
+                        }}
+                      >
+                        {isUnlocked ? '✓ ' : '✕ '} {item.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: '16px' }}>

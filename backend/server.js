@@ -97,38 +97,91 @@ mongoose.connection.once('open', async () => {
       console.log('Seeded mock transactions');
     }
 
-    // Wipe existing dummy packages and add realistic ones
-    await SubscriptionPackage.deleteMany({});
-    await SubscriptionPackage.create([
-      {
-        name: 'Starter Tier',
-        price: 9999,
-        billingCycle: 'Yearly',
-        maxProjects: 5,
-        maxUsers: 10,
-        features: ['PHA'],
-        isActive: true
-      },
-      {
-        name: 'Professional Tier',
-        price: 24999,
-        billingCycle: 'Yearly',
-        maxProjects: 15,
-        maxUsers: 25,
-        features: ['PHA', 'MOC'],
-        isActive: true
-      },
-      {
-        name: 'Enterprise Tier',
-        price: 49999,
-        billingCycle: 'Yearly',
-        maxProjects: -1, // Unlimited
-        maxUsers: -1, // Unlimited
-        features: ['PHA', 'MOC', 'LOPA', 'Audits'],
-        isActive: true
-      }
-    ]);
-    console.log('Seeded realistic subscription packages');
+    // Seed default packages only if none exist so owner edits are persisted
+    const pkgCount = await SubscriptionPackage.countDocuments();
+    if (pkgCount === 0) {
+      await SubscriptionPackage.create([
+        {
+          name: 'HAZOP+LOPA (4 Users)',
+          price: 900000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 225000,
+          hasOneTime: true,
+          oneTimePrice: 900000,
+          maxProjects: -1,
+          maxUsers: 4,
+          features: ['PHA', 'LOPA'],
+          isActive: true
+        },
+        {
+          name: 'HAZOP Standalone',
+          price: 300000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 75000,
+          hasOneTime: true,
+          oneTimePrice: 300000,
+          maxProjects: -1,
+          maxUsers: 1,
+          features: ['PHA'],
+          isActive: true
+        },
+        {
+          name: 'LOPA Standalone',
+          price: 300000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 75000,
+          hasOneTime: true,
+          oneTimePrice: 300000,
+          maxProjects: -1,
+          maxUsers: 1,
+          features: ['LOPA'],
+          isActive: true
+        },
+        {
+          name: 'MOC Standalone',
+          price: 300000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 75000,
+          hasOneTime: true,
+          oneTimePrice: 300000,
+          maxProjects: -1,
+          maxUsers: 1,
+          features: ['MOC'],
+          isActive: true
+        },
+        {
+          name: 'BOW Tie Standalone',
+          price: 300000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 75000,
+          hasOneTime: true,
+          oneTimePrice: 300000,
+          maxProjects: -1,
+          maxUsers: 1,
+          features: ['BOWTIE'],
+          isActive: true
+        },
+        {
+          name: 'Full Enterprise PSM Suite',
+          price: 1500000,
+          billingCycle: 'Both',
+          hasAnnual: true,
+          annualPrice: 375000,
+          hasOneTime: true,
+          oneTimePrice: 1500000,
+          maxProjects: -1,
+          maxUsers: 10,
+          features: ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'],
+          isActive: true
+        }
+      ]);
+      console.log('Seeded realistic subscription packages aligned with Excel pricing model');
+    }
 
     // ---- SEED DATA FOR FULL PDF EXPORT ----
     const Study = require('./models/Study');

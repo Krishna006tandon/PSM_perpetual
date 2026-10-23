@@ -77,8 +77,28 @@ const STUDY_NAV_ITEMS = [
   { id: 'risk-criteria', label: 'RISK CRITERIA', icon: ICONS.risk, subItems: [] }
 ];
 
-const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, children }) => {
+const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, userFeatures, children }) => {
   const [openMenuId, setOpenMenuId] = useState(null);
+
+  const getEffectiveFeatures = () => {
+    if (Array.isArray(userFeatures) && userFeatures.length > 0) return userFeatures;
+    try {
+      const stored = JSON.parse(localStorage.getItem('userFeatures'));
+      if (Array.isArray(stored)) return stored;
+    } catch (e) {}
+    return ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+  };
+
+  const effectiveFeatures = getEffectiveFeatures();
+  const hasFeature = (feat) => effectiveFeatures.includes(feat);
+
+  // Filter study navigation items based on unlocked modules
+  const filteredStudyNavItems = STUDY_NAV_ITEMS.filter(item => {
+    if (item.id === 'pha-worksheets' && !hasFeature('PHA')) return false;
+    if (item.id === 'lopa' && !hasFeature('LOPA')) return false;
+    if (item.id === 'bowtie' && !hasFeature('BOWTIE')) return false;
+    return true;
+  });
 
   // Helper to determine if a primary tab is active based on activeTab
   const isPrimaryActive = (item) => {
@@ -135,7 +155,7 @@ const StudyLayout = ({ activeTab, onBack, onNavigate, theme, toggleTheme, childr
           
           <nav className="radial-sidebar-nav">
             <ul>
-              {STUDY_NAV_ITEMS.map(item => {
+              {filteredStudyNavItems.map(item => {
                 // If the menu is open, we append a "Hide" button to the subItems array
                 const hasSubItems = item.subItems && item.subItems.length > 0;
                 let activeSubItems = hasSubItems ? [...item.subItems] : [];

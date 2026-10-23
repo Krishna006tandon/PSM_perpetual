@@ -52,6 +52,9 @@ function App() {
           if (res.ok) {
             const data = await res.json();
             setCurrentUser(data);
+            if (data.features) {
+              localStorage.setItem('userFeatures', JSON.stringify(data.features));
+            }
           }
         } catch (e) {
           console.error(e);
@@ -61,6 +64,22 @@ function App() {
     }
   }, [isAuthenticated]);
   
+  // Feature access check (PHA, MOC, LOPA, BOWTIE)
+  const hasFeature = (feat) => {
+    if (!currentUser) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('userFeatures'));
+        if (Array.isArray(stored)) return stored.includes(feat);
+      } catch(e) {}
+      return true; // Default before user data loads
+    }
+    if (currentUser.role === 'SuperAdmin') return true;
+    const feats = Array.isArray(currentUser.features) && currentUser.features.length > 0
+      ? currentUser.features
+      : ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+    return feats.includes(feat);
+  };
+
   // The RBAC lock: Only Admins, Scribes, and Project Managers can edit
   const userRole = currentUser?.role?.toLowerCase() || '';
   const canEditGlobal = ['admin', 'scribe', 'project manager'].includes(userRole);
@@ -97,7 +116,9 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userFeatures');
     setIsAuthenticated(false);
+    setCurrentUser(null);
     setCurrentView('dashboard');
   };
 
@@ -232,6 +253,23 @@ function App() {
       }
 
       if (studyTab === 'pha-worksheets') {
+        if (!hasFeature('PHA')) {
+          return (
+            <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>PHA Worksheets Locked</h2>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                Process Hazard Analysis worksheets are not included in your current subscription package.
+              </p>
+              <button 
+                onClick={() => handleStudyNav('overview')} 
+                style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                &larr; Back to Study Overview
+              </button>
+            </div>
+          );
+        }
         return (
           <PHAWorksheet 
             study={activeStudy} 
@@ -271,6 +309,23 @@ function App() {
       }
 
       if (studyTab === 'lopa') {
+        if (!hasFeature('LOPA')) {
+          return (
+            <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>LOPA Module Locked</h2>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                Layer of Protection Analysis (LOPA) is not included in your current subscription package.
+              </p>
+              <button 
+                onClick={() => handleStudyNav('overview')} 
+                style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                &larr; Back to Study Overview
+              </button>
+            </div>
+          );
+        }
         return (
           <LOPAWorksheet 
             study={activeStudy} 
@@ -284,6 +339,23 @@ function App() {
       }
 
       if (studyTab === 'bowtie') {
+        if (!hasFeature('BOWTIE')) {
+          return (
+            <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>BowTie Analysis Locked</h2>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                BowTie Analysis is not included in your current subscription package.
+              </p>
+              <button 
+                onClick={() => handleStudyNav('overview')} 
+                style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                &larr; Back to Study Overview
+              </button>
+            </div>
+          );
+        }
         return (
           <BowTieAnalysis 
             study={activeStudy} 
@@ -337,6 +409,23 @@ function App() {
     }
 
     if (currentView === 'pha') {
+      if (!hasFeature('PHA')) {
+        return (
+          <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>PHA Module Locked</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Process Hazard Analysis is not included in your current subscription package.
+            </p>
+            <button 
+              onClick={() => setCurrentView('dashboard')} 
+              style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              &larr; Back to Dashboard
+            </button>
+          </div>
+        );
+      }
       return (
         <div style={{ padding: '20px', width: '100%', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -382,6 +471,23 @@ function App() {
     }
 
     if (currentView === 'moc') {
+      if (!hasFeature('MOC')) {
+        return (
+          <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>MOC Module Locked</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Management of Change (MOC) is not included in your current subscription package.
+            </p>
+            <button 
+              onClick={() => setCurrentView('dashboard')} 
+              style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              &larr; Back to Dashboard
+            </button>
+          </div>
+        );
+      }
       return <MocDashboard />;
     }
 
@@ -425,38 +531,131 @@ function App() {
 
     return (
       <main className="main-content">
-        <header className="header">
+        <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 className="text-gradient" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Dashboard Overview</h1>
             <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
-              Welcome back! Here is your latest summary.
+              Welcome back{currentUser?.name ? `, ${currentUser.name}` : ''}! Here is your latest summary.
             </p>
           </div>
-          <button className="theme-toggle" onClick={toggleTheme}>
-            Toggle to {theme === 'dark' ? 'Light' : 'Dark'} Mode
-          </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button className="theme-toggle" onClick={toggleTheme}>
+              Toggle to {theme === 'dark' ? 'Light' : 'Dark'} Mode
+            </button>
+            <button 
+              onClick={handleLogout}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+              title="Logout from account"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Logout</span>
+            </button>
+          </div>
         </header>
 
         <div className="card-container">
-          <div className="card" onClick={handlePhaClick} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
-            <h3>PHA</h3>
-            <p>Process Hazard Analysis</p>
-            <span className="status-badge status-info">View Details</span>
-          </div>
-          <div className="card" onClick={() => setCurrentView('moc')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
-            <h3>MOC</h3>
-            <p>Management of Change</p>
-            <span className="status-badge status-info">View Details</span>
-          </div>
-          <div className="card" onClick={() => setCurrentView('recommendations')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
-            <h3>Recommendations</h3>
-            <p>Safety & MOC Action Items</p>
-            <span className="status-badge status-info">View Details</span>
-          </div>
+          {hasFeature('PHA') && (
+            <div className="card" onClick={handlePhaClick} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+              <h3>PHA</h3>
+              <p>Process Hazard Analysis</p>
+              <span className="status-badge status-info">View Details</span>
+            </div>
+          )}
+          {hasFeature('MOC') && (
+            <div className="card" onClick={() => setCurrentView('moc')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+              <h3>MOC</h3>
+              <p>Management of Change</p>
+              <span className="status-badge status-info">View Details</span>
+            </div>
+          )}
+          {(hasFeature('PHA') || hasFeature('MOC')) && (
+            <div className="card" onClick={() => setCurrentView('recommendations')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+              <h3>Recommendations</h3>
+              <p>Safety & MOC Action Items</p>
+              <span className="status-badge status-info">View Details</span>
+            </div>
+          )}
           <div className="card" onClick={() => setCurrentView('settings')} style={{ cursor: 'pointer', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
             <h3>Settings</h3>
             <p>Preferences & Column Visibility</p>
             <span className="status-badge status-info">Configure</span>
+          </div>
+
+          {/* Incident Investigation Card (Coming Soon) */}
+          <div 
+            className="card" 
+            style={{ 
+              cursor: 'default', 
+              padding: '32px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              minHeight: '200px',
+              position: 'relative',
+              border: '1.5px dashed #f59e0b',
+              background: theme === 'dark' ? 'rgba(245, 158, 11, 0.05)' : '#fffdf5',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
+            }}
+          >
+            <div style={{ position: 'absolute', top: '14px', right: '14px' }}>
+              <span style={{ 
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                color: '#ffffff', 
+                padding: '4px 10px', 
+                borderRadius: '12px', 
+                fontSize: '0.72rem', 
+                fontWeight: '700',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                boxShadow: '0 2px 4px rgba(217, 119, 6, 0.25)'
+              }}>
+                Coming Soon
+              </span>
+            </div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🔍</div>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.35rem', fontWeight: '700' }}>Incident Investigation</h3>
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '14px', fontSize: '0.9rem' }}>
+              Root Cause Analysis (RCA) & Incident Tracking
+            </p>
+            <span 
+              className="status-badge" 
+              style={{ 
+                background: '#fef3c7', 
+                color: '#b45309', 
+                border: '1px solid #fde68a',
+                fontWeight: '700',
+                padding: '5px 14px',
+                borderRadius: '14px',
+                fontSize: '0.8rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              🚀 Coming Soon
+            </span>
           </div>
         </div>
       </main>
@@ -471,7 +670,7 @@ function App() {
     <div className="app-container">
       {/* Formal Sidebar with new Navigation logic */}
       {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && (
-        <Sidebar activeView={currentView} onNavigate={setCurrentView} />
+        <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} />
       )}
       {renderContent()}
     </div>

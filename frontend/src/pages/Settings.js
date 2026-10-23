@@ -10,6 +10,17 @@ import {
 } from '../utils/lopaMapping';
 
 const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy, activeStudy }) => {
+  const getEffectiveFeatures = () => {
+    if (Array.isArray(currentUser?.features) && currentUser.features.length > 0) return currentUser.features;
+    try {
+      const stored = JSON.parse(localStorage.getItem('userFeatures'));
+      if (Array.isArray(stored)) return stored;
+    } catch (e) {}
+    return ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+  };
+  const effectiveFeatures = getEffectiveFeatures();
+  const hasLopa = effectiveFeatures.includes('LOPA');
+
   // 1. Hide Deviation Decomposition Columns (Guideword, Parameter, Material, Equipment, Instrument)
   // Default is true (Enabled / Hidden by default as requested by user)
   const [hideDecomposition, setHideDecomposition] = useState(() => {
@@ -262,7 +273,8 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy,
           </div>
         </div>
 
-        {/* Section: PHA → LOPA Field Mapping Configuration */}
+        {/* Section: PHA → LOPA Field Mapping Configuration (Only if LOPA module is unlocked) */}
+        {hasLopa && (
         <div className="settings-section-card lopa-mapping-card">
           <div className="settings-section-header">
             <h2>🔗 PHA → LOPA Field Mapping Configuration</h2>
@@ -497,6 +509,7 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy,
             )}
           </div>
         </div>
+        )}
 
         {/* Section 2: Appearance & Theme */}
         <div className="settings-section-card">

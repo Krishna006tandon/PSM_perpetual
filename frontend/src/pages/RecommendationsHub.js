@@ -8,7 +8,19 @@ export default function RecommendationsHub({
   theme,
   toggleTheme 
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'pha');
+  const getEffectiveFeatures = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('userFeatures'));
+      if (Array.isArray(stored)) return stored;
+    } catch (e) {}
+    return ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+  };
+  const effectiveFeatures = getEffectiveFeatures();
+  const hasPha = effectiveFeatures.includes('PHA');
+  const hasMoc = effectiveFeatures.includes('MOC');
+
+  const defaultTab = (!hasPha && hasMoc) ? 'moc' : (initialTab || 'pha');
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [phaScenarios, setPhaScenarios] = useState([]);
   const [mocTickets, setMocTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -303,25 +315,29 @@ export default function RecommendationsHub({
           <p>Consolidated register of Safety (PHA) & Management of Change (MOC) recommendations across all units</p>
         </div>
 
-        {/* 2-Option Tabs: PHA & MOC */}
+        {/* 2-Option Tabs: PHA & MOC (Rendered based on feature permissions) */}
         <div className="rec-tab-switcher">
-          <button 
-            type="button"
-            className={`rec-tab-btn ${activeTab === 'pha' ? 'active' : ''}`}
-            onClick={() => setActiveTab('pha')}
-          >
-            <span>📋 PHA Recommendations</span>
-            <span className="rec-count-badge">{phaStats.total}</span>
-          </button>
+          {hasPha && (
+            <button 
+              type="button"
+              className={`rec-tab-btn ${activeTab === 'pha' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pha')}
+            >
+              <span>📋 PHA Recommendations</span>
+              <span className="rec-count-badge">{phaStats.total}</span>
+            </button>
+          )}
           
-          <button 
-            type="button"
-            className={`rec-tab-btn ${activeTab === 'moc' ? 'active' : ''}`}
-            onClick={() => setActiveTab('moc')}
-          >
-            <span>🔄 MOC Recommendations</span>
-            <span className="rec-count-badge">{mocStats.total}</span>
-          </button>
+          {hasMoc && (
+            <button 
+              type="button"
+              className={`rec-tab-btn ${activeTab === 'moc' ? 'active' : ''}`}
+              onClick={() => setActiveTab('moc')}
+            >
+              <span>🔄 MOC Recommendations</span>
+              <span className="rec-count-badge">{mocStats.total}</span>
+            </button>
+          )}
         </div>
       </div>
 

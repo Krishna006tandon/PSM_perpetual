@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   companyCode: { type: String },
-  
   name: { type: String },
   companyName: { type: String },
   companyAddress: { type: String },
@@ -20,6 +19,18 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     default: 'Observer'
+  },
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPackage'
+  },
+  billingType: {
+    type: String,
+    enum: ['One-time', 'Annual', 'Monthly', 'Yearly']
+  },
+  features: {
+    type: [String],
+    default: ['PHA', 'MOC', 'LOPA', 'BOWTIE']
   },
   createdAt: {
     type: Date,

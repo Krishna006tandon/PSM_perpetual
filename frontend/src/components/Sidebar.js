@@ -71,8 +71,40 @@ const NAV_ITEMS = [
   },
 ];
 
-function Sidebar({ activeView, onNavigate }) {
+function Sidebar({ activeView, onNavigate, userFeatures, onLogout }) {
   const [openMenuId, setOpenMenuId] = useState(null);
+
+  const getEffectiveFeatures = () => {
+    if (Array.isArray(userFeatures) && userFeatures.length > 0) return userFeatures;
+    try {
+      const stored = JSON.parse(localStorage.getItem('userFeatures'));
+      if (Array.isArray(stored)) return stored;
+    } catch (e) {}
+    return ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+  };
+
+  const effectiveFeatures = getEffectiveFeatures();
+  const hasFeature = (feat) => effectiveFeatures.includes(feat);
+
+  // Filter navigation items based on unlocked features
+  const filteredNavItems = NAV_ITEMS.map(item => {
+    if (item.id === 'pha') {
+      return hasFeature('PHA') ? item : null;
+    }
+    if (item.id === 'moc') {
+      return hasFeature('MOC') ? item : null;
+    }
+    if (item.id === 'recommendations') {
+      const sub = item.subItems.filter(s => {
+        if (s.id === 'recommendations-pha') return hasFeature('PHA');
+        if (s.id === 'recommendations-moc') return hasFeature('MOC');
+        return true;
+      });
+      if (sub.length === 0) return null;
+      return { ...item, subItems: sub };
+    }
+    return item;
+  }).filter(Boolean);
 
   const handleItemClick = (item) => {
     onNavigate(item.id);
@@ -109,11 +141,11 @@ function Sidebar({ activeView, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <h2>Perpetual <span className="brand-accent">PSM</span></h2>
+        <h2>PS-Magna<span className="brand-accent">Shield</span></h2>
       </div>
       <nav className="sidebar-nav">
         <ul>
-          {NAV_ITEMS.map(item => (
+          {filteredNavItems.map(item => (
             <li key={item.id} className="sidebar-item-container">
               <div 
                 className={`sidebar-item ${(activeView === item.id || (activeView && activeView.startsWith(item.id))) ? 'active' : ''}`}
@@ -147,6 +179,39 @@ function Sidebar({ activeView, onNavigate }) {
           ))}
         </ul>
       </nav>
+
+      {onLogout && (
+        <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--divider, #e2e8f0)' }}>
+          <div 
+            className="sidebar-item" 
+            onClick={onLogout}
+            style={{ 
+              color: '#ef4444', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontWeight: '600',
+              fontSize: '14px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            title="Sign out of PSM Platform"
+          >
+            <span className="icon" style={{ color: '#ef4444' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </span>
+            <span className="label">Logout</span>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

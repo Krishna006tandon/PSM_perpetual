@@ -116,7 +116,20 @@ const crypto_rand = require('crypto');
 
 router.post('/register-with-payment', async (req, res) => {
   try {
-    const { email, name, companyName, companyAddress, contact, numberOfUsers, packageId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { 
+      email, 
+      name, 
+      companyName, 
+      companyAddress, 
+      contact, 
+      numberOfUsers, 
+      packageId, 
+      billingType,
+      selectedFeatures,
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature 
+    } = req.body;
 
     if (!email || !packageId) {
       return res.status(400).json({ error: 'Email and package are required' });
@@ -143,6 +156,28 @@ router.post('/register-with-payment', async (req, res) => {
       return res.status(400).json({ error: 'User already exists. Please login instead.' });
     }
 
+    // Retrieve package details
+    const SubscriptionPackage = require('../models/SubscriptionPackage');
+    const Transaction = require('../models/Transaction');
+    const pkg = await SubscriptionPackage.findById(packageId);
+
+    // Determine features to unlock
+    let featuresToUnlock = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+    if (Array.isArray(selectedFeatures) && selectedFeatures.length > 0) {
+      featuresToUnlock = selectedFeatures;
+    } else if (pkg && Array.isArray(pkg.features) && pkg.features.length > 0) {
+      featuresToUnlock = pkg.features;
+    }
+
+    // Determine billing type and price
+    const finalBillingType = billingType || (pkg?.billingCycle === 'One-time' ? 'One-time' : 'Annual');
+    let paymentAmount = 0;
+    if (finalBillingType === 'One-time') {
+      paymentAmount = (pkg && pkg.oneTimePrice) ? pkg.oneTimePrice : (pkg ? pkg.price : 0);
+    } else {
+      paymentAmount = (pkg && pkg.annualPrice) ? pkg.annualPrice : (pkg ? pkg.price : 0);
+    }
+
     // Generate a random 8 character password
     const generatedPassword = crypto_rand.randomBytes(4).toString('hex');
 
@@ -162,7 +197,10 @@ router.post('/register-with-payment', async (req, res) => {
       contact,
       numberOfUsers,
       password: hashedPassword,
-      role: 'Admin'
+      role: 'Admin',
+      packageId: packageId,
+      billingType: finalBillingType,
+      features: featuresToUnlock
     });
     
     // Send email with the generated password
@@ -212,7 +250,7 @@ The Perpetual Team`
       companyCode: user.companyCode,
       orderId: razorpay_order_id || 'dummy_order_id',
       paymentId: razorpay_payment_id || 'dummy_payment_id',
-      amount: pkg ? pkg.price : 0,
+      amount: paymentAmount,
       packageId: packageId,
       status: 'Success'
     });
@@ -406,19 +444,42 @@ router.post('/reset-password-otp', async (req, res) => {
   }
 });
 
-module.exports = router;
 // Get current user
 const auth = require('../middleware/auth');
 router.get('/me', auth, async (req, res) => {
   try {
     const userId = req.user.userId || req.user; // handle both object and string for safety
-    const user = await User.findById(userId).select('-password');
+    const user = await User.findById(userId).select('-password').populate('packageId');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+    const userObj = user.toObject();
+
+    // SuperAdmin always has full access to all features
+    if (user.role === 'SuperAdmin') {
+      userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+    } else if (!userObj.features || userObj.features.length === 0) {
+      // Check company admin's features if this is a team member
+      if (user.companyCode) {
+        const adminUser = await User.findOne({ companyCode: user.companyCode, role: 'Admin' }).populate('packageId');
+        if (adminUser && adminUser.features && adminUser.features.length > 0) {
+          userObj.features = adminUser.features;
+          userObj.packageId = adminUser.packageId;
+          userObj.billingType = adminUser.billingType;
+        } else if (userObj.packageId && userObj.packageId.features && userObj.packageId.features.length > 0) {
+          userObj.features = userObj.packageId.features;
+        } else {
+          userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+        }
+      } else {
+        userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+      }
+    }
+    res.json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+module.exports = router;

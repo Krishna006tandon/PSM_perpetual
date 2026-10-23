@@ -3,6 +3,8 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const SubscriptionPackage = require('../models/SubscriptionPackage');
+const Transaction = require('../models/Transaction');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123'; // In production, always use process.env.JWT_SECRET
 
@@ -157,8 +159,6 @@ router.post('/register-with-payment', async (req, res) => {
     }
 
     // Retrieve package details
-    const SubscriptionPackage = require('../models/SubscriptionPackage');
-    const Transaction = require('../models/Transaction');
     const pkg = await SubscriptionPackage.findById(packageId);
 
     // Determine features to unlock
@@ -242,10 +242,6 @@ The Perpetual Team`
     await user.save();
     
     // Save transaction for revenue analytics
-    const SubscriptionPackage = require('../models/SubscriptionPackage');
-    const Transaction = require('../models/Transaction');
-    const pkg = await SubscriptionPackage.findById(packageId);
-    
     const transaction = new Transaction({
       companyCode: user.companyCode,
       orderId: razorpay_order_id || 'dummy_order_id',

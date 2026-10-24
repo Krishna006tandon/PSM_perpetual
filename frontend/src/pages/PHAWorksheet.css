@@ -297,6 +297,7 @@
   overflow-x: auto;
   overflow-y: auto;
   border-radius: 0;
+  isolation: isolate;
   scrollbar-width: none !important; /* Firefox */
   -ms-overflow-style: none !important; /* IE and Edge */
 }
@@ -760,7 +761,7 @@ body.crazy-focus-mode .w-to {
   display: flex;
   align-items: center;
   gap: 14px;
-  z-index: 999999;
+  z-index: 1000;
   font-size: 13px;
   border: 1px solid #334155;
   animation: slideUpFade 0.25s ease-out;

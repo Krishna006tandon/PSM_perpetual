@@ -823,7 +823,82 @@ button {
 }
 
 
-/* Universal Modal Stacking Rule - Guarantees all modals render above sticky table headers, sidebars & toolbars */
-.modal-overlay {
-  z-index: 99999 !important;
+/* ==========================================================================
+   UNIVERSAL PHA MODAL & TABLE STACKING CONTEXT RULES
+   Guarantees that modal dialogs, backdrops, and popups ALWAYS render above
+   sticky table headers, floating toolbars, sidebars, and toasts across all
+   PHA modules (PHA Worksheet, LOPA Worksheet, BowTie, Registries, Hubs, etc.)
+   ========================================================================== */
+
+/* 1. Modal Overlays & Backdrops - Highest Priority Floating Layers */
+.modal-overlay,
+div[class*="modal-overlay"],
+.modal-backdrop,
+.psm-modal-backdrop,
+.equipment-modal-overlay,
+.bowtie-modal-overlay,
+.attendance-sheet-overlay,
+.pha-modal-overlay {
+  position: fixed !important;
+  z-index: 100000 !important;
+}
+
+/* 2. Modal Content & Dialog Cards */
+.modal-content,
+.modal-container,
+.member-modal,
+.node-modal,
+.report-settings-modal,
+.equipment-modal,
+.bowtie-modal-content,
+.psm-modal-card,
+.document-modal {
+  position: relative !important;
+  z-index: 100001 !important;
+}
+
+/* 3. Table Wrappers - Isolated Stacking Contexts
+   Prevents sticky headers (th) and internal row cells from bleeding
+   outside their container or covering fixed modals/dialogs. */
+.pha-table-wrapper-flush,
+.pha-table-wrap,
+.dynamic-table-wrapper,
+.causes-table-wrapper,
+.deviations-table-wrapper,
+.nodes-table-wrapper,
+.rec-table-wrapper,
+.docs-table-wrapper,
+.table-wrapper,
+.equipment-table-container,
+.settings-table-container,
+.psm-hazop-table-wrap,
+.psm-actions-table-wrap,
+.psm-comparison-table-wrap,
+.table-responsive,
+.bowtie-table-card {
+  isolation: isolate !important;
+}
+
+/* 4. Table Sticky Headers - Contained strictly within local table context */
+.dynamic-table th,
+.pha-table thead th,
+.causes-table th,
+.deviations-table th,
+.nodes-table th,
+.rec-table th,
+.docs-table th,
+.equipment-table th,
+.attendance-table th,
+.bowtie-table th,
+.settings-table th,
+.psm-hazop-table th,
+.psm-lopa-ipl-table th,
+.psm-actions-table th,
+.psm-comparison-table th {
+  z-index: 10 !important;
+}
+
+.dynamic-table thead tr:nth-child(2) th,
+.pha-table thead tr:nth-child(2) th {
+  z-index: 9 !important;
 }

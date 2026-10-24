@@ -141,8 +141,8 @@ const TolerabilityMatrixModal = ({
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1100 }}>
-      <div className="modal-content" style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
+      <div className="modal-content" style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 100000, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)' }}>
         <div className="modal-header" style={{ padding: '16px 24px', backgroundColor: '#0f172a', color: '#fff', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
           <div>
             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>

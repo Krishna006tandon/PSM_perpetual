@@ -110,7 +110,7 @@ const ManageColumnsModal = ({ studyId, registryType, onClose, onSave }) => {
   };
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
       <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
         <div className="modal-header">
           <h3>Manage Custom Columns</h3>

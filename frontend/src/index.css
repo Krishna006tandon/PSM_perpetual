@@ -821,3 +821,9 @@ button {
     padding: 20px;
   }
 }
+
+
+/* Universal Modal Stacking Rule - Guarantees all modals render above sticky table headers, sidebars & toolbars */
+.modal-overlay {
+  z-index: 99999 !important;
+}

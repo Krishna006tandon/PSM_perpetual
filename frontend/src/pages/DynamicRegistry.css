@@ -13,6 +13,7 @@
   align-items: center;
   padding: 16px 24px;
   background: var(--bg-paper);
+  isolation: isolate;
   border-bottom: 1px solid var(--divider);
 }
 
@@ -30,6 +31,7 @@
   gap: 12px;
   padding: 12px 24px;
   background: var(--bg-paper);
+  isolation: isolate;
   border-bottom: 1px solid var(--divider);
 }
 
@@ -59,6 +61,7 @@
   flex: 1;
   overflow: auto;
   background: var(--bg-paper);
+  isolation: isolate;
 }
 
 .dynamic-table {
@@ -78,7 +81,12 @@
   font-weight: 700;
   text-transform: uppercase;
   border: 1px solid var(--text-secondary);
-  z-index: 2147483647;
+  z-index: 10;
+}
+
+.dynamic-table thead tr:nth-child(2) th {
+  top: 37px;
+  z-index: 9;
 }
 
 .dynamic-table td {

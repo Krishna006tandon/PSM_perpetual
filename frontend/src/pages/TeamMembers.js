@@ -7,12 +7,18 @@ import './TeamMembers.css';
 const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, onUpdate }) => {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [memberToEdit, setMemberToEdit] = useState(null);
   const [isPrintingAttendance, setIsPrintingAttendance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [meetingDates, setMeetingDates] = useState(study?.meetingDates || []);
   const [showAddDateModal, setShowAddDateModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [dateInput, setDateInput] = useState('');
+
+  // Date Edit & Delete States
+  const [dateToEdit, setDateToEdit] = useState(null);
+  const [editDateInput, setEditDateInput] = useState('');
+  const [dateToDelete, setDateToDelete] = useState(null);
 
   // Delete Member State
   const [memberToDelete, setMemberToDelete] = useState(null);
@@ -45,11 +51,19 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
 
   useEffect(() => {
     fetchMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study._id]);
 
+  // Append new member to the end of the array (sequential addition)
   const handleMemberAdded = (newMember) => {
-    setMembers([newMember, ...members]);
+    setMembers(prev => [...prev, newMember]);
     setIsModalOpen(false);
+  };
+
+  // Update existing member in place
+  const handleMemberUpdated = (updatedMember) => {
+    setMembers(prev => prev.map(m => m._id === updatedMember._id ? updatedMember : m));
+    setMemberToEdit(null);
   };
 
   const handleRoleChange = async (memberId, newRole) => {
@@ -127,6 +141,108 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
     }
   };
 
+  const submitEditDate = async () => {
+    if (!editDateInput || !dateToEdit) return;
+    if (editDateInput === dateToEdit) {
+      setDateToEdit(null);
+      return;
+    }
+    if (meetingDates.includes(editDateInput)) {
+      alert("Date already exists!");
+      return;
+    }
+
+    const oldDate = dateToEdit;
+    const newDates = meetingDates.map(d => d === oldDate ? editDateInput : d);
+    setMeetingDates(newDates);
+
+    // Optimistically migrate attendance records for all members
+    const updatedMembers = members.map(m => {
+      if (m.attendanceDates && m.attendanceDates[oldDate] !== undefined) {
+        const newAttendance = { ...m.attendanceDates };
+        newAttendance[editDateInput] = newAttendance[oldDate];
+        delete newAttendance[oldDate];
+        return { ...m, attendanceDates: newAttendance };
+      }
+      return m;
+    });
+    setMembers(updatedMembers);
+
+    // Migrate momData if exists
+    let updatedMomData = study.momData ? { ...study.momData } : null;
+    if (updatedMomData && updatedMomData[oldDate] !== undefined) {
+      updatedMomData[editDateInput] = updatedMomData[oldDate];
+      delete updatedMomData[oldDate];
+    }
+
+    setDateToEdit(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      // 1. Update Study meetingDates (and momData)
+      const studyPayload = { meetingDates: newDates };
+      if (updatedMomData) {
+        studyPayload.momData = updatedMomData;
+      }
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(studyPayload)
+      });
+      if (res.ok && onUpdate) {
+        const updatedStudy = await res.json();
+        onUpdate(updatedStudy);
+      }
+
+      // 2. Persist attendance updates for members who had records on oldDate
+      for (const m of updatedMembers) {
+        if (m.attendanceDates && m.attendanceDates[editDateInput] !== undefined) {
+          await fetch(`https://api.perpetualsolutions.co.in/api/teams/${m._id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ attendanceDates: m.attendanceDates })
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update meeting date:', err);
+      alert('Failed to update meeting date on server.');
+    }
+  };
+
+  const confirmDeleteDate = async () => {
+    if (!dateToDelete) return;
+    const targetDate = dateToDelete;
+    const newDates = meetingDates.filter(d => d !== targetDate);
+    setMeetingDates(newDates);
+    setDateToDelete(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ meetingDates: newDates })
+      });
+      if (res.ok && onUpdate) {
+        const updatedStudy = await res.json();
+        onUpdate(updatedStudy);
+      }
+    } catch (err) {
+      console.error('Failed to delete meeting date:', err);
+      alert('Failed to delete meeting date on server.');
+    }
+  };
+
   const confirmDeleteMember = async () => {
     if (!memberToDelete || !deleteReason.trim()) {
       alert("Please provide a reason for deletion.");
@@ -179,7 +295,10 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
             }}>
               🖨️ PRINT ATTENDANCE SHEET
             </button>
-            {canEdit && <button className="btn-add-member" onClick={() => setIsModalOpen(true)}>
+            {canEdit && <button className="btn-add-member" onClick={() => {
+              setMemberToEdit(null);
+              setIsModalOpen(true);
+            }}>
               <span className="plus-icon">+</span> ADD MEMBER
             </button>}
           </div>
@@ -200,7 +319,10 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
               </svg>
             </div>
             <h3>NO TEAM MEMBERS YET</h3>
-            {canEdit && <button className="btn-add-first" onClick={() => setIsModalOpen(true)}>
+            {canEdit && <button className="btn-add-first" onClick={() => {
+              setMemberToEdit(null);
+              setIsModalOpen(true);
+            }}>
               ADD FIRST MEMBER
             </button>}
           </div>
@@ -216,7 +338,34 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
                   <th>DISCIPLINE</th>
                   <th>COMPANY</th>
                   {meetingDates.map(date => (
-                    <th key={date} style={{textAlign: 'center', whiteSpace: 'nowrap'}}>{date}</th>
+                    <th key={date} style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
+                      <div style={{display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center'}}>
+                        <span>{date}</span>
+                        {canEdit && (
+                          <span style={{display: 'inline-flex', gap: '4px', opacity: 0.85}}>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setDateToEdit(date);
+                                setEditDateInput(date);
+                              }}
+                              style={{background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', padding: '0 2px'}}
+                              title={`Edit date ${date}`}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => setDateToDelete(date)}
+                              style={{background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', padding: '0 2px'}}
+                              title={`Delete date column ${date}`}
+                            >
+                              🗑️
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    </th>
                   ))}
                   {canEdit && <th>ACTIONS</th>}
                 </tr>
@@ -274,7 +423,21 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
                       </td>
                     ))}
                     {canEdit && (
-                      <td style={{textAlign: 'center'}}>
+                      <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
+                        <button 
+                          onClick={() => setMemberToEdit(member)}
+                          style={{
+                            background: 'none', 
+                            border: 'none', 
+                            color: '#0284c7', 
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            marginRight: '8px'
+                          }}
+                          title="Edit Member"
+                        >
+                          ✏️
+                        </button>
                         <button 
                           onClick={() => setMemberToDelete(member)}
                           style={{
@@ -298,6 +461,7 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
         )}
       </div>
 
+      {/* Add Date Modal */}
       {showAddDateModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{maxWidth: '400px'}}>
@@ -316,6 +480,51 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
         </div>
       )}
 
+      {/* Edit Date Modal */}
+      {dateToEdit && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '400px'}}>
+            <h2>Edit Meeting Date</h2>
+            <p style={{marginTop: '10px', color: '#666', fontSize: '13px'}}>
+              Adjust the meeting date for <strong>{dateToEdit}</strong>. Attendance records and MOM notes will be transferred to the new date.
+            </p>
+            <input 
+              type="date" 
+              value={editDateInput} 
+              onChange={(e) => setEditDateInput(e.target.value)}
+              style={{width: '100%', padding: '10px', marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px'}}
+            />
+            <div className="modal-actions" style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+              <button className="btn-cancel" onClick={() => setDateToEdit(null)}>Cancel</button>
+              <button className="btn-save" onClick={submitEditDate}>Update Date</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Date Confirmation Modal */}
+      {dateToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '400px'}}>
+            <h2>Remove Meeting Date</h2>
+            <p style={{marginTop: '10px', color: '#666', fontSize: '13px'}}>
+              Are you sure you want to remove the meeting date column <strong>{dateToDelete}</strong>?
+            </p>
+            <div className="modal-actions" style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+              <button className="btn-cancel" onClick={() => setDateToDelete(null)}>Cancel</button>
+              <button 
+                className="btn-save" 
+                style={{backgroundColor: '#ef4444'}} 
+                onClick={confirmDeleteDate}
+              >
+                Remove Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Attendance Sheet Modal */}
       {showPrintModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{maxWidth: '400px'}}>
@@ -378,11 +587,16 @@ const TeamMembers = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, o
         </div>
       )}
 
-      {isModalOpen && (
+      {/* Add / Edit Member Modal */}
+      {(isModalOpen || memberToEdit) && (
         <AddMemberModal 
           studyId={study._id} 
-          onClose={() => setIsModalOpen(false)} 
-          onSuccess={handleMemberAdded} 
+          member={memberToEdit}
+          onClose={() => {
+            setIsModalOpen(false);
+            setMemberToEdit(null);
+          }} 
+          onSuccess={memberToEdit ? handleMemberUpdated : handleMemberAdded} 
         />
       )}
 

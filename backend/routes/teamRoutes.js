@@ -17,7 +17,7 @@ router.use('/:studyId', checkStudyAccess);
 // GET all team members for a specific study
 router.get('/:studyId', async (req, res) => {
   try {
-    const members = await TeamMember.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ createdAt: -1 });
+    const members = await TeamMember.find({ companyCode: req.user.companyCode, studyId: req.params.studyId }).sort({ createdAt: 1 });
     res.json(members);
   } catch (err) {
     res.status(500).json({ message: err.message });

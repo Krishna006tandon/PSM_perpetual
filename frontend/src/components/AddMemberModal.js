@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AddMemberModal.css';
 
 const ROLES = [
@@ -34,15 +34,30 @@ const DISCIPLINES = [
   'External Consultant'
 ];
 
-const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
+const AddMemberModal = ({ studyId, member, onClose, onSuccess }) => {
+  const isEdit = Boolean(member && member._id);
+
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    company: '',
-    role: 'Study Leader',
-    discipline: 'Process Safety'
+    fullName: member?.fullName || '',
+    email: member?.email || '',
+    phone: member?.phone || '',
+    company: member?.company || '',
+    role: member?.role || 'Study Leader',
+    discipline: member?.discipline || 'Process Safety'
   });
+
+  useEffect(() => {
+    if (member) {
+      setFormData({
+        fullName: member.fullName || '',
+        email: member.email || '',
+        phone: member.phone || '',
+        company: member.company || '',
+        role: member.role || 'Study Leader',
+        discipline: member.discipline || 'Process Safety'
+      });
+    }
+  }, [member]);
 
   const [loading, setLoading] = useState(false);
 
@@ -56,8 +71,13 @@ const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${studyId}`, {
-        method: 'POST',
+      const url = isEdit 
+        ? `https://api.perpetualsolutions.co.in/api/teams/${member._id}`
+        : `https://api.perpetualsolutions.co.in/api/teams/${studyId}`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -70,11 +90,11 @@ const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
         onSuccess(data);
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        alert(`Error: ${error.message || 'Operation failed'}`);
       }
     } catch (error) {
-      console.error('Failed to add team member:', error);
-      alert('Failed to add team member');
+      console.error(isEdit ? 'Failed to update team member:' : 'Failed to add team member:', error);
+      alert(isEdit ? 'Failed to update team member' : 'Failed to add team member');
     } finally {
       setLoading(false);
     }
@@ -85,7 +105,7 @@ const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
       <div className="member-modal">
         <div className="member-modal-header">
           <div className="member-modal-title">
-            <span className="icon">👥</span> ADD TEAM MEMBER
+            <span className="icon">{isEdit ? '✏️' : '👥'}</span> {isEdit ? 'EDIT TEAM MEMBER' : 'ADD TEAM MEMBER'}
           </div>
           <button className="member-modal-close" onClick={onClose}>&times;</button>
         </div>
@@ -149,7 +169,7 @@ const AddMemberModal = ({ studyId, onClose, onSuccess }) => {
           <div className="member-modal-footer">
             <button type="button" className="btn-cancel" onClick={onClose}>CANCEL</button>
             <button type="submit" className="btn-save" disabled={loading}>
-              {loading ? 'SAVING...' : 'SAVE MEMBER'}
+              {loading ? 'SAVING...' : (isEdit ? 'UPDATE MEMBER' : 'SAVE MEMBER')}
             </button>
           </div>
         </form>

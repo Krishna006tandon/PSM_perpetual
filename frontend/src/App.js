@@ -23,6 +23,7 @@ import ResetPassword from './pages/ResetPassword';
 import RecommendationsHub from './pages/RecommendationsHub';
 import BowTieAnalysis from './pages/BowTieAnalysis';
 import Settings from './pages/Settings';
+import SystemStabilizer from './components/SystemStabilizer';
 
 import Auth from './components/Auth';
 
@@ -673,6 +674,11 @@ function App() {
         <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} />
       )}
       {renderContent()}
+
+      {/* System & Plant Health Stabilizer (Visible across all dashboards and worksheets after login) */}
+      {isAuthenticated && !showAuth && (
+        <SystemStabilizer currentUser={currentUser} activeStudy={activeStudy} />
+      )}
     </div>
   );
 }

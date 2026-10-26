@@ -1,0 +1,410 @@
+/* System & Plant Health Stabilizer Styles */
+
+.system-stabilizer-container {
+  position: fixed;
+  bottom: 16px;
+  left: 18px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+}
+
+/* Auto-hide in Focus Mode so it never disturbs deep worksheet work */
+body.crazy-focus-mode .system-stabilizer-container {
+  display: none !important;
+}
+
+/* Floating Pill Button */
+.stabilizer-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stabilizer-pill-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Minimized compact dot button */
+.stabilizer-minimized-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  padding: 5px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.stabilizer-minimized-btn:hover {
+  transform: scale(1.05);
+  background: rgba(15, 23, 42, 1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Status Indicator Dots */
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.status-dot.green {
+  background-color: #10b981;
+  box-shadow: 0 0 10px #10b981;
+}
+
+.status-dot.yellow {
+  background-color: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b;
+}
+
+.status-dot.red {
+  background-color: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+}
+
+.status-dot.pulse::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  border: 1.5px solid inherit;
+  animation: dotPulse 2s infinite;
+}
+
+@keyframes dotPulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+.pill-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.pill-ping {
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.pill-chevron {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.pill-chevron.open {
+  transform: rotate(180deg);
+}
+
+.pill-minimize-icon {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: 4px;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.pill-minimize-icon:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Diagnostics Modal / Card (Opens UP and ALIGNED LEFT) */
+.stabilizer-modal-card {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  animation: cardSlideUpLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardSlideUpLeft {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Modal Header */
+.stabilizer-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.modal-subtitle {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  color: #ffffff;
+}
+
+/* Modal Body */
+.stabilizer-modal-body {
+  padding: 16px;
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+/* Health Badge Box */
+.health-overall-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+
+.health-overall-banner.green {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.health-overall-banner.yellow {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.health-overall-banner.red {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.banner-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.banner-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.banner-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+/* Diagnostics Metric Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.metric-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.metric-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.metric-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.metric-sub {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: normal;
+}
+
+/* Lag Reasons Section */
+.diagnostics-section {
+  margin-bottom: 14px;
+}
+
+.section-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagnostics-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3.5px solid #3b82f6;
+  border-radius: 6px;
+  padding: 9px 11px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.diagnostics-item.warning {
+  border-left-color: #f59e0b;
+  background: #fffdf5;
+}
+
+.diagnostics-item.danger {
+  border-left-color: #ef4444;
+  background: #fff8f8;
+}
+
+.diagnostics-item.good {
+  border-left-color: #10b981;
+  background: #f6fef9;
+}
+
+.diag-title {
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diag-reason {
+  color: #475569;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.diag-solution {
+  color: #0369a1;
+  background: #f0f9ff;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-weight: 500;
+  font-size: 10.5px;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+/* Action Buttons Footer */
+.stabilizer-footer-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-stabilizer-action {
+  flex: 1;
+  padding: 7px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-stabilizer-action:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.btn-stabilizer-action.primary {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.btn-stabilizer-action.primary:hover {
+  background: #0369a1;
+}

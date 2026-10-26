@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import StudyLayout from '../components/StudyLayout';
+import ImportRiskCriteriaModal from '../components/ImportRiskCriteriaModal';
 import './RiskRegistry.css';
 
 const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [criteria, setCriteria] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const API_URL = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
 
   useEffect(() => {
     fetchCriteria();
@@ -15,7 +18,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`${API_URL}/api/risk-criteria/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -31,7 +34,7 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`${API_URL}/api/risk-criteria/${study._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(criteria)
@@ -161,8 +164,31 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     <StudyLayout activeTab="risk-criteria" onBack={onBack} onNavigate={onNavigate} theme={theme} toggleTheme={toggleTheme}>
       <div className="risk-container">
         <div className="risk-header">
-          <h2>RISK CRITERIA & MATRIX</h2>
-          <button className="btn-primary" onClick={handleSave}>SAVE CRITERIA</button>
+          <div>
+            <h2>RISK CRITERIA & MATRIX</h2>
+            {study?.projectName && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                Project: <strong>{study.projectName}</strong> {study.plantUnit ? `• Plant: ${study.plantUnit}` : ''}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {canEdit && (
+              <button
+                className="btn-import-criteria"
+                onClick={() => setIsImportModalOpen(true)}
+                title="Import Risk Criteria from another study or project"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                IMPORT CRITERIA
+              </button>
+            )}
+            <button className="btn-primary" onClick={handleSave}>SAVE CRITERIA</button>
+          </div>
         </div>
 
         <div className="risk-content">
@@ -354,6 +380,17 @@ const RiskRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </div>
         </div>
       </div>
+
+      {isImportModalOpen && (
+        <ImportRiskCriteriaModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          targetStudy={study}
+          onImportSuccess={(updatedCriteria) => {
+            setCriteria(updatedCriteria);
+          }}
+        />
+      )}
     </StudyLayout>
   );
 };

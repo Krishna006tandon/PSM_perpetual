@@ -13,25 +13,107 @@ router.get('/recent', async (req, res) => {
     const User = require('../models/User');
     const TeamMember = require('../models/TeamMember');
     
-    // Find the current user
-    const user = await User.findById(req.user.userId); // req.user.userId is decoded.userId from auth middleware
+    const user = await User.findById(req.user.userId);
+    const userRole = (user && user.role) ? user.role.toLowerCase() : '';
+    const fetchAll = req.query.all === 'true';
+    const limit = fetchAll ? 0 : (parseInt(req.query.limit) || 10);
     
     let studies;
-    if (user && user.role === 'Admin') {
-      // Admin sees all studies
-      studies = await Study.find({ companyCode: req.user.companyCode, companyCode: req.user.companyCode }).sort({ lastAccessed: -1 }).limit(10);
+    if (user && (userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner')) {
+      const query = Study.find({ companyCode: req.user.companyCode }).sort({ lastAccessed: -1, updatedAt: -1 });
+      studies = limit > 0 ? await query.limit(limit) : await query;
     } else {
-      // Normal user sees studies where they are a team member
       const userEmail = user ? user.email : '';
       const memberships = await TeamMember.find({ companyCode: req.user.companyCode, email: userEmail });
       const studyIds = memberships.map(m => m.studyId);
       
-      studies = await Study.find({ companyCode: req.user.companyCode, _id: { $in: studyIds } }).sort({ lastAccessed: -1 }).limit(10);
+      const query = Study.find({
+        companyCode: req.user.companyCode,
+        $or: [
+          { _id: { $in: studyIds } },
+          { owner: userEmail }
+        ]
+      }).sort({ lastAccessed: -1, updatedAt: -1 });
+      studies = limit > 0 ? await query.limit(limit) : await query;
     }
     
     res.json(studies);
   } catch (err) {
     console.error('Error fetching studies:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET all accessible studies (flat list with project info)
+router.get('/all', async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const TeamMember = require('../models/TeamMember');
+    
+    const user = await User.findById(req.user.userId);
+    const userRole = (user && user.role) ? user.role.toLowerCase() : '';
+    
+    let studies;
+    if (user && (userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner')) {
+      studies = await Study.find({ companyCode: req.user.companyCode })
+        .select('_id studyName projectName clientName facility plantUnit phaType studyStatus lastAccessed updatedAt')
+        .sort({ projectName: 1, studyName: 1 });
+    } else {
+      const userEmail = user ? user.email : '';
+      const memberships = await TeamMember.find({ companyCode: req.user.companyCode, email: userEmail });
+      const studyIds = memberships.map(m => m.studyId);
+      
+      studies = await Study.find({
+        companyCode: req.user.companyCode,
+        $or: [
+          { _id: { $in: studyIds } },
+          { owner: userEmail }
+        ]
+      })
+      .select('_id studyName projectName clientName facility plantUnit phaType studyStatus lastAccessed updatedAt')
+      .sort({ projectName: 1, studyName: 1 });
+    }
+    
+    res.json(studies);
+  } catch (err) {
+    console.error('Error fetching all studies:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/studies root fallback
+router.get('/', async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const TeamMember = require('../models/TeamMember');
+    
+    const user = await User.findById(req.user.userId);
+    const userRole = (user && user.role) ? user.role.toLowerCase() : '';
+    
+    let studies;
+    if (user && (userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner')) {
+      studies = await Study.find({ companyCode: req.user.companyCode })
+        .select('_id studyName projectName clientName facility plantUnit phaType studyStatus lastAccessed updatedAt')
+        .sort({ projectName: 1, studyName: 1 });
+    } else {
+      const userEmail = user ? user.email : '';
+      const memberships = await TeamMember.find({ companyCode: req.user.companyCode, email: userEmail });
+      const studyIds = memberships.map(m => m.studyId);
+      
+      studies = await Study.find({
+        companyCode: req.user.companyCode,
+        $or: [
+          { _id: { $in: studyIds } },
+          { owner: userEmail }
+        ]
+      })
+      .select('_id studyName projectName clientName facility plantUnit phaType studyStatus lastAccessed updatedAt')
+      .sort({ projectName: 1, studyName: 1 });
+    }
+    
+    res.json(studies);
+  } catch (err) {
+    console.error('Error fetching all studies:', err);
     res.status(500).json({ message: err.message });
   }
 });

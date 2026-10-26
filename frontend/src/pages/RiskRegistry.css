@@ -183,3 +183,35 @@
 .btn-primary:hover {
   background-color: #003355;
 }
+
+.btn-import-criteria {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1.5px solid #004d80;
+  background-color: var(--bg-paper, #ffffff);
+  color: #004d80;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 77, 128, 0.08);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-import-criteria:hover {
+  background-color: #f0f7ff;
+  border-color: #003355;
+  color: #003355;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 77, 128, 0.18);
+}
+
+.btn-import-criteria svg {
+  transition: transform 0.18s ease;
+}
+
+.btn-import-criteria:hover svg {
+  transform: translateY(1px);
+}

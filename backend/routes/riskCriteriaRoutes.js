@@ -103,6 +103,129 @@ router.put('/:studyId', async (req, res) => {
   }
 });
 
+// POST to import risk criteria from another study
+router.post('/:targetStudyId/import/:sourceStudyId', async (req, res) => {
+  try {
+    const { targetStudyId, sourceStudyId } = req.params;
+
+    if (!targetStudyId || !sourceStudyId) {
+      return res.status(400).json({ message: 'Both targetStudyId and sourceStudyId are required' });
+    }
+
+    if (targetStudyId === sourceStudyId) {
+      return res.status(400).json({ message: 'Cannot import from the same study' });
+    }
+
+    let sourceCriteria = await RiskCriteria.findOne({ studyId: sourceStudyId });
+    if (!sourceCriteria) {
+      return res.status(404).json({ message: 'Source study has no risk criteria configured' });
+    }
+
+    const sourceObj = sourceCriteria.toObject ? sourceCriteria.toObject() : sourceCriteria;
+
+    const updateData = {
+      consequenceCategories: Array.isArray(sourceObj.consequenceCategories) && sourceObj.consequenceCategories.length > 0
+        ? sourceObj.consequenceCategories
+        : ['Safety', 'Environment', 'Asset', 'Reputation'],
+      severityLevels: (sourceObj.severityLevels || []).map(s => ({
+        level: s.level,
+        name: s.name || `Severity ${s.level}`,
+        description: s.description || '',
+        consequences: s.consequences || {}
+      })),
+      likelihoodLevels: (sourceObj.likelihoodLevels || []).map(l => ({
+        level: l.level,
+        name: l.name || `Likelihood ${l.level}`,
+        description: l.description || '',
+        frequency: l.frequency || ''
+      })),
+      matrixCells: (sourceObj.matrixCells || []).map(c => ({
+        severityLevel: c.severityLevel,
+        likelihoodLevel: c.likelihoodLevel,
+        score: c.score !== undefined ? c.score : (c.severityLevel * c.likelihoodLevel),
+        category: c.category || ''
+      })),
+      riskCategories: (sourceObj.riskCategories || []).map(cat => ({
+        name: cat.name,
+        color: cat.color || '#cccccc'
+      })),
+      companyCode: req.user.companyCode
+    };
+
+    const updated = await RiskCriteria.findOneAndUpdate(
+      { studyId: targetStudyId },
+      { $set: updateData },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error importing risk criteria:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST to import from request body (e.g. JSON template or { sourceStudyId })
+router.post('/:targetStudyId/import', async (req, res) => {
+  try {
+    const { targetStudyId } = req.params;
+    const { sourceStudyId, criteria } = req.body;
+
+    let sourceObj = criteria;
+    if (sourceStudyId) {
+      const sourceCriteria = await RiskCriteria.findOne({ studyId: sourceStudyId });
+      if (!sourceCriteria) {
+        return res.status(404).json({ message: 'Source study has no risk criteria configured' });
+      }
+      sourceObj = sourceCriteria.toObject ? sourceCriteria.toObject() : sourceCriteria;
+    }
+
+    if (!sourceObj) {
+      return res.status(400).json({ message: 'No source criteria or sourceStudyId provided' });
+    }
+
+    const updateData = {
+      consequenceCategories: Array.isArray(sourceObj.consequenceCategories) && sourceObj.consequenceCategories.length > 0
+        ? sourceObj.consequenceCategories
+        : ['Safety', 'Environment', 'Asset', 'Reputation'],
+      severityLevels: (sourceObj.severityLevels || []).map(s => ({
+        level: s.level,
+        name: s.name || `Severity ${s.level}`,
+        description: s.description || '',
+        consequences: s.consequences || {}
+      })),
+      likelihoodLevels: (sourceObj.likelihoodLevels || []).map(l => ({
+        level: l.level,
+        name: l.name || `Likelihood ${l.level}`,
+        description: l.description || '',
+        frequency: l.frequency || ''
+      })),
+      matrixCells: (sourceObj.matrixCells || []).map(c => ({
+        severityLevel: c.severityLevel,
+        likelihoodLevel: c.likelihoodLevel,
+        score: c.score !== undefined ? c.score : (c.severityLevel * c.likelihoodLevel),
+        category: c.category || ''
+      })),
+      riskCategories: (sourceObj.riskCategories || []).map(cat => ({
+        name: cat.name,
+        color: cat.color || '#cccccc'
+      })),
+      companyCode: req.user.companyCode
+    };
+
+    const updated = await RiskCriteria.findOneAndUpdate(
+      { studyId: targetStudyId },
+      { $set: updateData },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error importing risk criteria:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.generateDefaultRiskCriteria = generateDefaultRiskCriteria;
 
 module.exports = router;

@@ -62,9 +62,9 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
   const cyInstance = useRef(null);
 
   // Fetch all bowties for this study
-  const fetchBowties = async () => {
+  const fetchBowties = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/bowtie/study/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -76,7 +76,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
     } catch (err) {
       console.error('Error fetching bowties:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -667,7 +667,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
           riskRating: 6,
           scenarioId: ''
         });
-        await fetchBowties();
+        setBowties(prev => [created, ...prev]);
         loadBowtieDetail(created._id, 'graph');
       } else {
         const err = await res.json();
@@ -847,7 +847,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
           setSelectedBowtie(null);
           setViewMode('hub');
         }
-        await fetchBowties();
+        setBowties(prev => prev.filter(b => b._id !== id));
       }
     } catch (err) {
       console.error('Error deleting bowtie:', err);

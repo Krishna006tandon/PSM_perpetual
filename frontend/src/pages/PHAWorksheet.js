@@ -914,8 +914,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
-  const fetchScenarios = async (nodeId) => {
-    setLoading(true);
+  const fetchScenarios = async (nodeId, showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}?nodeId=${nodeId}`, {
@@ -982,8 +982,47 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     } catch (error) {
       console.error('Failed to fetch scenarios:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
+  };
+
+  // Insert a newly saved scenario into local state directly without re-fetching all rows
+  const insertScenarioLocally = (newScenario, insertAfterId = null, insertBeforeId = null) => {
+    if (!newScenario) return;
+    setScenarios(prev => {
+      if (prev.some(s => s._id === newScenario._id)) {
+        return prev.map(s => s._id === newScenario._id ? newScenario : s);
+      }
+      let nextList = [...prev];
+      if (insertAfterId) {
+        const idx = nextList.findIndex(s => s._id === insertAfterId);
+        if (idx !== -1) {
+          const targetOrder = nextList[idx].order || 0;
+          nextList = nextList.map(s => {
+            if (s._id !== newScenario._id && typeof s.order === 'number' && s.order > targetOrder) {
+              return { ...s, order: s.order + 1 };
+            }
+            return s;
+          });
+          nextList.splice(idx + 1, 0, newScenario);
+          return nextList;
+        }
+      } else if (insertBeforeId) {
+        const idx = nextList.findIndex(s => s._id === insertBeforeId);
+        if (idx !== -1) {
+          const targetOrder = nextList[idx].order || 1;
+          nextList = nextList.map(s => {
+            if (s._id !== newScenario._id && typeof s.order === 'number' && s.order >= targetOrder) {
+              return { ...s, order: s.order + 1 };
+            }
+            return s;
+          });
+          nextList.splice(idx, 0, newScenario);
+          return nextList;
+        }
+      }
+      return [...nextList, newScenario];
+    });
   };
 
   const getRiskColor = (sVal, lVal) => {
@@ -1503,10 +1542,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (response.ok) {
         const cloned = await response.json();
-        await fetchScenarios(selectedNodeId);
-        setSelectedRowIds([]);
-        fetchStudyRecommendations();
-        if (cloned.length > 0) {
+        if (Array.isArray(cloned) && cloned.length > 0) {
+          setScenarios(prev => {
+            let nextList = [...prev];
+            if (targetAfterId) {
+              const idx = nextList.findIndex(s => s._id === targetAfterId);
+              if (idx !== -1) {
+                nextList.splice(idx + 1, 0, ...cloned);
+                return nextList;
+              }
+            }
+            return [...nextList, ...cloned];
+          });
+          setSelectedRowIds(cloned.map(s => s._id));
           const firstClonedId = cloned[0]._id;
           setTimeout(() => {
             const rowEl = document.getElementById(`scenario-row-${firstClonedId}`);
@@ -1515,7 +1563,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               rowEl.classList.add('row-just-added');
               setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
             }
-          }, 300);
+          }, 100);
         }
       } else {
         const err = await response.json();
@@ -1585,9 +1633,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
+        if (newDev && newDev._id) {
+          setAllDeviations(prev => [...prev, newDev]);
+        }
+        if (newCause && newCause._id) {
+          setAllCauses(prev => [...prev, newCause]);
+        }
+        if (position === 'above') {
+          insertScenarioLocally(newScenario, null, targetSc._id);
+        } else {
+          insertScenarioLocally(newScenario, targetSc._id, null);
+        }
         setSelectedRowIds([newScenario._id]);
-        fetchStudyRecommendations();
         setTimeout(() => {
           const rowEl = document.getElementById(`scenario-row-${newScenario._id}`);
           if (rowEl) {
@@ -1597,7 +1654,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = rowEl.querySelector('.w-deviation textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       } else {
         const err = await response.json();
         alert('Failed to insert full row: ' + (err.message || 'Unknown error'));
@@ -1641,7 +1698,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
+        if (position === 'above') {
+          insertScenarioLocally(newScenario, null, sc._id);
+        } else {
+          insertScenarioLocally(newScenario, sc._id, null);
+        }
         setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const rowEl = document.getElementById(`scenario-row-${newScenario._id}`);
@@ -1650,7 +1711,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             rowEl.classList.add('row-just-added');
             setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
           }
-        }, 300);
+        }, 100);
       } else {
         const err = await response.json();
         alert('Failed to insert row: ' + (err.message || 'Unknown error'));
@@ -1917,8 +1978,18 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         }
       }
 
-      await fetchScenarios(selectedNodeId);
       if (pastedScenarios.length > 0) {
+        setScenarios(prev => {
+          let nextList = [...prev];
+          if (targetAfterId) {
+            const idx = nextList.findIndex(s => s._id === targetAfterId);
+            if (idx !== -1) {
+              nextList.splice(idx + 1, 0, ...pastedScenarios);
+              return nextList;
+            }
+          }
+          return [...nextList, ...pastedScenarios];
+        });
         setSelectedRowIds(pastedScenarios.map(s => s._id));
         const firstPastedId = pastedScenarios[0]._id;
         setTimeout(() => {
@@ -1928,7 +1999,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             rowEl.classList.add('row-just-added');
             setTimeout(() => rowEl.classList.remove('row-just-added'), 3000);
           }
-        }, 300);
+        }, 100);
+      } else {
+        await fetchScenarios(selectedNodeId, false);
       }
 
       setUndoToast({
@@ -2019,8 +2092,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
-        fetchStudyRecommendations();
+        insertScenarioLocally(newScenario, targetScenarioId);
+        setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
           if (newRow) {
@@ -2030,7 +2103,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = newRow.querySelector('.w-cons-imm textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding quick consequence:', error);
@@ -2069,8 +2142,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
-        fetchStudyRecommendations();
+        if (newCause && newCause._id) {
+          setAllCauses(prev => [...prev, newCause]);
+        }
+        insertScenarioLocally(newScenario, targetScenarioId);
+        setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
           if (newRow) {
@@ -2080,7 +2156,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = newRow.querySelector('.w-cause textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding quick cause:', error);
@@ -2259,7 +2335,22 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (response.ok) {
         const newScenario = await response.json();
-        setScenarios(prev => [...prev, newScenario]);
+        if (newDev && newDev._id) {
+          setAllDeviations(prev => [...prev, newDev]);
+        }
+        if (newCause && newCause._id) {
+          setAllCauses(prev => [...prev, newCause]);
+        }
+        insertScenarioLocally(newScenario);
+        setSelectedRowIds([newScenario._id]);
+        setTimeout(() => {
+          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            newRow.classList.add('row-just-added');
+            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding quick deviation:', error);
@@ -2285,6 +2376,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ consequenceGroupId: groupId })
         });
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, consequenceGroupId: groupId } : s));
       }
 
       const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
@@ -2306,8 +2398,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
-        fetchStudyRecommendations();
+        insertScenarioLocally(newScenario, sc._id);
+        setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
           if (newRow) {
@@ -2317,7 +2409,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = newRow.querySelector('.w-protection textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding quick safeguard:', error);
@@ -2391,6 +2483,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ safeguardGroupId: groupId })
         });
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, safeguardGroupId: groupId } : s));
       }
 
       const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
@@ -2417,8 +2510,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
-        fetchStudyRecommendations();
+        insertScenarioLocally(newScenario, sc._id);
+        setSelectedRowIds([newScenario._id]);
+        if (recText) {
+          fetchStudyRecommendations();
+        }
         setTimeout(() => {
           const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
           if (newRow) {
@@ -2428,7 +2524,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = newRow.querySelector('.w-additional textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding quick recommendation:', error);
@@ -2643,8 +2739,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (response.ok) {
         const newScenario = await response.json();
-        await fetchScenarios(selectedNodeId);
-        fetchStudyRecommendations();
+        insertScenarioLocally(newScenario, currentSc._id);
+        setSelectedRowIds([newScenario._id]);
         setTimeout(() => {
           const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
           if (newRow) {
@@ -2654,7 +2750,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const textarea = newRow.querySelector('.w-additional textarea');
             if (textarea) textarea.focus();
           }
-        }, 300);
+        }, 100);
       }
     } catch (error) {
       console.error('Error adding targeted recommendation:', error);

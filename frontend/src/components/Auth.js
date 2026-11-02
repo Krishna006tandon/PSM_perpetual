@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
 
-const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selectedPackage = null }) => {
-  const [isLogin, setIsLogin] = useState(!isCheckoutRegistration);
+const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
+const Auth = ({ 
+  onAuthSuccess, 
+  onCancel, 
+  isCheckoutRegistration = false, 
+  selectedPackage = null,
+  isTrialRegistration = false,
+  trialSettings = null,
+  onOpenPlans = null
+}) => {
+  // Mode: 'LOGIN', 'CHECKOUT', 'TRIAL'
+  const [authMode, setAuthMode] = useState(
+    isTrialRegistration ? 'TRIAL' : (isCheckoutRegistration ? 'CHECKOUT' : 'LOGIN')
+  );
   
-  // Checkout fields
+  // Registration fields
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [contact, setContact] = useState('');
-  const [numberOfUsers, setNumberOfUsers] = useState('');
-  const [password, setPassword] = useState(''); // Only used for standard login/register
+  const [numberOfUsers, setNumberOfUsers] = useState('1');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState('');
@@ -20,17 +33,21 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
   const [authStep, setAuthStep] = useState('LOGIN'); // 'LOGIN', 'FORGOT_EMAIL'
   const [successMsg, setSuccessMsg] = useState('');
 
+  const trialDays = trialSettings?.defaultTrialDays || 14;
+
   useEffect(() => {
-    if (isCheckoutRegistration) {
-      setIsLogin(false);
+    if (isTrialRegistration) {
+      setAuthMode('TRIAL');
+    } else if (isCheckoutRegistration) {
+      setAuthMode('CHECKOUT');
     }
-  }, [isCheckoutRegistration]);
+  }, [isCheckoutRegistration, isTrialRegistration]);
 
   const handleForgotSendLink = async (e) => {
     e.preventDefault();
     setError(''); setSuccessMsg(''); setLoading(true);
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/auth/forgot-password-link', {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password-link`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
@@ -55,7 +72,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
           });
         }
 
-        const configRes = await fetch('https://api.perpetualsolutions.co.in/api/payments/config');
+        const configRes = await fetch(`${API_URL}/api/payments/config`);
         const configData = await configRes.json();
         
         const options = {
@@ -63,7 +80,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
           amount: orderData.amount,
           currency: orderData.currency,
           name: 'PS-MagnaShield',
-          description: `Subscription: ${selectedPackage.name}`,
+          description: `Subscription: ${selectedPackage?.name || 'PSM'}`,
           order_id: orderData.id,
           handler: async function (response) {
             resolve(response);
@@ -87,10 +104,36 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
     setLoading(true);
 
     try {
-      if (isCheckoutRegistration && !isLogin && selectedPackage) {
-        // FLOW: REGISTRATION WITH PURCHASE (No password field, sent via email)
-        
-        const orderRes = await fetch('https://api.perpetualsolutions.co.in/api/payments/create-order', {
+      if (authMode === 'TRIAL') {
+        // FLOW: FREE TRIAL REGISTRATION (No Payment Required)
+        const registerRes = await fetch(`${API_URL}/api/auth/register-trial`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email, 
+            name,
+            companyName,
+            companyAddress,
+            contact,
+            numberOfUsers: Number(numberOfUsers) || 1,
+            password: password || undefined,
+            packageId: selectedPackage?._id || undefined
+          })
+        });
+
+        const data = await registerRes.json();
+        if (!registerRes.ok) throw new Error(data.error || 'Free trial registration failed');
+
+        alert(`🎉 Your ${data.user?.trialDays || trialDays}-day free trial has been activated! Welcome to Perpetual PSM.`);
+        localStorage.setItem('token', data.token);
+        if (data.user?.features) {
+          localStorage.setItem('userFeatures', JSON.stringify(data.user.features));
+        }
+        onAuthSuccess(data.token);
+
+      } else if (authMode === 'CHECKOUT' && selectedPackage) {
+        // FLOW: REGISTRATION WITH PURCHASE
+        const orderRes = await fetch(`${API_URL}/api/payments/create-order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: selectedPackage.price, currency: 'INR' })
@@ -99,7 +142,7 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
 
         const paymentResponse = await initiateRazorpayPayment(orderData);
         
-        const registerRes = await fetch('https://api.perpetualsolutions.co.in/api/auth/register-with-payment', {
+        const registerRes = await fetch(`${API_URL}/api/auth/register-with-payment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -130,11 +173,10 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
 
       } else {
         // FLOW: STANDARD LOGIN
-        const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        const response = await fetch(`https://api.perpetualsolutions.co.in${endpoint}`, {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, role: isLogin ? undefined : 'Admin' })
+          body: JSON.stringify({ email, password })
         });
   
         const data = await response.json();
@@ -150,50 +192,170 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
     }
   };
 
-  // Modern Light Theme UI matching the rest of the application
-  if (isCheckoutRegistration) {
+  const inputStyle = { padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' };
+  const btnStyle = { padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1, width: '100%' };
+
+  // ================= FREE TRIAL REGISTRATION MODAL =================
+  if (authMode === 'TRIAL') {
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', zIndex: 10000, padding: '40px 20px', backdropFilter: 'blur(4px)' }}>
+        <div style={{ backgroundColor: 'var(--bg-paper)', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '540px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)' }}>
+          <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>&times;</button>
+          
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <span style={{ background: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', padding: '4px 12px', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '700', display: 'inline-block', marginBottom: '10px' }}>
+              🎁 No Credit Card Required
+            </span>
+            <h1 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0', fontSize: '1.9rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
+              {selectedPackage ? `Try ${selectedPackage.name} Free` : `Start Your ${trialDays}-Day Free Trial`}
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.92rem' }}>
+              {selectedPackage 
+                ? `Evaluate ${selectedPackage.name} with full capabilities for ${trialDays} days. No payment required.` 
+                : 'Experience all 14 PSM elements, HAZOP worksheets, LOPA, MOC, and BOW Tie without paying anything upfront.'}
+            </p>
+          </div>
+
+          {error && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Name *</label>
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Acme Petrochem" style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Admin Full Name *</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Work Email Address *</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Phone / Contact</label>
+                <input type="text" value={contact} onChange={e => setContact(e.target.value)} placeholder="+91 9876543210" style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Est. Team Size</label>
+                <input type="number" min="1" value={numberOfUsers} onChange={e => setNumberOfUsers(e.target.value)} placeholder="4" style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Set Password (or leave blank to auto-email)</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="Create password (optional)" 
+                  style={{ ...inputStyle, width: '100%', paddingRight: '40px' }} 
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }} tabIndex="-1">
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
+
+            {/* Trial Unlocked Modules Highlight */}
+            <div style={{ background: '#f0fdf4', padding: '14px 16px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ color: '#166534', fontWeight: 'bold', fontSize: '0.9rem' }}>✨ Unlocked Trial Features:</span>
+                <span style={{ color: '#15803d', fontWeight: '800', fontSize: '0.9rem' }}>{trialDays} Days Free</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {['HAZOP / PHA', 'LOPA', 'MOC Workspaces', 'BOW Tie', 'Recommendations Hub'].map(m => (
+                  <span key={m} style={{ background: '#ffffff', color: '#166534', border: '1px solid #86efac', padding: '3px 8px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: '600' }}>
+                    ✓ {m}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              style={{ ...btnStyle, backgroundColor: '#00a896' }}
+              onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = '#028090'; }}
+              onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = '#00a896'; }}
+            >
+              {loading ? 'Activating Free Trial...' : `🚀 Start My ${trialDays}-Day Free Trial Now`}
+            </button>
+          </form>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', fontSize: '0.88rem' }}>
+            <span 
+              onClick={() => { setAuthMode('LOGIN'); setError(''); }} 
+              style={{ color: 'var(--primary-main)', cursor: 'pointer', fontWeight: '600' }}
+            >
+              Already have an account? Sign In
+            </span>
+            {selectedPackage && (
+              <span 
+                onClick={() => { setAuthMode('CHECKOUT'); setError(''); }} 
+                style={{ color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}
+              >
+                Go to Paid Checkout &rarr;
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= CHECKOUT REGISTRATION MODAL =================
+  if (authMode === 'CHECKOUT' && selectedPackage) {
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', zIndex: 10000, padding: '60px 20px', backdropFilter: 'blur(4px)' }}>
         <div style={{ backgroundColor: 'var(--bg-paper)', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '540px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)' }}>
-          <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
+          <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>&times;</button>
           
-          <h1 style={{ color: 'var(--text-primary)', margin: '0 0 32px 0', fontSize: '2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '-0.02em' }}>Checkout & Setup</h1>
-          
+          <h1 style={{ color: 'var(--text-primary)', margin: '0 0 10px 0', fontSize: '2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '-0.02em' }}>Checkout & Setup</h1>
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', margin: '0 0 24px 0', fontSize: '0.9rem' }}>
+            Subscribe to <strong>{selectedPackage.name}</strong> or <span onClick={() => { setAuthMode('TRIAL'); setError(''); }} style={{ color: '#00a896', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}>start a {trialDays}-day free trial first</span>.
+          </p>
+
           {error && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Name</label>
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Enter company name" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Enter company name" style={inputStyle} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Admin Username</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Admin username" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Admin username" style={inputStyle} />
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Enter company email" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Enter company email" style={inputStyle} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Address</label>
-              <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} required placeholder="Enter company address" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+              <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} required placeholder="Enter company address" style={inputStyle} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Contact</label>
-                <input type="text" value={contact} onChange={e => setContact(e.target.value)} required placeholder="Contact info" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="text" value={contact} onChange={e => setContact(e.target.value)} required placeholder="Contact info" style={inputStyle} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Number of Users</label>
-                <input type="number" value={numberOfUsers} onChange={e => setNumberOfUsers(e.target.value)} required placeholder="# of users" style={{ padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="number" value={numberOfUsers} onChange={e => setNumberOfUsers(e.target.value)} required placeholder="# of users" style={inputStyle} />
               </div>
             </div>
 
@@ -208,99 +370,92 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
                 <span>Payment Plan:</span>
                 <strong style={{ color: 'var(--text-primary)' }}>{selectedPackage.chosenBilling || selectedPackage.billingCycle || 'Annual'}</strong>
               </div>
-              <div style={{ marginTop: '6px' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Unlocked Modules:</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                  {[
-                    { key: 'PHA', label: 'HAZOP / PHA' },
-                    { key: 'LOPA', label: 'LOPA' },
-                    { key: 'MOC', label: 'MOC' },
-                    { key: 'BOWTIE', label: 'BOW Tie' },
-                    { key: 'INCIDENT', label: 'Incident' }
-                  ].map(item => {
-                    const isUnlocked = Array.isArray(selectedPackage.features) && selectedPackage.features.includes(item.key);
-                    return (
-                      <span
-                        key={item.key}
-                        style={{
-                          background: isUnlocked ? '#e8f5e9' : '#f5f5f5',
-                          color: isUnlocked ? '#2e7d32' : '#999',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.78rem',
-                          fontWeight: 'bold',
-                          border: isUnlocked ? '1px solid #c8e6c9' : '1px solid #ddd'
-                        }}
-                      >
-                        {isUnlocked ? '✓ ' : '✕ '} {item.label}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
-            <div style={{ marginTop: '16px' }}>
-              <button 
-                type="submit" 
-                disabled={loading}
-                style={{ width: '100%', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-md)', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1 }}
-                onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }}
-                onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}
-              >
-                {loading ? 'Processing...' : `Pay ₹${(selectedPackage.price).toLocaleString('en-IN')} & Checkout`}
-              </button>
-            </div>
+            <button 
+              type="submit" 
+              disabled={loading}
+              style={{ width: '100%', padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-md)', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Processing...' : `Pay ₹${(selectedPackage.price).toLocaleString('en-IN')} & Checkout`}
+            </button>
             
-            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '8px', lineHeight: '1.5' }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px', lineHeight: '1.4' }}>
               Your password will be securely generated and sent to<br/><strong>{email || 'your email'}</strong> after checkout.
             </p>
 
+            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+              <span onClick={() => { setAuthMode('TRIAL'); setError(''); }} style={{ color: '#00a896', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                Prefer to try before buying? Start {trialDays}-Day Free Trial &rarr;
+              </span>
+            </div>
           </form>
         </div>
       </div>
     );
   }
 
-  // Shared input style
-  const inputStyle = { padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--divider)', backgroundColor: 'var(--bg-default)', color: 'var(--text-primary)', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' };
-  const btnStyle = { padding: '16px', backgroundColor: 'var(--primary-main)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', opacity: loading ? 0.7 : 1, width: '100%' };
-
-  // Standard Login / Forgot Password Wrapper (Light mode or generic)
+  // ================= STANDARD SIGN IN / FORGOT PASSWORD =================
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' }}>
       <div style={{ backgroundColor: 'var(--bg-paper)', borderRadius: '16px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', border: '1px solid var(--divider)', overflow: 'hidden' }}>
-        <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease', zIndex: 10 }} onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-primary)'; }} onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--divider)'; }}>&times;</button>
+        <button onClick={onCancel} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease', zIndex: 10 }}>&times;</button>
         
         {/* Animated Container */}
         <div style={{ display: 'flex', width: '200%', transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)', transform: `translateX(-${['LOGIN', 'FORGOT_EMAIL'].indexOf(authStep) * 50}%)` }}>
           
           {/* STEP 1: LOGIN */}
           <div style={{ width: '50%', padding: '48px', boxSizing: 'border-box' }}>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '32px', textAlign: 'center', fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Sign In</h2>
-            {error && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
-            {successMsg && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(16, 185, 129, 0.2)' }}>{successMsg}</div>}
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '24px', textAlign: 'center', fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Sign In</h2>
+            {error && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(185, 28, 28, 0.1)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(185, 28, 28, 0.2)' }}>{error}</div>}
+            {successMsg && authStep === 'LOGIN' && <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center', fontWeight: '500', border: '1px solid rgba(16, 185, 129, 0.2)' }}>{successMsg}</div>}
             
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Password</label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={{ ...inputStyle, width: '100%', paddingRight: '40px' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                  <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" style={{ ...inputStyle, width: '100%', paddingRight: '40px' }} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }} tabIndex="-1">
                     {showPassword ? '👁️' : '👁️‍🗨️'}
                   </button>
                 </div>
               </div>
-              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }}>
                 {loading ? 'Authenticating...' : 'Sign In'}
               </button>
             </form>
-            <div style={{ textAlign: 'center', marginTop: '24px' }}>
-              <span onClick={() => { setAuthStep('FORGOT_EMAIL'); setError(''); setSuccessMsg(''); }} style={{ color: 'var(--primary-main)', fontSize: '0.9rem', cursor: 'pointer', fontWeight: '600', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-dark)'} onMouseOut={(e) => e.target.style.color = 'var(--primary-main)'}>Forgot Password?</span>
+
+            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+              <span onClick={() => { setAuthStep('FORGOT_EMAIL'); setError(''); setSuccessMsg(''); }} style={{ color: 'var(--primary-main)', fontSize: '0.9rem', cursor: 'pointer', fontWeight: '600' }}>
+                Forgot Password?
+              </span>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--divider)', marginTop: '24px', paddingTop: '16px', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                New organization evaluating PSM?
+              </p>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('TRIAL'); setError(''); }}
+                style={{
+                  background: 'rgba(0, 168, 150, 0.1)',
+                  color: '#00a896',
+                  border: '1px solid #00a896',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                🎁 Start {trialDays}-Day Free Trial
+              </button>
             </div>
           </div>
 
@@ -317,14 +472,13 @@ const Auth = ({ onAuthSuccess, onCancel, isCheckoutRegistration = false, selecte
             <form onSubmit={handleForgotSendLink} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Email Address</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--primary-main)'} onBlur={(e) => e.target.style.borderColor = 'var(--divider)'} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@company.com" style={inputStyle} />
               </div>
-              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }} onMouseOver={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-dark)'; }} onMouseOut={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-main)'; }}>
+              <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: '8px' }}>
                 {loading ? 'Sending...' : 'Send Link'}
               </button>
             </form>
           </div>
-
 
         </div>
       </div>

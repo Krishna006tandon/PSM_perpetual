@@ -32,6 +32,25 @@ const userSchema = new mongoose.Schema({
     type: [String],
     default: ['PHA', 'MOC', 'LOPA', 'BOWTIE']
   },
+  subscriptionStatus: {
+    type: String,
+    enum: ['trial', 'active', 'expired', 'cancelled'],
+    default: 'active'
+  },
+  isTrial: {
+    type: Boolean,
+    default: false
+  },
+  trialDays: {
+    type: Number,
+    default: 14
+  },
+  trialStartDate: {
+    type: Date
+  },
+  trialEndDate: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now

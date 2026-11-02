@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './PHAStartMenu.css'; // Reuse existing styles
 
+const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
 const PlatformOwnerDashboard = ({ onLogout }) => {
   const [analytics, setAnalytics] = useState({ totalUsers: 0, totalAdmins: 0, totalProjects: 0, recentProjects: [] });
   const [packages, setPackages] = useState([]);
@@ -20,6 +22,20 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     features: ['PHA'],
     billingCycle: 'Yearly'
   });
+
+  // Free Trial System States (Owner Controlled)
+  const [trialSettings, setTrialSettings] = useState({
+    freeTrialEnabled: true,
+    defaultTrialDays: 14,
+    trialFeatures: ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+  });
+  const [isSavingTrial, setIsSavingTrial] = useState(false);
+  const [trialMsg, setTrialMsg] = useState('');
+
+  // Individual User Trial Modal States
+  const [selectedUserForTrial, setSelectedUserForTrial] = useState(null);
+  const [trialModalOpen, setTrialModalOpen] = useState(false);
+  const [extendDaysInput, setExtendDaysInput] = useState(7);
 
   // Excel Pricing Calculator States
   const [showCalculator, setShowCalculator] = useState(true);
@@ -53,11 +69,113 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     fetchPackages();
     fetchBackupStatus();
     fetchUsers();
+    fetchTrialSettings();
   }, []);
+
+  const fetchTrialSettings = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/settings/trial`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrialSettings({
+          freeTrialEnabled: data.freeTrialEnabled !== false,
+          defaultTrialDays: data.defaultTrialDays || 14,
+          trialFeatures: data.trialFeatures || ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching trial settings:', e);
+    }
+  };
+
+  const handleSaveTrialSettings = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingTrial(true);
+    setTrialMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/admin/settings/trial`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(trialSettings)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTrialMsg('✅ Free trial settings updated successfully!');
+        setTimeout(() => setTrialMsg(''), 4000);
+      } else {
+        setTrialMsg(`❌ Failed: ${data.error || 'Could not save'}`);
+      }
+    } catch (e) {
+      setTrialMsg(`❌ Network error: ${e.message}`);
+    } finally {
+      setIsSavingTrial(false);
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    const confirmText = `Are you sure you want to permanently delete user:\n\nEmail: ${user.email}\nCompany: ${user.companyName || user.name || 'N/A'}\n\nThis will remove their account and login access.`;
+    if (!window.confirm(confirmText)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${user._id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUserMsg(`✅ Successfully deleted user ${user.email}`);
+        setTimeout(() => setUserMsg(''), 4000);
+        fetchUsers();
+        fetchAnalytics();
+      } else {
+        alert(data.error || 'Failed to delete user');
+      }
+    } catch (e) {
+      console.error(e);
+      alert(`Network error: ${e.message}`);
+    }
+  };
+
+  const handleOpenTrialModal = (user) => {
+    setSelectedUserForTrial(user);
+    setExtendDaysInput(7);
+    setTrialModalOpen(true);
+  };
+
+  const handleUpdateUserTrial = async (user, payload) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${user._id}/trial`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUserMsg(`Updated trial access for ${user.email}`);
+        setTimeout(() => setUserMsg(''), 3000);
+        fetchUsers();
+        setTrialModalOpen(false);
+        setSelectedUserForTrial(null);
+      } else {
+        alert(data.error || 'Failed to update user trial');
+      }
+    } catch (e) {
+      console.error(e);
+      alert(`Error updating trial: ${e.message}`);
+    }
+  };
 
   const fetchBackupStatus = async () => {
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/backup-status', {
+      const res = await fetch(`${API_URL}/api/admin/backup-status`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setBackupInfo(await res.json());
@@ -68,7 +186,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     setIsBackingUp(true);
     setBackupMsg('');
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/trigger-backup', {
+      const res = await fetch(`${API_URL}/api/admin/trigger-backup`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -88,7 +206,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/analytics', {
+      const res = await fetch(`${API_URL}/api/admin/analytics`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setAnalytics(await res.json());
@@ -97,7 +215,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/packages', {
+      const res = await fetch(`${API_URL}/api/admin/packages`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setPackages(await res.json());
@@ -106,7 +224,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/admin/users', {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.ok) setUsers(await res.json());
@@ -207,8 +325,8 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     }
     try {
       const url = editingPackageId
-        ? `https://api.perpetualsolutions.co.in/api/admin/packages/${editingPackageId}`
-        : 'https://api.perpetualsolutions.co.in/api/admin/packages';
+        ? `${API_URL}/api/admin/packages/${editingPackageId}`
+        : `${API_URL}/api/admin/packages`;
       const method = editingPackageId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -236,7 +354,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
   const handleDeletePackage = async (id) => {
     if (!window.confirm('Are you sure you want to delete this package?')) return;
     try {
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/admin/packages/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/packages/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -254,7 +372,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
       : [...currentFeatures, feature];
 
     try {
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/admin/users/${targetUser._id}/features`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${targetUser._id}/features`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -383,6 +501,157 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           )}
         </div>
 
+        {/* Free Trial Platform Settings Section (Owner Controlled) */}
+        <div style={{ background: 'white', borderRadius: '16px', padding: '28px 30px', border: '1px solid #e1e4e8', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '18px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1a1a2e', fontWeight: '800' }}>
+                  🎁 Free Trial Configuration
+                </h3>
+                <span style={{ 
+                  background: trialSettings.freeTrialEnabled ? '#e8f5e9' : '#ffebee', 
+                  color: trialSettings.freeTrialEnabled ? '#2e7d32' : '#c62828', 
+                  padding: '4px 12px', 
+                  borderRadius: '12px', 
+                  fontSize: '0.82rem', 
+                  fontWeight: 'bold',
+                  border: trialSettings.freeTrialEnabled ? '1px solid #a5d6a7' : '1px solid #ef9a9a'
+                }}>
+                  {trialSettings.freeTrialEnabled ? '🟢 Free Trial Active' : '🔴 Free Trial Disabled'}
+                </span>
+              </div>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                Decide free trial duration, enable or disable public trial sign-ups, and choose which safety modules are unlocked during trial.
+              </p>
+            </div>
+
+            <button
+              onClick={handleSaveTrialSettings}
+              disabled={isSavingTrial}
+              style={{
+                padding: '10px 24px',
+                background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                cursor: isSavingTrial ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 12px rgba(0,168,150,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isSavingTrial ? '⏳ Saving...' : '💾 Save Trial Settings'}
+            </button>
+          </div>
+
+          {trialMsg && (
+            <div style={{ marginBottom: '20px', padding: '10px 14px', borderRadius: '8px', background: trialMsg.startsWith('✅') ? '#e8f5e9' : '#ffebee', color: trialMsg.startsWith('✅') ? '#2e7d32' : '#c62828', fontSize: '0.9rem', fontWeight: 'bold' }}>
+              {trialMsg}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            {/* 1. Toggle Free Trial */}
+            <div>
+              <label style={{ display: 'block', fontWeight: '700', color: '#1e293b', marginBottom: '8px', fontSize: '0.95rem' }}>
+                1. Enable / Disable Free Trial
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'white', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <input 
+                  type="checkbox" 
+                  checked={trialSettings.freeTrialEnabled} 
+                  onChange={(e) => setTrialSettings(prev => ({ ...prev, freeTrialEnabled: e.target.checked }))}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: '600', color: trialSettings.freeTrialEnabled ? '#0f766e' : '#64748b' }}>
+                  {trialSettings.freeTrialEnabled ? 'Allow Users to Sign Up for Free Trial' : 'Disable Free Trial Sign-ups'}
+                </span>
+              </label>
+            </div>
+
+            {/* 2. Trial Duration in Days */}
+            <div>
+              <label style={{ display: 'block', fontWeight: '700', color: '#1e293b', marginBottom: '8px', fontSize: '0.95rem' }}>
+                2. Free Trial Duration (Days)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <input 
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={trialSettings.defaultTrialDays}
+                  onChange={(e) => setTrialSettings(prev => ({ ...prev, defaultTrialDays: Math.max(1, Number(e.target.value)) }))}
+                  style={{ width: '80px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', fontWeight: 'bold', textAlign: 'center', background: 'white' }}
+                />
+                <span style={{ fontWeight: '600', color: '#64748b' }}>Days</span>
+
+                <div style={{ display: 'flex', gap: '6px', marginLeft: '6px' }}>
+                  {[7, 14, 30, 60].map(days => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setTrialSettings(prev => ({ ...prev, defaultTrialDays: days }))}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: trialSettings.defaultTrialDays === days ? '2px solid #00a896' : '1px solid #cbd5e1',
+                        background: trialSettings.defaultTrialDays === days ? '#e6fffa' : 'white',
+                        color: trialSettings.defaultTrialDays === days ? '#00a896' : '#475569',
+                        fontWeight: 'bold',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {days}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Included Trial Modules */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontWeight: '700', color: '#1e293b', marginBottom: '8px', fontSize: '0.95rem' }}>
+                3. Modules Accessible During Free Trial
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {availableFeatures.map(f => {
+                  const isSelected = trialSettings.trialFeatures.includes(f);
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        setTrialSettings(prev => ({
+                          ...prev,
+                          trialFeatures: isSelected ? prev.trialFeatures.filter(x => x !== f) : [...prev.trialFeatures, f]
+                        }));
+                      }}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        border: isSelected ? '2px solid #00a896' : '1px solid #cbd5e1',
+                        background: isSelected ? '#00a896' : '#ffffff',
+                        color: isSelected ? '#ffffff' : '#475569',
+                        fontWeight: '700',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {isSelected ? '✓ ' : '+ '} {getFeatureLabel(f)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Subscription Packages Section */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', marginTop: '50px' }}>
           <div>
@@ -495,10 +764,10 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1a1a2e', fontWeight: '800' }}>
-                👥 Company Accounts & Module Permissions
+                👥 Company Accounts, Trials & Permissions
               </h3>
               <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '0.9rem' }}>
-                View registered users and toggle unlock/lock of modules (HAZOP/PHA, LOPA, MOC, BOW Tie, Incident) for each company in real time.
+                Manage registered user accounts, control or extend free trials, toggle unlocked modules, or delete accounts.
               </p>
             </div>
             {userMsg && (
@@ -509,63 +778,134 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.95rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem' }}>
               <thead>
                 <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e1e4e8', color: '#4a4a68' }}>
                   <th style={{ padding: '14px 16px' }}>Company & User</th>
-                  <th style={{ padding: '14px 16px' }}>Package</th>
-                  <th style={{ padding: '14px 16px' }}>Billing</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>HAZOP</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>LOPA</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>MOC</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>BOW Tie</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Incident</th>
+                  <th style={{ padding: '14px 16px' }}>Status & Trial</th>
+                  <th style={{ padding: '14px 16px' }}>Plan</th>
+                  <th style={{ padding: '14px 10px', textAlign: 'center' }}>HAZOP</th>
+                  <th style={{ padding: '14px 10px', textAlign: 'center' }}>LOPA</th>
+                  <th style={{ padding: '14px 10px', textAlign: 'center' }}>MOC</th>
+                  <th style={{ padding: '14px 10px', textAlign: 'center' }}>BOW Tie</th>
+                  <th style={{ padding: '14px 10px', textAlign: 'center' }}>Incident</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ padding: '30px', textAlign: 'center', color: '#888' }}>No registered client accounts found.</td>
+                    <td colSpan="9" style={{ padding: '30px', textAlign: 'center', color: '#888' }}>No registered client accounts found.</td>
                   </tr>
                 ) : (
                   users.map(u => {
                     const uFeatures = Array.isArray(u.features) && u.features.length > 0 ? u.features : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+                    
+                    // Compute trial status & remaining days
+                    const now = new Date();
+                    const end = u.trialEndDate ? new Date(u.trialEndDate) : null;
+                    const isExpired = u.subscriptionStatus === 'expired' || (u.isTrial && end && end < now);
+                    const daysLeft = end ? Math.max(0, Math.ceil((end - now) / 86400000)) : 0;
+
                     return (
                       <tr key={u._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                         <td style={{ padding: '14px 16px' }}>
                           <strong style={{ color: '#1a1a2e', display: 'block' }}>{u.companyName || u.name || 'Company'}</strong>
-                          <span style={{ color: '#888', fontSize: '0.85rem' }}>{u.email}</span>
+                          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{u.email}</span>
+                          {u.contact && <span style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block' }}>📞 {u.contact}</span>}
                         </td>
+
+                        <td style={{ padding: '14px 16px' }}>
+                          {u.isTrial ? (
+                            isExpired ? (
+                              <div>
+                                <span style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', display: 'inline-block' }}>
+                                  ⚠️ Trial Expired
+                                </span>
+                                {end && <span style={{ display: 'block', fontSize: '0.75rem', color: '#991b1b', marginTop: '2px' }}>Ended: {end.toLocaleDateString('en-GB')}</span>}
+                              </div>
+                            ) : (
+                              <div>
+                                <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', display: 'inline-block' }}>
+                                  ⏳ Trial: {daysLeft}d left
+                                </span>
+                                {end && <span style={{ display: 'block', fontSize: '0.75rem', color: '#166534', marginTop: '2px' }}>Until: {end.toLocaleDateString('en-GB')}</span>}
+                              </div>
+                            )
+                          ) : (
+                            <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', display: 'inline-block' }}>
+                              ⭐ Subscribed ({u.billingType || 'Active'})
+                            </span>
+                          )}
+                        </td>
+
                         <td style={{ padding: '14px 16px', color: '#00a896', fontWeight: '600' }}>
-                          {u.packageId?.name || 'Standard'}
+                          {u.packageId?.name || (u.isTrial ? `Trial (${u.trialDays || 14}d)` : 'Standard Plan')}
                         </td>
-                        <td style={{ padding: '14px 16px', color: '#555' }}>
-                          {u.billingType || 'Annual'}
-                        </td>
+
                         {availableFeatures.map(feat => {
                           const isUnlocked = uFeatures.includes(feat);
                           return (
-                            <td key={feat} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <td key={feat} style={{ padding: '14px 10px', textAlign: 'center' }}>
                               <button
                                 onClick={() => handleToggleUserFeature(u, feat)}
                                 style={{
                                   background: isUnlocked ? '#e8f5e9' : '#ffebee',
                                   color: isUnlocked ? '#2e7d32' : '#c62828',
                                   border: isUnlocked ? '1px solid #a5d6a7' : '1px solid #ef9a9a',
-                                  padding: '6px 14px',
+                                  padding: '5px 10px',
                                   borderRadius: '20px',
-                                  fontSize: '0.85rem',
+                                  fontSize: '0.8rem',
                                   fontWeight: 'bold',
                                   cursor: 'pointer',
                                   transition: 'all 0.2s'
                                 }}
                                 title={`Click to ${isUnlocked ? 'Lock' : 'Unlock'} ${getFeatureLabel(feat)}`}
                               >
-                                {isUnlocked ? '🔓 Unlocked' : '🔒 Hidden'}
+                                {isUnlocked ? '🔓' : '🔒'}
                               </button>
                             </td>
                           );
                         })}
+
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              onClick={() => handleOpenTrialModal(u)}
+                              style={{
+                                background: 'rgba(0, 168, 150, 0.1)',
+                                color: '#00a896',
+                                border: '1px solid rgba(0, 168, 150, 0.3)',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.82rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                              title="Extend or manage trial for this user"
+                            >
+                              ⏱️ Trial
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#dc2626',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.82rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                              title="Delete this user permanently"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -575,6 +915,153 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           </div>
         </div>
       </div>
+
+      {/* Individual User Trial Management Modal (Owner decide karega kitne din ka dena hai) */}
+      {trialModalOpen && selectedUserForTrial && (
+        <div className="modal-overlay" style={{ zIndex: 11000 }}>
+          <div className="modal-content" style={{ maxWidth: '520px', padding: '30px', borderRadius: '16px', background: 'white' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '1.4rem', color: '#1a1a2e', fontWeight: '800' }}>
+                  ⏱️ Manage User Free Trial
+                </h3>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
+                  {selectedUserForTrial.email} ({selectedUserForTrial.companyName || selectedUserForTrial.name || 'Organization'})
+                </p>
+              </div>
+              <button
+                onClick={() => { setTrialModalOpen(false); setSelectedUserForTrial(null); }}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#64748b' }}>Account Type:</span>
+                <strong style={{ color: selectedUserForTrial.isTrial ? '#0f766e' : '#1d4ed8' }}>
+                  {selectedUserForTrial.isTrial ? 'Free Trial' : 'Permanent / Paid'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#64748b' }}>Current Status:</span>
+                <strong style={{ color: selectedUserForTrial.subscriptionStatus === 'expired' ? '#dc2626' : '#16a34a' }}>
+                  {selectedUserForTrial.subscriptionStatus?.toUpperCase() || 'ACTIVE'}
+                </strong>
+              </div>
+              {selectedUserForTrial.trialEndDate && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Trial Expiry:</span>
+                  <strong style={{ color: '#1e293b' }}>
+                    {new Date(selectedUserForTrial.trialEndDate).toLocaleDateString('en-GB')}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Extension Options */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: '700', color: '#1e293b', marginBottom: '8px', fontSize: '0.95rem' }}>
+                ⚡ Quick Extend Free Trial:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {[7, 14, 30, 60].map(days => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => handleUpdateUserTrial(selectedUserForTrial, { addDays: days })}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '8px',
+                      border: '1px solid #00a896',
+                      background: 'rgba(0,168,150,0.08)',
+                      color: '#00a896',
+                      fontWeight: 'bold',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    +{days} Days
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Days Input */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontWeight: '700', color: '#1e293b', marginBottom: '8px', fontSize: '0.95rem' }}>
+                ✏️ Or Set Exact Custom Days:
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={extendDaysInput}
+                  onChange={(e) => setExtendDaysInput(Math.max(1, Number(e.target.value)))}
+                  style={{ width: '100px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', fontWeight: 'bold' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleUpdateUserTrial(selectedUserForTrial, { trialDays: extendDaysInput })}
+                  style={{
+                    flex: 1,
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)',
+                    color: 'white',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '0.92rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Apply {extendDaysInput}-Day Trial
+                </button>
+              </div>
+            </div>
+
+            {/* Other actions: Convert to Permanent Paid or Expire Now */}
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', display: 'flex', gap: '10px', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                onClick={() => handleUpdateUserTrial(selectedUserForTrial, { isTrial: false, subscriptionStatus: 'active' })}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: '#f0fdf4',
+                  color: '#166534',
+                  border: '1px solid #bbf7d0',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ⭐ Convert to Paid Account
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUpdateUserTrial(selectedUserForTrial, { subscriptionStatus: 'expired' })}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: '#fef2f2',
+                  color: '#991b1b',
+                  border: '1px solid #fecaca',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                🔒 Expire Trial Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Package Create / Edit Modal with Pricing Calculator */}
       {isModalOpen && (

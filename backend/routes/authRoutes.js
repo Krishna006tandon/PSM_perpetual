@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const SubscriptionPackage = require('../models/SubscriptionPackage');
 const Transaction = require('../models/Transaction');
+const PlatformSettings = require('../models/PlatformSettings');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123'; // In production, always use process.env.JWT_SECRET
 
@@ -200,7 +201,9 @@ router.post('/register-with-payment', async (req, res) => {
       role: 'Admin',
       packageId: packageId,
       billingType: finalBillingType,
-      features: featuresToUnlock
+      features: featuresToUnlock,
+      isTrial: false,
+      subscriptionStatus: 'active'
     });
     
     // Send email with the generated password
@@ -260,6 +263,137 @@ The Perpetual Team`
   } catch (error) {
     console.error('Registration with payment error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Register a new user with FREE TRIAL (no payment required)
+router.post('/register-trial', async (req, res) => {
+  try {
+    const { 
+      email, 
+      name, 
+      companyName, 
+      companyAddress, 
+      contact, 
+      numberOfUsers,
+      password,
+      packageId
+    } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const cleanEmail = email.trim();
+
+    // Check if free trial is enabled
+    const settings = await PlatformSettings.getSettings();
+    if (settings.freeTrialEnabled === false) {
+      return res.status(400).json({ error: 'Free trial registrations are currently paused. Please choose a subscription package.' });
+    }
+
+    // Check if user already exists (Case-Insensitive)
+    let existingUser = await User.findOne({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
+    }
+
+    const trialDays = Number(settings.defaultTrialDays) || 14;
+    const trialStartDate = new Date();
+    const trialEndDate = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
+    const trialFeatures = Array.isArray(settings.trialFeatures) && settings.trialFeatures.length > 0 
+      ? settings.trialFeatures 
+      : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+
+    // Password handling: user provided or auto-generated
+    let finalPassword = password;
+    if (!finalPassword || finalPassword.trim().length === 0) {
+      finalPassword = crypto_rand.randomBytes(4).toString('hex');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(finalPassword, salt);
+
+    const companyCode = Math.floor(10000 + Math.random() * 90000).toString();
+
+    const user = new User({
+      companyCode,
+      email: cleanEmail,
+      name: name || 'Admin',
+      companyName: companyName || name || 'Organization',
+      companyAddress: companyAddress || '',
+      contact: contact || '',
+      numberOfUsers: Number(numberOfUsers) || 1,
+      password: hashedPassword,
+      role: 'Admin',
+      packageId: packageId || undefined,
+      billingType: 'Annual',
+      features: trialFeatures,
+      isTrial: true,
+      subscriptionStatus: 'trial',
+      trialDays: trialDays,
+      trialStartDate: trialStartDate,
+      trialEndDate: trialEndDate
+    });
+
+    // Send welcome email with trial details
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: cleanEmail,
+        subject: `Welcome to Perpetual PSM - ${trialDays}-Day Free Trial`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #00a896; margin-top: 0;">Welcome to Perpetual PSM!</h2>
+            <p>Hello <strong>${name || 'Admin'}</strong>,</p>
+            <p>Your <strong>${trialDays}-Day Free Trial</strong> has been activated successfully!</p>
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 4px 0;"><strong>Account Email:</strong> ${cleanEmail}</p>
+              <p style="margin: 4px 0;"><strong>Password:</strong> ${finalPassword}</p>
+              <p style="margin: 4px 0;"><strong>Trial Period:</strong> ${trialDays} Days (Active until ${trialEndDate.toLocaleDateString('en-GB')})</p>
+              <p style="margin: 4px 0;"><strong>Unlocked Modules:</strong> ${trialFeatures.join(', ')}</p>
+            </div>
+            <p>You can now explore the full Process Safety Management platform including PHA/HAZOP worksheets, LOPA, MOC, and BOW Tie analysis.</p>
+            <p style="color: #64748b; font-size: 0.9em;">If you need any assistance during your trial, feel free to reply directly to this email.</p>
+            <p>Best Regards,<br/><strong>The Perpetual Solutions Team</strong></p>
+          </div>
+        `
+      };
+      
+      await transporter.sendMail(mailOptions);
+    } catch (mailError) {
+      console.error("Error sending trial email:", mailError);
+    }
+
+    await user.save();
+
+    // Create JWT
+    const payload = { userId: user._id, companyCode: user.companyCode };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+
+    res.status(201).json({ 
+      token, 
+      user: { 
+        email: user.email, 
+        role: user.role,
+        isTrial: true,
+        subscriptionStatus: 'trial',
+        trialDays: trialDays,
+        trialStartDate,
+        trialEndDate,
+        features: user.features
+      } 
+    });
+  } catch (error) {
+    console.error('Registration trial error:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
   }
 });
 
@@ -453,22 +587,72 @@ router.get('/me', auth, async (req, res) => {
 
     // SuperAdmin always has full access to all features
     if (user.role === 'SuperAdmin') {
-      userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
-    } else if (!userObj.features || userObj.features.length === 0) {
-      // Check company admin's features if this is a team member
-      if (user.companyCode) {
-        const adminUser = await User.findOne({ companyCode: user.companyCode, role: 'Admin' }).populate('packageId');
-        if (adminUser && adminUser.features && adminUser.features.length > 0) {
-          userObj.features = adminUser.features;
-          userObj.packageId = adminUser.packageId;
-          userObj.billingType = adminUser.billingType;
-        } else if (userObj.packageId && userObj.packageId.features && userObj.packageId.features.length > 0) {
-          userObj.features = userObj.packageId.features;
-        } else {
-          userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+      userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+      userObj.isTrial = false;
+      userObj.subscriptionStatus = 'active';
+    } else {
+      // Handle Trial logic
+      let isTrial = user.isTrial || false;
+      let subscriptionStatus = user.subscriptionStatus || 'active';
+      let trialEndDate = user.trialEndDate;
+      let trialStartDate = user.trialStartDate;
+      let trialDays = user.trialDays || 14;
+
+      // If team member under a company admin, inherit company admin trial status
+      if (user.role !== 'Admin' && user.companyCode) {
+        const companyAdmin = await User.findOne({ companyCode: user.companyCode, role: 'Admin' });
+        if (companyAdmin) {
+          if (companyAdmin.isTrial !== undefined) isTrial = companyAdmin.isTrial;
+          if (companyAdmin.subscriptionStatus) subscriptionStatus = companyAdmin.subscriptionStatus;
+          if (companyAdmin.trialEndDate) trialEndDate = companyAdmin.trialEndDate;
+          if (companyAdmin.trialStartDate) trialStartDate = companyAdmin.trialStartDate;
+          if (companyAdmin.trialDays) trialDays = companyAdmin.trialDays;
         }
-      } else {
-        userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+      }
+
+      let isTrialExpired = false;
+      let trialDaysRemaining = 0;
+
+      if (isTrial && trialEndDate) {
+        const now = new Date();
+        const end = new Date(trialEndDate);
+        if (end < now) {
+          isTrialExpired = true;
+          subscriptionStatus = 'expired';
+          if (user.subscriptionStatus !== 'expired' && user.role === 'Admin') {
+            user.subscriptionStatus = 'expired';
+            await user.save();
+          }
+        } else {
+          const diffMs = end.getTime() - now.getTime();
+          trialDaysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        }
+      }
+
+      userObj.isTrial = isTrial;
+      userObj.subscriptionStatus = subscriptionStatus;
+      userObj.trialStartDate = trialStartDate;
+      userObj.trialEndDate = trialEndDate;
+      userObj.trialDays = trialDays;
+      userObj.isTrialExpired = isTrialExpired;
+      userObj.trialDaysRemaining = trialDaysRemaining;
+
+      if (!userObj.features || userObj.features.length === 0) {
+        // Check company admin's features if this is a team member
+        if (user.companyCode) {
+          const adminUser = await User.findOne({ companyCode: user.companyCode, role: 'Admin' }).populate('packageId');
+          if (adminUser && adminUser.features && adminUser.features.length > 0) {
+            userObj.features = adminUser.features;
+            userObj.packageId = adminUser.packageId;
+            userObj.billingType = adminUser.billingType;
+          } else if (userObj.packageId && userObj.packageId.features && userObj.packageId.features.length > 0) {
+            userObj.features = userObj.packageId.features;
+          } else {
+            userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+          }
+        } else {
+          userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+        }
       }
     }
     res.json(userObj);

@@ -27,6 +27,8 @@ import SystemStabilizer from './components/SystemStabilizer';
 
 import Auth from './components/Auth';
 
+const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
 function App() {
   const [theme, setTheme] = useState('light');
   const [currentView, setCurrentView] = useState('dashboard');
@@ -35,6 +37,9 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [showAuth, setShowAuth] = useState(false);
   const [checkoutPackage, setCheckoutPackage] = useState(null);
+  const [isTrialMode, setIsTrialMode] = useState(false);
+  const [trialSettings, setTrialSettings] = useState(null);
+
   useEffect(() => {
     if (window.location.pathname === '/owner' && !isAuthenticated) {
       setShowAuth(true);
@@ -47,7 +52,7 @@ function App() {
     if (isAuthenticated) {
       const fetchUser = async () => {
         try {
-          const res = await fetch('https://api.perpetualsolutions.co.in/api/auth/me', {
+          const res = await fetch(`${API_URL}/api/auth/me`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
           });
           if (res.ok) {
@@ -128,9 +133,11 @@ function App() {
       return (
         <Auth 
           onAuthSuccess={handleAuthSuccess} 
-          onCancel={() => { setShowAuth(false); setCheckoutPackage(null); }} 
+          onCancel={() => { setShowAuth(false); setCheckoutPackage(null); setIsTrialMode(false); }} 
           isCheckoutRegistration={!!checkoutPackage}
           selectedPackage={checkoutPackage}
+          isTrialRegistration={isTrialMode}
+          trialSettings={trialSettings}
         />
       );
     }
@@ -449,11 +456,55 @@ function App() {
     }
 
     if (!isAuthenticated) {
-      return <LandingPage onLogin={() => setShowAuth(true)} onCheckoutSuccess={(pkg) => { setCheckoutPackage(pkg); setShowAuth(true); }} />;
+      return (
+        <LandingPage 
+          onLogin={() => { setCheckoutPackage(null); setIsTrialMode(false); setShowAuth(true); }} 
+          onCheckoutSuccess={(pkg) => { setCheckoutPackage(pkg); setIsTrialMode(false); setShowAuth(true); }}
+          onStartTrial={(settings, pkg) => { setTrialSettings(settings); setCheckoutPackage(pkg || null); setIsTrialMode(true); setShowAuth(true); }}
+        />
+      );
     }
     
     if (currentUser?.role === 'SuperAdmin') {
       return <PlatformOwnerDashboard onLogout={handleLogout} />;
+    }
+
+    // Lock screen if Free Trial has expired
+    if (currentUser?.isTrial && (currentUser?.isTrialExpired || currentUser?.subscriptionStatus === 'expired')) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', padding: '40px 20px', textAlign: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '16px', maxWidth: '580px', width: '100%', padding: '48px 36px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', border: '1px solid #cbd5e1' }}>
+            <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', margin: '0 auto 20px auto', border: '2px solid #fecaca' }}>
+              ⏰
+            </div>
+            <h1 style={{ fontSize: '1.9rem', color: '#0f172a', margin: '0 0 12px 0', fontWeight: '800' }}>
+              Free Trial Expired
+            </h1>
+            <p style={{ color: '#475569', fontSize: '1.02rem', lineHeight: '1.6', marginBottom: '24px' }}>
+              Your <strong>{currentUser.trialDays || 14}-day free trial</strong> of Perpetual PSM ended on {currentUser.trialEndDate ? new Date(currentUser.trialEndDate).toLocaleDateString('en-GB') : 'recently'}. All your existing studies, risk data, and worksheets remain securely saved.
+            </p>
+            <div style={{ background: '#f0fdf4', padding: '16px 20px', borderRadius: '10px', border: '1px solid #bbf7d0', marginBottom: '28px', textAlign: 'left', fontSize: '0.92rem', color: '#166534' }}>
+              <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Need more time or ready to upgrade?</strong>
+              • Contact platform owner or administrator to extend your trial duration.<br/>
+              • Or subscribe to a Perpetual or Annual license for continuous access.
+            </div>
+            <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => window.location.reload()}
+                style={{ padding: '12px 26px', background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,168,150,0.3)' }}
+              >
+                🔄 Refresh / Check Status
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{ padding: '12px 24px', background: 'transparent', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     if (window.location.pathname === '/owner' && currentUser?.role !== 'SuperAdmin') {
@@ -668,12 +719,43 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      {/* Formal Sidebar with new Navigation logic */}
-      {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && (
-        <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} />
+    <div className="app-container" style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Sticky Free Trial Banner if active */}
+      {isAuthenticated && currentUser?.isTrial && !currentUser?.isTrialExpired && (
+        <div style={{
+          width: '100%',
+          background: 'linear-gradient(90deg, #00a896 0%, #028090 100%)',
+          color: 'white',
+          padding: '8px 24px',
+          fontSize: '0.88rem',
+          fontWeight: '600',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          zIndex: 9999
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.1rem' }}>⚡</span>
+            <span>
+              <strong>Free Trial Active:</strong> {currentUser.trialDaysRemaining} day{currentUser.trialDaysRemaining === 1 ? '' : 's'} remaining (Expires on {new Date(currentUser.trialEndDate).toLocaleDateString('en-GB')}).
+            </span>
+          </div>
+          <span style={{ background: 'rgba(255,255,255,0.22)', padding: '3px 12px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 'bold' }}>
+            Full Modules Unlocked
+          </span>
+        </div>
       )}
-      {renderContent()}
+
+      <div style={{ display: 'flex', flex: 1, width: '100%' }}>
+        {/* Formal Sidebar with new Navigation logic */}
+        {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && (
+          <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {renderContent()}
+        </div>
+      </div>
 
       {/* System & Plant Health Stabilizer (Visible across all dashboards and worksheets after login) */}
       {isAuthenticated && !showAuth && (

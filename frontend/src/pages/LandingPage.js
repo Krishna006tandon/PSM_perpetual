@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './LandingPage.css';
 
+const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
 // Fallback high-quality subscription packages in case the public API is unavailable
 const DEFAULT_FALLBACK_PACKAGES = [
   {
@@ -50,12 +52,19 @@ const DEFAULT_FALLBACK_PACKAGES = [
   }
 ];
 
-const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
+const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
   const [packages, setPackages] = useState(DEFAULT_FALLBACK_PACKAGES);
   const [loadingRazorpay, setLoadingRazorpay] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const [selectedBilling, setSelectedBilling] = useState({});
   const [billingGlobal, setBillingGlobal] = useState('Annual');
+
+  // Free Trial Settings State (Owner controlled via backend)
+  const [trialSettings, setTrialSettings] = useState({
+    freeTrialEnabled: true,
+    defaultTrialDays: 14,
+    trialFeatures: ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+  });
 
   // Interactive Live Product Simulator state
   const [activeSimTab, setActiveSimTab] = useState('hazop');
@@ -84,12 +93,29 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
 
   useEffect(() => {
     fetchPackages();
+    fetchTrialSettings();
     loadRazorpayScript();
   }, []);
 
+  const fetchTrialSettings = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/public/trial-settings`);
+      if (res.ok) {
+        const data = await res.json();
+        setTrialSettings({
+          freeTrialEnabled: data.freeTrialEnabled !== false,
+          defaultTrialDays: data.defaultTrialDays || 14,
+          trialFeatures: data.trialFeatures || ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+        });
+      }
+    } catch (e) {
+      console.warn('Using default trial settings:', e.message);
+    }
+  };
+
   const fetchPackages = async () => {
     try {
-      const res = await fetch('https://api.perpetualsolutions.co.in/api/public/packages');
+      const res = await fetch(`${API_URL}/api/public/packages`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -563,8 +589,17 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
           <button onClick={onLogin} className="psm-btn-outline" aria-label="Sign In to Platform">
             Sign In
           </button>
-          <a href="#pricing" className="psm-btn-primary" style={{ textDecoration: 'none' }}>
-            Get Started
+          {trialSettings.freeTrialEnabled && (
+            <button 
+              onClick={() => onStartTrial ? onStartTrial(trialSettings) : onLogin()} 
+              className="psm-btn-primary" 
+              style={{ background: 'linear-gradient(135deg, #00a896, #028090)', color: 'white', border: 'none', cursor: 'pointer' }}
+            >
+              ✨ {trialSettings.defaultTrialDays || 14}-Day Free Trial
+            </button>
+          )}
+          <a href="#pricing" className="psm-btn-ghost" style={{ textDecoration: 'none' }}>
+            Pricing
           </a>
         </div>
       </header>
@@ -588,6 +623,26 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
           </p>
 
           <div className="psm-hero-actions">
+            {trialSettings.freeTrialEnabled && (
+              <button 
+                onClick={() => onStartTrial ? onStartTrial(trialSettings) : onLogin()} 
+                className="psm-btn-primary" 
+                style={{ 
+                  background: 'linear-gradient(135deg, #00a896, #028090)', 
+                  padding: '14px 32px', 
+                  fontSize: '1.05rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(0,168,150,0.35)',
+                  fontWeight: 'bold',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                🚀 Start {trialSettings.defaultTrialDays || 14}-Day Free Trial
+              </button>
+            )}
             <a href="#simulator" className="psm-btn-primary" style={{ textDecoration: 'none', padding: '14px 32px', fontSize: '1.05rem' }}>
               ⚡ Explore Live Interactive Demo
             </a>
@@ -1670,6 +1725,41 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
               Scale safely from single-unit plants to multi-site global enterprises. All plans include automated cloud backups and enterprise security.
             </p>
 
+            {/* Free Trial Banner in Pricing Section */}
+            {trialSettings.freeTrialEnabled && (
+              <div style={{ maxWidth: '920px', margin: '30px auto 10px auto', background: 'linear-gradient(135deg, rgba(0,168,150,0.08) 0%, rgba(2,128,144,0.04) 100%)', border: '1.5px solid rgba(0,168,150,0.35)', borderRadius: '16px', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', boxShadow: '0 6px 20px rgba(0,168,150,0.08)' }}>
+                <div>
+                  <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Zero Cost • No Credit Card Required
+                  </span>
+                  <h3 style={{ margin: '8px 0 4px 0', fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: '800' }}>
+                    Test with your real unit data: {trialSettings.defaultTrialDays || 14}-Day Full Free Trial
+                  </h3>
+                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    Explore HAZOP, LOPA, MOC, and BowTie modules with zero financial commitment.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onStartTrial ? onStartTrial(trialSettings) : onLogin()}
+                  style={{
+                    padding: '12px 28px',
+                    background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,168,150,0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🚀 Claim {trialSettings.defaultTrialDays || 14}-Day Free Trial
+                </button>
+              </div>
+            )}
+
             {/* Universal Billing Toggle */}
             <div style={{ display: 'inline-flex', background: 'var(--bg-paper)', border: '1px solid var(--divider)', borderRadius: '30px', padding: '4px', marginTop: '24px' }}>
               <button
@@ -1710,6 +1800,98 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
           </div>
 
           <div className="psm-pricing-grid">
+            {/* Dedicated Free Trial Card in Packages Grid */}
+            {trialSettings.freeTrialEnabled && (
+              <div className="psm-pricing-card" style={{ border: '2px solid #00a896', background: 'linear-gradient(180deg, rgba(0,168,150,0.04) 0%, rgba(255,255,255,1) 100%)', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #00a896, #028090)', color: 'white', padding: '4px 16px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,168,150,0.3)' }}>
+                  ✨ Zero Risk Evaluation
+                </div>
+                <div style={{ padding: '36px 30px', borderBottom: '1px solid var(--divider)', textAlign: 'center' }}>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1.45rem', color: '#00a896', fontWeight: '800' }}>
+                    Free Trial
+                  </h3>
+                  <p style={{ margin: '0 0 18px 0', fontSize: '0.86rem', color: 'var(--text-secondary)', minHeight: '38px', lineHeight: '1.4' }}>
+                    Full platform test-drive with your safety team. No credit card or upfront commitment required.
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '2.6rem', fontWeight: '800', color: '#00a896' }}>
+                      ₹0
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.92rem' }}>
+                      / {trialSettings.defaultTrialDays || 14} days
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ padding: '28px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#00a896', fontWeight: 'bold' }}>✓</span>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                        <strong>{trialSettings.defaultTrialDays || 14} Days</strong> Evaluation Access
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#00a896', fontWeight: 'bold' }}>✓</span>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                        <strong>Multi-User</strong> Team Collaboration
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#00a896', fontWeight: 'bold' }}>✓</span>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                        Live Worksheets & Export Access
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '26px', flex: 1 }}>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800' }}>
+                      Unlocked Modules
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {['HAZOP / PHA', 'LOPA', 'MOC', 'BOW Tie'].map(feat => (
+                        <span 
+                          key={feat}
+                          style={{
+                            backgroundColor: 'rgba(0,168,150,0.1)',
+                            color: '#00a896',
+                            border: '1px solid rgba(0,168,150,0.3)',
+                            padding: '5px 10px',
+                            borderRadius: '16px',
+                            fontSize: '0.78rem',
+                            fontWeight: '700'
+                          }}
+                        >
+                          ✓ {feat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => onStartTrial ? onStartTrial(trialSettings) : onLogin()}
+                    style={{ 
+                      width: '100%', 
+                      padding: '14px', 
+                      fontSize: '0.96rem', 
+                      fontWeight: 'bold',
+                      background: 'linear-gradient(135deg, #00a896 0%, #028090 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0,168,150,0.35)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    🚀 Start Free Trial Now
+                  </button>
+                </div>
+              </div>
+            )}
+
             {packages.map((pkg, idx) => {
               const hasAnnual = pkg.hasAnnual !== undefined ? pkg.hasAnnual : (pkg.billingCycle !== 'One-time');
               const hasOneTime = pkg.hasOneTime !== undefined ? pkg.hasOneTime : (pkg.billingCycle === 'One-time');
@@ -1854,6 +2036,34 @@ const LandingPage = ({ onLogin, onCheckoutSuccess }) => {
                     >
                       {loadingRazorpay ? 'Please wait...' : `Get Started with ${pkg.name.split(' ')[0]}`}
                     </button>
+
+                    {trialSettings.freeTrialEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => onStartTrial ? onStartTrial(trialSettings, pkg) : onLogin()}
+                        style={{
+                          width: '100%',
+                          marginTop: '10px',
+                          padding: '10px',
+                          fontSize: '0.88rem',
+                          fontWeight: '700',
+                          color: '#00a896',
+                          background: 'rgba(0,168,150,0.07)',
+                          border: '1.5px solid #00a896',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#00a896'; e.currentTarget.style.color = '#ffffff'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,168,150,0.07)'; e.currentTarget.style.color = '#00a896'; }}
+                      >
+                        🎁 Try {pkg.name.split(' ')[0]} Free ({trialSettings.defaultTrialDays || 14}d)
+                      </button>
+                    )}
                   </div>
                 </div>
               );

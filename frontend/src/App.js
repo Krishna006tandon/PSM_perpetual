@@ -23,11 +23,14 @@ import ResetPassword from './pages/ResetPassword';
 import RecommendationsHub from './pages/RecommendationsHub';
 import BowTieAnalysis from './pages/BowTieAnalysis';
 import Settings from './pages/Settings';
+import IncidentDashboard from './pages/IncidentDashboard';
 import SystemStabilizer from './components/SystemStabilizer';
 
 import Auth from './components/Auth';
 
-const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+import { getApiUrl } from './utils/apiConfig';
+
+const API_URL = getApiUrl();
 
 function App() {
   const [theme, setTheme] = useState('light');
@@ -80,9 +83,10 @@ function App() {
       return true; // Default before user data loads
     }
     if (currentUser.role === 'SuperAdmin') return true;
+    if (feat === 'INCIDENT' || feat === 'INCIDENTS') return true; // Enable Incident Investigation platform
     const feats = Array.isArray(currentUser.features) && currentUser.features.length > 0
       ? currentUser.features
-      : ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
+      : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
     return feats.includes(feat);
   };
 
@@ -543,6 +547,15 @@ function App() {
       return <MocDashboard />;
     }
 
+    if (currentView === 'incidents' || currentView === 'incident') {
+      return (
+        <IncidentDashboard 
+          currentUser={currentUser} 
+          onBack={() => setCurrentView('dashboard')} 
+        />
+      );
+    }
+
     if (currentView === 'settings') {
       return (
         <Settings 
@@ -653,11 +666,12 @@ function App() {
             <span className="status-badge status-info">Configure</span>
           </div>
 
-          {/* Incident Investigation Card (Coming Soon) */}
+          {/* Incident Investigation Card */}
           <div 
             className="card" 
+            onClick={() => setCurrentView('incidents')}
             style={{ 
-              cursor: 'default', 
+              cursor: 'pointer', 
               padding: '32px', 
               display: 'flex', 
               flexDirection: 'column', 
@@ -665,15 +679,15 @@ function App() {
               justifyContent: 'center', 
               minHeight: '200px',
               position: 'relative',
-              border: '1.5px dashed #f59e0b',
-              background: theme === 'dark' ? 'rgba(245, 158, 11, 0.05)' : '#fffdf5',
+              border: '1.5px solid var(--primary-light, #2563eb)',
+              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.05)' : '#f8faff',
               transition: 'all 0.2s ease',
-              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)'
             }}
           >
             <div style={{ position: 'absolute', top: '14px', right: '14px' }}>
               <span style={{ 
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', 
                 color: '#ffffff', 
                 padding: '4px 10px', 
                 borderRadius: '12px', 
@@ -681,22 +695,22 @@ function App() {
                 fontWeight: '700',
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
-                boxShadow: '0 2px 4px rgba(217, 119, 6, 0.25)'
+                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)'
               }}>
-                Coming Soon
+                API 754 & OSHA
               </span>
             </div>
-            <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🔍</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🛡️</div>
             <h3 style={{ margin: '0 0 6px 0', fontSize: '1.35rem', fontWeight: '700' }}>Incident Investigation</h3>
             <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '14px', fontSize: '0.9rem' }}>
-              Root Cause Analysis (RCA) & Incident Tracking
+              FIR Logging, 7-Day SLA, CFT Triage & Why-Why RCA
             </p>
             <span 
               className="status-badge" 
               style={{ 
-                background: '#fef3c7', 
-                color: '#b45309', 
-                border: '1px solid #fde68a',
+                background: '#eff6ff', 
+                color: '#1d4ed8', 
+                border: '1px solid #bfdbfe',
                 fontWeight: '700',
                 padding: '5px 14px',
                 borderRadius: '14px',
@@ -706,7 +720,7 @@ function App() {
                 gap: '4px'
               }}
             >
-              🚀 Coming Soon
+              Open Workspace →
             </span>
           </div>
         </div>

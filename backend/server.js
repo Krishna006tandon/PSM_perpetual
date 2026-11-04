@@ -17,8 +17,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes from HEAD
 const mocRoutes = require('./routes/mocRoutes');
 const checklistTemplateRoutes = require('./routes/checklistTemplateRoutes');
+const incidentRoutes = require('./routes/incidentRoutes');
 app.use('/api/mocs', mocRoutes);
 app.use('/api/checklist-templates', checklistTemplateRoutes);
+app.use('/api/incidents', incidentRoutes);
 
 // Disallow search bots on the API subdomain
 app.get('/robots.txt', (req, res) => {

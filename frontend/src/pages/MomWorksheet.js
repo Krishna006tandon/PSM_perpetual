@@ -186,7 +186,9 @@ const MomWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit, 
 
         doc.text("www.perpetualsolutions.co.in", pageWidth / 2, pageHeight - 30, { align: 'center' });
         
-        doc.save(`MOM_${study.studyName}_${selectedDate}.pdf`);
+        const safeName = (study?.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
+        const safeDate = String(selectedDate || '').replace(/[/\\?%*:|"<>]/g, '_').trim();
+        doc.save(`MOM_${safeName}_${safeDate}.pdf`);
       } catch (err) {
         console.error("Export failed:", err);
       } finally {

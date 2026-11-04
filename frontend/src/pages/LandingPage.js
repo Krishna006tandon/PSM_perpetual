@@ -553,7 +553,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
           ==================================================================== */}
       <header className="psm-nav">
         <a href="/" className="psm-nav-brand" title="PS-MagnaShield Enterprise">
-          <svg width="34" height="34" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
             <path d="M32 4 L56 14 V32 C56 46.5 45.5 56.5 32 60 C18.5 56.5 8 46.5 8 32 V14 Z" fill="#0f172a" stroke="#2563eb" strokeWidth="2.5" />
             <circle cx="32" cy="28" r="8" fill="none" stroke="#38bdf8" strokeWidth="3" />
             <circle cx="32" cy="28" r="3.5" fill="#38bdf8" />
@@ -562,7 +562,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
             <circle cx="16" cy="18" r="2.5" fill="#38bdf8" />
             <circle cx="48" cy="18" r="2.5" fill="#38bdf8" />
           </svg>
-          <span className="psm-nav-title">PS-Magna<span style={{ color: '#0ea5e9' }}>Shield</span></span>
+          <span className="psm-nav-title">PS&#8209;Magna<span style={{ color: '#0ea5e9' }}>Shield</span></span>
         </a>
 
         <nav aria-label="Main Navigation">
@@ -2273,14 +2273,14 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
         <div className="psm-footer-inner">
           <div className="psm-footer-grid">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px', flexShrink: 0 }}>
+                <svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                   <path d="M32 4 L56 14 V32 C56 46.5 45.5 56.5 32 60 C18.5 56.5 8 46.5 8 32 V14 Z" fill="#0f172a" stroke="#2563eb" strokeWidth="2.5" />
                   <circle cx="32" cy="28" r="8" fill="none" stroke="#38bdf8" strokeWidth="3" />
                   <circle cx="32" cy="28" r="3.5" fill="#38bdf8" />
                 </svg>
-                <span style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
-                  PS-Magna<span style={{ color: '#0ea5e9' }}>Shield</span>
+                <span style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}>
+                  PS&#8209;Magna<span style={{ color: '#0ea5e9' }}>Shield</span>
                 </span>
               </div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', maxWidth: '340px' }}>

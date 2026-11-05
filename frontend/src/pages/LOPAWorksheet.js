@@ -535,7 +535,8 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
       },
       margin: { left: 10, right: 10 }
     });
-      doc.save(`LOPA_Worksheet_${study?.studyName || 'Study'}.pdf`);
+      const safeStudyName = (study?.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
+      doc.save(`LOPA_Worksheet_${safeStudyName}.pdf`);
     };
 
     const img = new Image();

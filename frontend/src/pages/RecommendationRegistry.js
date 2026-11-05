@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
+import { sortStudyScenarios, buildStudyRecommendationRegistry } from '../utils/recommendationUtils';
 import './DynamicRegistry.css';
 
 const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
@@ -161,18 +162,6 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     );
   };
 
-  const getEffectiveResidualS = (sc) => {
-    if (sc?.residualRiskS && String(sc.residualRiskS).trim() !== '') return String(sc.residualRiskS);
-    if (sc?.mitigatedRiskS && String(sc.mitigatedRiskS).trim() !== '') return String(sc.mitigatedRiskS);
-    if (sc?.inherentRiskS && String(sc.inherentRiskS).trim() !== '') return String(sc.inherentRiskS);
-    if (sc?.residualRiskRR && sc?.residualRiskL) {
-      const rr = parseInt(sc.residualRiskRR);
-      const l = parseInt(sc.residualRiskL);
-      if (!isNaN(rr) && !isNaN(l) && l > 0) return String(Math.round(rr / l));
-    }
-    return '';
-  };
-
   const handleCellChange = (id, field, value, isCustom = false) => {
     const targetUnique = uniqueRecommendations.find(u => u._id === id || u.occurrences?.some(o => o._id === id));
     const targetIds = targetUnique?.occurrences ? targetUnique.occurrences.map(o => o._id) : [id];
@@ -190,20 +179,33 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
             if (!updated.mitigatedRiskS || updated.mitigatedRiskS === sc.inherentRiskS) updated.mitigatedRiskS = value;
             if (!updated.residualRiskS || updated.residualRiskS === sc.inherentRiskS) updated.residualRiskS = value;
           }
+          if (field === 'inherentRiskL') {
+            if (!updated.mitigatedRiskL) updated.mitigatedRiskL = value;
+            if (!updated.residualRiskL) updated.residualRiskL = value;
+          }
           updated.inherentRiskRR = calculateRiskScore(updated.inherentRiskS, updated.inherentRiskL);
           updated.mitigatedRiskRR = calculateRiskScore(updated.mitigatedRiskS, updated.mitigatedRiskL);
-          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
+          updated.residualRiskRR = (updated.residualRiskS && updated.residualRiskL) ? calculateRiskScore(updated.residualRiskS, updated.residualRiskL) : '';
         } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-          if (field === 'mitigatedRiskS' && (!updated.residualRiskS || updated.residualRiskS === sc.mitigatedRiskS)) {
-            updated.residualRiskS = value;
+          if (field === 'mitigatedRiskS') {
+            updated.mitigatedRiskS = value;
+            if (!updated.residualRiskS || updated.residualRiskS === sc.mitigatedRiskS) {
+              updated.residualRiskS = value;
+            }
+          }
+          if (field === 'mitigatedRiskL') {
+            updated.mitigatedRiskL = value;
           }
           updated.mitigatedRiskRR = calculateRiskScore(updated.mitigatedRiskS, updated.mitigatedRiskL);
-          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
+          updated.residualRiskRR = (updated.residualRiskS && updated.residualRiskL) ? calculateRiskScore(updated.residualRiskS, updated.residualRiskL) : '';
         } else if (field === 'residualRiskS' || field === 'residualRiskL') {
-          if (field === 'residualRiskL' && !updated.residualRiskS) {
-            updated.residualRiskS = getEffectiveResidualS(updated);
+          if (field === 'residualRiskS') {
+            updated.residualRiskS = value;
           }
-          updated.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updated), updated.residualRiskL);
+          if (field === 'residualRiskL') {
+            updated.residualRiskL = value;
+          }
+          updated.residualRiskRR = (updated.residualRiskS && updated.residualRiskL) ? calculateRiskScore(updated.residualRiskS, updated.residualRiskL) : '';
         }
         return updated;
       }
@@ -228,34 +230,41 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
             const s = field === 'inherentRiskS' ? value : sc.inherentRiskS;
             const l = field === 'inherentRiskL' ? value : sc.inherentRiskL;
+            payload.inherentRiskS = s;
+            payload.inherentRiskL = l;
             payload.inherentRiskRR = calculateRiskScore(s, l);
             if (field === 'inherentRiskS') {
               if (!sc.mitigatedRiskS || sc.mitigatedRiskS === sc.inherentRiskS) payload.mitigatedRiskS = value;
               if (!sc.residualRiskS || sc.residualRiskS === sc.inherentRiskS) payload.residualRiskS = value;
             }
+            if (field === 'inherentRiskL') {
+              if (!sc.mitigatedRiskL) payload.mitigatedRiskL = value;
+              if (!sc.residualRiskL) payload.residualRiskL = value;
+            }
             const mS = payload.mitigatedRiskS || sc.mitigatedRiskS;
             const mL = payload.mitigatedRiskL || sc.mitigatedRiskL;
             payload.mitigatedRiskRR = calculateRiskScore(mS, mL);
-            const rS = payload.residualRiskS || getEffectiveResidualS(sc);
+            const rS = payload.residualRiskS || sc.residualRiskS;
             const rL = payload.residualRiskL || sc.residualRiskL;
-            payload.residualRiskRR = calculateRiskScore(rS, rL);
+            payload.residualRiskRR = (rS && rL) ? calculateRiskScore(rS, rL) : '';
           } else if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
             const s = field === 'mitigatedRiskS' ? value : sc.mitigatedRiskS;
             const l = field === 'mitigatedRiskL' ? value : sc.mitigatedRiskL;
+            payload.mitigatedRiskS = s;
+            payload.mitigatedRiskL = l;
             payload.mitigatedRiskRR = calculateRiskScore(s, l);
             if (field === 'mitigatedRiskS' && (!sc.residualRiskS || sc.residualRiskS === sc.mitigatedRiskS)) {
               payload.residualRiskS = value;
             }
-            const rS = payload.residualRiskS || getEffectiveResidualS(sc);
-            const rL = payload.residualRiskL || sc.residualRiskL;
-            payload.residualRiskRR = calculateRiskScore(rS, rL);
+            const rS = payload.residualRiskS || sc.residualRiskS;
+            const rL = sc.residualRiskL;
+            payload.residualRiskRR = (rS && rL) ? calculateRiskScore(rS, rL) : '';
           } else if (field === 'residualRiskS' || field === 'residualRiskL') {
-            const effS = field === 'residualRiskS' ? value : getEffectiveResidualS(sc);
-            const l = field === 'residualRiskL' ? value : sc.residualRiskL;
-            if (effS && !sc.residualRiskS) {
-              payload.residualRiskS = effS;
-            }
-            payload.residualRiskRR = calculateRiskScore(effS, l);
+            const s = field === 'residualRiskS' ? value : (sc.residualRiskS || '');
+            const l = field === 'residualRiskL' ? value : (sc.residualRiskL || '');
+            payload.residualRiskS = s;
+            payload.residualRiskL = l;
+            payload.residualRiskRR = (s && l) ? calculateRiskScore(s, l) : '';
           }
         }
 
@@ -367,33 +376,23 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     );
   };
 
-  // Node-wise sorting (Issue 7)
-  const sortedScenariosWithRecs = useMemo(() => {
-    const recs = scenarios.filter(sc => sc.additionalProtection && sc.additionalProtection.trim() !== '');
-    const nodeOrderMap = {};
-    nodes.forEach((n, idx) => {
-      nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
-    });
-
-    return [...recs].sort((a, b) => {
-      const nodeA = a.nodeId?._id || a.nodeId;
-      const nodeB = b.nodeId?._id || b.nodeId;
-      const orderA = nodeOrderMap[nodeA] ?? 9999;
-      const orderB = nodeOrderMap[nodeB] ?? 9999;
-      if (orderA !== orderB) return orderA - orderB;
-
-      const devA = a.deviationId?.deviationAuto || '';
-      const devB = b.deviationId?.deviationAuto || '';
-      if (devA !== devB) return devA.localeCompare(devB);
-
-      return (a.order || 0) - (b.order || 0);
-    });
+  // Sort scenarios in exact worksheet visual sequence across the study (Node -> Deviation -> Cause -> Consequence -> Order)
+  const sortedStudyScenariosList = useMemo(() => {
+    return sortStudyScenarios(scenarios, nodes);
   }, [scenarios, nodes]);
+
+  // Unified sequential recommendation numbering and deduplication:
+  // - Matches PHA Worksheet recommendation numbers 100% deterministically
+  // - Repeated recommendations share the same R-number
+  // - Unique recommendations are numbered sequentially (R1, R2, R3...)
+  const { recNumberMap, uniqueRecommendations } = useMemo(() => {
+    return buildStudyRecommendationRegistry(sortedStudyScenariosList);
+  }, [sortedStudyScenariosList]);
 
   // Auto-scroll and highlight target recommendation if navigated from Action Tracking
   useEffect(() => {
     const targetId = localStorage.getItem('targetScenarioId');
-    if (targetId && !loading && sortedScenariosWithRecs.length > 0) {
+    if (targetId && !loading && uniqueRecommendations.length > 0) {
       setTimeout(() => {
         const el = document.getElementById(`rec-row-${targetId}`);
         if (el) {
@@ -407,52 +406,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         }
       }, 300);
     }
-  }, [loading, sortedScenariosWithRecs]);
-
-  const normalizeRecText = (txt) => (txt || '').trim().toLowerCase().replace(/\s+/g, ' ');
-
-  // Unified sequential recommendation numbering and deduplication:
-  // - Duplicate recommendations are identified as the same recommendation (sharing same R-number).
-  // - Avoids creating duplicate rows for repeated recommendations.
-  // - Different recommendations are sequentially and uniquely numbered (R1, R2, R3...).
-  const { recNumberMap, uniqueRecommendations } = useMemo(() => {
-    const map = {};
-    const uniqueList = [];
-    const seenMap = new Map(); // key -> unique item
-    let counter = 1;
-
-    sortedScenariosWithRecs.forEach((sc) => {
-      const text = (sc.additionalProtection || '').trim();
-      const key = normalizeRecText(text);
-
-      if (!seenMap.has(key)) {
-        const recNo = `R${counter++}`;
-        const effResidualS = getEffectiveResidualS(sc);
-
-        const item = {
-          ...sc,
-          residualRiskS: effResidualS,
-          displayRecNo: recNo,
-          key,
-          occurrences: [sc],
-          nodeNames: [sc.nodeId?.description || 'General Node']
-        };
-        seenMap.set(key, item);
-        uniqueList.push(item);
-        map[sc._id] = recNo;
-      } else {
-        const existing = seenMap.get(key);
-        existing.occurrences.push(sc);
-        const nodeDesc = sc.nodeId?.description || 'General Node';
-        if (!existing.nodeNames.includes(nodeDesc)) {
-          existing.nodeNames.push(nodeDesc);
-        }
-        map[sc._id] = existing.displayRecNo;
-      }
-    });
-
-    return { recNumberMap: map, uniqueRecommendations: uniqueList };
-  }, [sortedScenariosWithRecs]);
+  }, [loading, uniqueRecommendations]);
 
   // Delete Recommendation with warning and auto-renumber (Issue 11)
   const handleDeleteRecommendation = async (sc) => {
@@ -491,11 +445,24 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         await fetch(`${apiUrl}/api/scenarios/${occ._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ additionalProtection: '', recommendationNo: '' })
+          body: JSON.stringify({ 
+            additionalProtection: '', 
+            recommendationNo: '',
+            residualRiskS: '',
+            residualRiskL: '',
+            residualRiskRR: ''
+          })
         });
       }
 
-      setScenarios(prev => prev.map(s => occIds.has(s._id) ? { ...s, additionalProtection: '', recommendationNo: '' } : s));
+      setScenarios(prev => prev.map(s => occIds.has(s._id) ? { 
+        ...s, 
+        additionalProtection: '', 
+        recommendationNo: '',
+        residualRiskS: '',
+        residualRiskL: '',
+        residualRiskRR: ''
+      } : s));
     } catch (err) {
       console.error('Error deleting recommendation:', err);
       alert('Failed to delete recommendation.');
@@ -622,7 +589,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
 
       const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
       const customCells = columns.map(c => `<td>${(sc.recommendationData && sc.recommendationData[c.id]) || ''}</td>`).join('');
-      const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
+      const resS = sc.residualRiskS || '';
+      const resL = sc.residualRiskL || '';
+      const resRR = sc.residualRiskRR || ((resS && resL) ? calculateRiskScore(resS, resL) : '');
       tableHtml += `
         <tr>
           <td align="center" style="font-weight: bold;">${recNo}</td>
@@ -637,9 +606,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <td>${sc.mitigatedRiskS || ''}</td>
           <td>${sc.mitigatedRiskL || ''}</td>
           <td>${sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)}</td>
-          <td>${effResidualS}</td>
-          <td>${sc.residualRiskL || ''}</td>
-          <td>${sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)}</td>
+          <td>${resS}</td>
+          <td>${resL}</td>
+          <td>${resRR}</td>
           ${customCells}
         </tr>
       `;
@@ -650,46 +619,55 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Recommendations_Registry_${study.studyName || 'Study'}.xls`;
+    const safeStudyName = (study.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
+    link.download = `Recommendations_Registry_${safeStudyName}.xls`;
     link.click();
   };
 
   // Export Recommendation Sheet to CSV (Issue 9)
   const exportToCSV = () => {
-    const colHeaders = columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
-    let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE","INHERENT S","INHERENT L","INHERENT RR","MITIGATED S","MITIGATED L","MITIGATED RR","RESIDUAL S","RESIDUAL L","RESIDUAL RR",${colHeaders.join(',')}\n`;
+    try {
+      const colHeaders = columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
+      let csv = `"REC NO","RECOMMENDATION STATEMENT","NODE","DEVIATION","CAUSE","CONSEQUENCE","INHERENT S","INHERENT L","INHERENT RR","MITIGATED S","MITIGATED L","MITIGATED RR","RESIDUAL S","RESIDUAL L","RESIDUAL RR",${colHeaders.join(',')}\n`;
 
-    const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
-    uniqueRecommendations.forEach((sc) => {
-      const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
-      const nodeDesc = sc.nodeNames?.join(', ') || sc.nodeId?.description || 'General Node';
-      const customCells = columns.map(c => escape((sc.recommendationData && sc.recommendationData[c.id]) || ''));
-      const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
-      csv += [
-        escape(recNo),
-        escape(sc.additionalProtection),
-        escape(nodeDesc),
-        escape(sc.deviationId?.deviationAuto),
-        escape(sc.causeId?.description),
-        escape(sc.consequencesImmediate),
-        escape(sc.inherentRiskS),
-        escape(sc.inherentRiskL),
-        escape(sc.inherentRiskRR || calculateRiskScore(sc.inherentRiskS, sc.inherentRiskL)),
-        escape(sc.mitigatedRiskS),
-        escape(sc.mitigatedRiskL),
-        escape(sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)),
-        escape(effResidualS),
-        escape(sc.residualRiskL),
-        escape(sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)),
-        ...customCells
-      ].join(',') + '\n';
-    });
+      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      uniqueRecommendations.forEach((sc) => {
+        const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
+        const nodeDesc = sc.nodeNames?.join(', ') || sc.nodeId?.description || 'General Node';
+        const customCells = columns.map(c => escape((sc.recommendationData && sc.recommendationData[c.id]) || ''));
+        const resS = sc.residualRiskS || '';
+        const resL = sc.residualRiskL || '';
+        const resRR = sc.residualRiskRR || ((resS && resL) ? calculateRiskScore(resS, resL) : '');
+        csv += [
+          escape(recNo),
+          escape(sc.additionalProtection),
+          escape(nodeDesc),
+          escape(sc.deviationId?.deviationAuto),
+          escape(sc.causeId?.description),
+          escape(sc.consequencesImmediate),
+          escape(sc.inherentRiskS),
+          escape(sc.inherentRiskL),
+          escape(sc.inherentRiskRR || calculateRiskScore(sc.inherentRiskS, sc.inherentRiskL)),
+          escape(sc.mitigatedRiskS),
+          escape(sc.mitigatedRiskL),
+          escape(sc.mitigatedRiskRR || calculateRiskScore(sc.mitigatedRiskS, sc.mitigatedRiskL)),
+          escape(resS),
+          escape(resL),
+          escape(resRR),
+          ...customCells
+        ].join(',') + '\n';
+      });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `Recommendations_Registry_${study.studyName || 'Study'}.csv`;
-    link.click();
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      const safeStudyName = (study.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
+      link.download = `Recommendations_Registry_${safeStudyName}.csv`;
+      link.click();
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert(`⚠️ CSV Export Failed:\n\nReason: ${err.message}`);
+    }
   };
 
   if (!study) return null;
@@ -784,7 +762,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                   renderLastNodeId = sc.nodeId?._id;
                 }
                 const recNo = sc.displayRecNo || recNumberMap[sc._id] || '';
-                const effResidualS = sc.residualRiskS || getEffectiveResidualS(sc);
+                const resS = sc.residualRiskS || '';
 
                 return (
                   <React.Fragment key={sc._id}>
@@ -887,11 +865,11 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                         <select 
                           disabled={!canEdit}
                           className="risk-level-select"
-                          value={effResidualS} 
+                          value={resS} 
                           onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} 
                           onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}
                         >
-                          {renderSeverityOptions(effResidualS)}
+                          {renderSeverityOptions(resS)}
                         </select>
                       </td>
                       <td className="w-risk-l">
@@ -906,13 +884,13 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                         </select>
                       </td>
                       <td className="w-risk-rr" style={{
-                        backgroundColor: getRiskColor(effResidualS, sc.residualRiskL),
-                        color: getRiskColor(effResidualS, sc.residualRiskL) !== 'transparent' ? '#000000' : 'inherit',
+                        backgroundColor: getRiskColor(resS, sc.residualRiskL),
+                        color: getRiskColor(resS, sc.residualRiskL) !== 'transparent' ? '#000000' : 'inherit',
                         fontWeight: 'bold',
                         textAlign: 'center',
                         verticalAlign: 'middle'
                       }}>
-                        {sc.residualRiskRR || calculateRiskScore(effResidualS, sc.residualRiskL)}
+                        {sc.residualRiskRR || ((resS && sc.residualRiskL) ? calculateRiskScore(resS, sc.residualRiskL) : '')}
                       </td>
                       <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
                         <span 

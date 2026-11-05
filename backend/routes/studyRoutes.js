@@ -230,22 +230,23 @@ router.get('/:id/full-export-data', async (req, res) => {
     const Node = require('../models/Node');
     const Scenario = require('../models/Scenario');
 
-    const study = await Study.findById(studyId);
+    const study = await Study.findById(studyId).lean();
     if (!study) return res.status(404).json({ message: 'Study not found' });
 
-    const teamMembers = await TeamMember.find({ studyId });
-    const sessions = await Session.find({ studyId }).sort({ date: 1 });
-    const revisions = await StudyRevision.find({ studyId }).sort({ revision: 1 });
-    const documents = await StudyDocument.find({ studyId });
-    const nodes = await Node.find({ studyId }).sort({ nodeNumber: 1, order: 1 });
+    const teamMembers = await TeamMember.find({ studyId }).lean();
+    const sessions = await Session.find({ studyId }).sort({ date: 1 }).lean();
+    const revisions = await StudyRevision.find({ studyId }).sort({ revision: 1 }).lean();
+    const documents = await StudyDocument.find({ studyId }).lean();
+    const nodes = await Node.find({ studyId }).sort({ nodeNumber: 1, order: 1 }).lean();
     const scenarios = await Scenario.find({ studyId })
       .populate('nodeId')
       .populate('deviationId')
       .populate('causeId')
-      .sort({ order: 1 });
+      .sort({ order: 1 })
+      .lean();
 
     const RiskCriteria = require('../models/RiskCriteria');
-    let riskCriteria = await RiskCriteria.findOne({ studyId });
+    let riskCriteria = await RiskCriteria.findOne({ studyId }).lean();
     if (!riskCriteria) {
       const riskCriteriaRoutes = require('./riskCriteriaRoutes');
       if (riskCriteriaRoutes.generateDefaultRiskCriteria) {

@@ -32,17 +32,23 @@
 .psm-nav-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .psm-nav-title {
   font-family: 'Outfit', -apple-system, sans-serif;
-  font-size: 1.45rem;
+  font-size: 1.55rem;
   font-weight: 800;
   color: var(--primary-main);
   letter-spacing: -0.5px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  word-break: keep-all;
 }
 
 .psm-nav-links {

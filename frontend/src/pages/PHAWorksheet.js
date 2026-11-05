@@ -6,6 +6,7 @@ import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
 import AddRecommendationModal from '../components/AddRecommendationModal';
 import SelectRecTargetModal from '../components/SelectRecTargetModal';
+import { sortStudyScenarios, buildStudyRecommendationRegistry, normalizeRecText } from '../utils/recommendationUtils';
 
 import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
@@ -263,6 +264,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     selectedTarget: null
   });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
+  const [allStudyScenarios, setAllStudyScenarios] = useState([]);
   const [clipboardScenarios, setClipboardScenarios] = useState(() => {
     try {
       const stored = localStorage.getItem('psm_pha_clipboard_scenarios');
@@ -406,43 +408,34 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     return list;
   }, [uniqueSuggestions.deviations]);
 
-  const normalizeRecText = (txt) => (txt || '').trim().toLowerCase().replace(/\s+/g, ' ');
-
-  const getEffectiveResidualS = (sc) => {
-    if (sc?.residualRiskS && String(sc.residualRiskS).trim() !== '') return String(sc.residualRiskS);
-    if (sc?.mitigatedRiskS && String(sc.mitigatedRiskS).trim() !== '') return String(sc.mitigatedRiskS);
-    if (sc?.inherentRiskS && String(sc.inherentRiskS).trim() !== '') return String(sc.inherentRiskS);
-    if (sc?.residualRiskRR && sc?.residualRiskL) {
-      const rr = parseInt(sc.residualRiskRR);
-      const l = parseInt(sc.residualRiskL);
-      if (!isNaN(rr) && !isNaN(l) && l > 0) return String(Math.round(rr / l));
+  const hasRecommendationForConsGroup = (scList, consGroupId, targetScId) => {
+    if (!scList || scList.length === 0) return false;
+    if (consGroupId) {
+      return scList.some(s => s.consequenceGroupId === consGroupId && s.additionalProtection && s.additionalProtection.trim() !== '');
     }
-    return '';
+    const target = scList.find(s => s._id === targetScId);
+    return !!(target?.additionalProtection && target.additionalProtection.trim() !== '');
   };
 
-  const studyRecNumberMap = useMemo(() => {
-    const map = new Map();
-    (allStudyRecommendations || []).forEach(r => {
-      const key = normalizeRecText(r.text);
-      if (key && !map.has(key)) {
-        map.set(key, r.recommendationNo);
-      }
-    });
-    return map;
-  }, [allStudyRecommendations]);
+  const { studyRecNumberMap, nextRecNo } = useMemo(() => {
+    const currentScMap = new Map(scenarios.map(s => [s._id, s]));
+    const baseList = (allStudyScenarios && allStudyScenarios.length > 0) ? allStudyScenarios : scenarios;
+    let combined = baseList.map(s => currentScMap.get(s._id) || s);
 
-  // Compute next recommendation number across the study
-  const nextRecNo = useMemo(() => {
-    let max = 0;
-    (allStudyRecommendations || []).forEach(r => {
-      const m = (r.recommendationNo || '').match(/^R(\d+)$/i);
-      if (m) {
-        const num = parseInt(m[1], 10);
-        if (num > max) max = num;
+    const combinedIds = new Set(combined.map(s => s._id));
+    scenarios.forEach(s => {
+      if (!combinedIds.has(s._id)) {
+        combined.push(s);
       }
     });
-    return `R${max + 1}`;
-  }, [allStudyRecommendations]);
+
+    const sortedStudy = sortStudyScenarios(combined, nodes);
+    const registry = buildStudyRecommendationRegistry(sortedStudy);
+    return {
+      studyRecNumberMap: registry.studyRecMap,
+      nextRecNo: registry.nextRecNo
+    };
+  }, [allStudyScenarios, scenarios, nodes]);
 
   // Group scenarios visually by Deviation and Cause
   const processedScenarios = useMemo(() => {
@@ -629,19 +622,13 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
     }
     
-    // Dynamic sequential recommendation numbering across the study (Issues 11 & 12, Deduplication)
+    // Dynamic sequential recommendation numbering across the study (unified with registry)
     for (let i = 0; i < result.length; i++) {
       const sc = result[i];
       const recText = (sc.additionalProtection || '').trim();
       if (recText !== '') {
         const key = normalizeRecText(recText);
-        if (studyRecNumberMap.has(key)) {
-          sc.displayRecNo = studyRecNumberMap.get(key);
-        } else if (sc.recommendationNo) {
-          sc.displayRecNo = sc.recommendationNo;
-        } else {
-          sc.displayRecNo = nextRecNo;
-        }
+        sc.displayRecNo = studyRecNumberMap.get(key) || nextRecNo;
       } else {
         sc.displayRecNo = '';
       }
@@ -832,40 +819,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       });
       if (res.ok) {
         const scs = await res.json();
-        
-        const nodeOrderMap = {};
-        (nodes || []).forEach((n, idx) => {
-          nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
-        });
+        setAllStudyScenarios(scs);
 
-        const sortedScs = [...scs].sort((a, b) => {
-          const nodeA = a.nodeId?._id || a.nodeId;
-          const nodeB = b.nodeId?._id || b.nodeId;
-          const oA = nodeOrderMap[nodeA] ?? 9999;
-          const oB = nodeOrderMap[nodeB] ?? 9999;
-          if (oA !== oB) return oA - oB;
-          return (a.order || 0) - (b.order || 0);
-        });
+        const sortedScs = sortStudyScenarios(scs, nodes);
+        const { uniqueRecommendations } = buildStudyRecommendationRegistry(sortedScs);
 
-        const recList = [];
-        const seenMap = new Map();
-        let counter = 1;
-
-        sortedScs.forEach(s => {
-          const txt = (s.additionalProtection || '').trim();
-          if (txt) {
-            const key = normalizeRecText(txt);
-            if (!seenMap.has(key)) {
-              const recNo = `R${counter++}`;
-              seenMap.set(key, recNo);
-              recList.push({
-                text: txt,
-                recommendationNo: recNo,
-                nodeName: s.nodeId?.description || ''
-              });
-            }
-          }
-        });
+        const recList = uniqueRecommendations.map(u => ({
+          text: u.additionalProtection,
+          recommendationNo: u.displayRecNo,
+          nodeName: u.nodeNames?.join(', ') || u.nodeId?.description || ''
+        }));
         setAllStudyRecommendations(recList);
       }
     } catch (err) {
@@ -1091,6 +1054,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const isSafeGroupField = ['presentProtection'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
+      const hasRecInGroup = hasRecommendationForConsGroup(prev, targetConsGroupId, id);
 
       return prev.map(sc => {
         if (sc._id === id || (targetConsGroupId && sc.consequenceGroupId === targetConsGroupId) || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId)) {
@@ -1098,29 +1062,76 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
             if (field === 'inherentRiskS') {
-              updatedSc.mitigatedRiskS = value;
-              updatedSc.residualRiskS = value;
+              if (!updatedSc.mitigatedRiskS || updatedSc.mitigatedRiskS === sc.inherentRiskS) {
+                updatedSc.mitigatedRiskS = value;
+              }
+              if (hasRecInGroup) {
+                if (!updatedSc.residualRiskS || updatedSc.residualRiskS === sc.inherentRiskS || updatedSc.residualRiskS === sc.mitigatedRiskS) {
+                  updatedSc.residualRiskS = updatedSc.mitigatedRiskS || value;
+                }
+              } else {
+                if (!updatedSc.residualRiskS) {
+                  updatedSc.residualRiskS = '';
+                }
+              }
             }
             if (field === 'inherentRiskL') {
               if (!updatedSc.mitigatedRiskL) updatedSc.mitigatedRiskL = value;
-              if (!updatedSc.residualRiskL) updatedSc.residualRiskL = value;
+              if (hasRecInGroup && !updatedSc.residualRiskL) updatedSc.residualRiskL = updatedSc.mitigatedRiskL || value;
             }
             updatedSc.inherentRiskRR = calculateRiskScore(updatedSc.inherentRiskS, updatedSc.inherentRiskL);
             updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
-            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
+            updatedSc.residualRiskRR = (hasRecInGroup && updatedSc.residualRiskS && updatedSc.residualRiskL)
+              ? calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL)
+              : '';
           }
           if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
-            if (field === 'mitigatedRiskS' && (!updatedSc.residualRiskS || updatedSc.residualRiskS === sc.mitigatedRiskS)) {
-              updatedSc.residualRiskS = value;
+            if (field === 'mitigatedRiskS') {
+              updatedSc.mitigatedRiskS = value;
+              if (hasRecInGroup && (!updatedSc.residualRiskS || updatedSc.residualRiskS === sc.mitigatedRiskS)) {
+                updatedSc.residualRiskS = value;
+              }
+            }
+            if (field === 'mitigatedRiskL') {
+              updatedSc.mitigatedRiskL = value;
             }
             updatedSc.mitigatedRiskRR = calculateRiskScore(updatedSc.mitigatedRiskS, updatedSc.mitigatedRiskL);
-            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
+            updatedSc.residualRiskRR = (hasRecInGroup && updatedSc.residualRiskS && updatedSc.residualRiskL)
+              ? calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL)
+              : '';
           }
           if (field === 'residualRiskS' || field === 'residualRiskL') {
-            if (field === 'residualRiskL' && !updatedSc.residualRiskS) {
-              updatedSc.residualRiskS = getEffectiveResidualS(updatedSc);
+            if (field === 'residualRiskS') {
+              updatedSc.residualRiskS = value;
             }
-            updatedSc.residualRiskRR = calculateRiskScore(getEffectiveResidualS(updatedSc), updatedSc.residualRiskL);
+            if (field === 'residualRiskL') {
+              updatedSc.residualRiskL = value;
+            }
+            updatedSc.residualRiskRR = (updatedSc.residualRiskS && updatedSc.residualRiskL)
+              ? calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL)
+              : '';
+          }
+          if (field === 'additionalProtection') {
+            const wasEmpty = !(sc.additionalProtection || '').trim();
+            const isNowEmpty = !(value || '').trim();
+            if (wasEmpty && !isNowEmpty) {
+              if (!updatedSc.residualRiskS) {
+                updatedSc.residualRiskS = updatedSc.mitigatedRiskS || updatedSc.inherentRiskS || '';
+              }
+              if (!updatedSc.residualRiskL) {
+                updatedSc.residualRiskL = updatedSc.mitigatedRiskL || updatedSc.inherentRiskL || '';
+              }
+              updatedSc.residualRiskRR = (updatedSc.residualRiskS && updatedSc.residualRiskL)
+                ? calculateRiskScore(updatedSc.residualRiskS, updatedSc.residualRiskL)
+                : '';
+            } else if (!wasEmpty && isNowEmpty) {
+              const otherRecs = prev.some(s => s._id !== id && (targetConsGroupId ? s.consequenceGroupId === targetConsGroupId : false) && (s.additionalProtection || '').trim() !== '');
+              if (!otherRecs) {
+                updatedSc.residualRiskS = '';
+                updatedSc.residualRiskL = '';
+                updatedSc.residualRiskRR = '';
+              }
+            }
           }
           
           return updatedSc;
@@ -1136,59 +1147,86 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       
       let payload = { [field]: value };
       const targetSc = scenarios.find(s => s._id === id);
+      const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
+      const isSafeGroupField = ['presentProtection'].includes(field);
+      const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
+      const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
+      const hasRecInGroup = hasRecommendationForConsGroup(scenarios, targetConsGroupId, id);
       
       if (field === 'inherentRiskS' || field === 'inherentRiskL') {
         const s = field === 'inherentRiskS' ? value : targetSc.inherentRiskS;
         const l = field === 'inherentRiskL' ? value : targetSc.inherentRiskL;
+        payload.inherentRiskS = s;
+        payload.inherentRiskL = l;
         payload.inherentRiskRR = calculateRiskScore(s, l);
         
         if (field === 'inherentRiskS') {
-          payload.mitigatedRiskS = value;
-          payload.residualRiskS = value;
+          if (!targetSc.mitigatedRiskS || targetSc.mitigatedRiskS === targetSc.inherentRiskS) {
+            payload.mitigatedRiskS = value;
+          }
+          if (hasRecInGroup && (!targetSc.residualRiskS || targetSc.residualRiskS === targetSc.inherentRiskS || targetSc.residualRiskS === targetSc.mitigatedRiskS)) {
+            payload.residualRiskS = payload.mitigatedRiskS || value;
+          }
         }
         if (field === 'inherentRiskL') {
           if (!targetSc.mitigatedRiskL) payload.mitigatedRiskL = value;
-          if (!targetSc.residualRiskL) payload.residualRiskL = value;
+          if (hasRecInGroup && !targetSc.residualRiskL) payload.residualRiskL = payload.mitigatedRiskL || value;
         }
         
         const mS = payload.mitigatedRiskS || targetSc.mitigatedRiskS;
         const mL = payload.mitigatedRiskL || targetSc.mitigatedRiskL;
         payload.mitigatedRiskRR = calculateRiskScore(mS, mL);
         
-        const rS = payload.residualRiskS || targetSc.residualRiskS || mS;
+        const rS = payload.residualRiskS || targetSc.residualRiskS;
         const rL = payload.residualRiskL || targetSc.residualRiskL;
-        payload.residualRiskRR = calculateRiskScore(rS, rL);
+        payload.residualRiskRR = (hasRecInGroup && rS && rL) ? calculateRiskScore(rS, rL) : '';
       }
       if (field === 'mitigatedRiskS' || field === 'mitigatedRiskL') {
         const s = field === 'mitigatedRiskS' ? value : targetSc.mitigatedRiskS;
         const l = field === 'mitigatedRiskL' ? value : targetSc.mitigatedRiskL;
+        payload.mitigatedRiskS = s;
+        payload.mitigatedRiskL = l;
         payload.mitigatedRiskRR = calculateRiskScore(s, l);
-        if (field === 'mitigatedRiskS' && (!targetSc.residualRiskS || targetSc.residualRiskS === targetSc.mitigatedRiskS)) {
+        if (field === 'mitigatedRiskS' && hasRecInGroup && (!targetSc.residualRiskS || targetSc.residualRiskS === targetSc.mitigatedRiskS)) {
           payload.residualRiskS = value;
           const rL = targetSc.residualRiskL;
-          payload.residualRiskRR = calculateRiskScore(value, rL);
+          payload.residualRiskRR = (value && rL) ? calculateRiskScore(value, rL) : '';
         }
       }
       if (field === 'residualRiskS' || field === 'residualRiskL') {
-        const s = field === 'residualRiskS' ? value : getEffectiveResidualS(targetSc);
-        const l = field === 'residualRiskL' ? value : targetSc.residualRiskL;
-        if (s && !targetSc.residualRiskS) {
-          payload.residualRiskS = s;
-        }
-        payload.residualRiskRR = calculateRiskScore(s, l);
+        const s = field === 'residualRiskS' ? value : (targetSc.residualRiskS || '');
+        const l = field === 'residualRiskL' ? value : (targetSc.residualRiskL || '');
+        payload.residualRiskS = s;
+        payload.residualRiskL = l;
+        payload.residualRiskRR = (s && l) ? calculateRiskScore(s, l) : '';
       }
       if (field === 'remarksColor') {
         payload.remarksColor = value;
         payload.riskData = { ...(targetSc.riskData || {}), remarksColor: value };
       }
       if (field === 'additionalProtection') {
+        const wasEmpty = !(targetSc?.additionalProtection || '').trim();
+        const isNowEmpty = !(value || '').trim();
+        if (wasEmpty && !isNowEmpty) {
+          if (!targetSc.residualRiskS) {
+            payload.residualRiskS = targetSc.mitigatedRiskS || targetSc.inherentRiskS || '';
+          }
+          if (!targetSc.residualRiskL) {
+            payload.residualRiskL = targetSc.mitigatedRiskL || targetSc.inherentRiskL || '';
+          }
+          const rS = payload.residualRiskS || targetSc.residualRiskS;
+          const rL = payload.residualRiskL || targetSc.residualRiskL;
+          payload.residualRiskRR = (rS && rL) ? calculateRiskScore(rS, rL) : '';
+        } else if (!wasEmpty && isNowEmpty) {
+          const otherRecs = scenarios.some(s => s._id !== id && (targetConsGroupId ? s.consequenceGroupId === targetConsGroupId : false) && (s.additionalProtection || '').trim() !== '');
+          if (!otherRecs) {
+            payload.residualRiskS = '';
+            payload.residualRiskL = '';
+            payload.residualRiskRR = '';
+          }
+        }
         fetchStudyRecommendations();
       }
-
-      const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
-      const isSafeGroupField = ['presentProtection'].includes(field);
-      const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
-      const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
 
       let scenariosToUpdate = [targetSc];
       if (targetConsGroupId) scenariosToUpdate = scenarios.filter(s => s.consequenceGroupId === targetConsGroupId);
@@ -2792,6 +2830,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       const siblingsInSafeguardGroup = scenarios.filter(s => s.safeguardGroupId && s.safeguardGroupId === sc.safeguardGroupId);
       
+      const consGroupId = sc.consequenceGroupId;
+      const siblingRecsExist = scenarios.some(s => s._id !== sc._id && (consGroupId ? s.consequenceGroupId === consGroupId : false) && (s.additionalProtection || '').trim() !== '');
+      const clearResidual = !siblingRecsExist;
+
       if (siblingsInSafeguardGroup.length > 1) {
         setUndoStack(prev => [...prev, {
           type: 'DELETE_RECOMMENDATION',
@@ -2820,7 +2862,25 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        setScenarios(prev => prev.filter(s => s._id !== sc._id));
+        
+        if (clearResidual && consGroupId) {
+          const remainingInCons = scenarios.filter(s => s._id !== sc._id && s.consequenceGroupId === consGroupId);
+          await Promise.all(remainingInCons.map(s => 
+            fetch(`${apiUrl}/api/scenarios/${s._id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ residualRiskS: '', residualRiskL: '', residualRiskRR: '' })
+            })
+          ));
+          setScenarios(prev => prev.filter(s => s._id !== sc._id).map(s => s.consequenceGroupId === consGroupId ? {
+            ...s,
+            residualRiskS: '',
+            residualRiskL: '',
+            residualRiskRR: ''
+          } : s));
+        } else {
+          setScenarios(prev => prev.filter(s => s._id !== sc._id));
+        }
       } else {
         setUndoStack(prev => [...prev, {
           type: 'DELETE_RECOMMENDATION',
@@ -2851,22 +2911,26 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           type: 'recommendation'
         });
 
-        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ 
-            additionalProtection: '', 
-            recommendationNo: '',
-            recommendationAgainst: '',
-            recommendationGroupId: ''
-          })
-        });
-        setScenarios(prev => prev.map(s => s._id === sc._id ? { 
-          ...s, 
+        const updatePayload = { 
           additionalProtection: '', 
           recommendationNo: '',
           recommendationAgainst: '',
           recommendationGroupId: ''
+        };
+        if (clearResidual) {
+          updatePayload.residualRiskS = '';
+          updatePayload.residualRiskL = '';
+          updatePayload.residualRiskRR = '';
+        }
+
+        await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(updatePayload)
+        });
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { 
+          ...s, 
+          ...updatePayload
         } : s));
       }
       fetchStudyRecommendations();
@@ -3183,36 +3247,64 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       link.click();
     } catch (err) {
       console.error('Error exporting CSV:', err);
-      alert('Failed to export CSV: ' + err.message);
+      let reason = err.message || 'Unknown error occurred.';
+      if (reason.includes('Failed to fetch')) {
+        reason = 'Network connection failed or server is unreachable. Please check your internet connection.';
+      }
+      alert(`⚠️ CSV Export Failed!\n\nReason: ${reason}\n\nTechnical details: ${err.message}`);
     }
   };
 
   // Export to Excel with Matrix Rating Colors and Merged Cells (Issues 1, 4, 8, 9)
   const exportToExcel = async (exportAll = false) => {
     try {
+      const escapeHtml = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      };
+
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       let exportData = [];
-      let studyNodes = nodes;
+      let studyNodes = nodes || [];
+      let activeCriteria = riskCriteria;
 
       if (exportAll) {
         const token = localStorage.getItem('token');
-        const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+        const res = await fetch(`${apiUrl}/api/studies/${study._id}/full-export-data`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Failed to fetch full study data');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Failed to fetch full study data (HTTP ${res.status})`);
+        }
         const full = await res.json();
         exportData = full.scenarios || [];
-        studyNodes = full.nodes || nodes;
+        studyNodes = full.nodes || nodes || [];
+        if (full.riskCriteria) activeCriteria = full.riskCriteria;
       } else {
-        exportData = processedScenarios;
+        exportData = processedScenarios || [];
+        studyNodes = selectedNode ? [selectedNode] : (nodes || []);
       }
 
       const getCellColor = (s, l) => {
-        if (!s || !l || !riskCriteria) return 'transparent';
-        const cell = riskCriteria.matrixCells?.find(c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l));
+        if (!s || !l || !activeCriteria) return 'transparent';
+        const cell = activeCriteria.matrixCells?.find(c => String(c.severityLevel) === String(s) && String(c.likelihoodLevel) === String(l));
         if (!cell) return 'transparent';
-        const cat = riskCriteria.riskCategories?.find(c => c.name === cell.category);
+        const cat = activeCriteria.riskCategories?.find(c => c.name === cell.category);
         return cat ? cat.color : 'transparent';
       };
+
+      // Unified recommendation map across the export dataset to ensure matching R numbers
+      const sortedFullScenarios = sortStudyScenarios(exportData, studyNodes);
+      const { studyRecMap } = buildStudyRecommendationRegistry(sortedFullScenarios);
+
+      const rawSheetName = exportAll ? 'HAZOP All Nodes' : (selectedNode?.description || 'HAZOP Worksheet');
+      const cleanSheetName = rawSheetName.replace(/[[\]*?:/\\]/g, '_').substring(0, 31);
 
       let tableHtml = `
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -3222,7 +3314,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <x:ExcelWorkbook>
               <x:ExcelWorksheets>
                 <x:ExcelWorksheet>
-                  <x:Name>${exportAll ? 'HAZOP All Nodes' : (selectedNode?.description?.substring(0, 30) || 'HAZOP Worksheet')}</x:Name>
+                  <x:Name>${escapeHtml(cleanSheetName)}</x:Name>
                   <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
                 </x:ExcelWorksheet>
               </x:ExcelWorksheets>
@@ -3238,8 +3330,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           </style>
         </head>
         <body>
-          <h2>HAZOP WORKSHEET - ${study.studyName || ''}</h2>
-          <p>Project: ${study.projectName || ''} | Facility: ${study.facilityName || study.siteLocation || ''} | Date: ${new Date().toLocaleDateString()}</p>
+          <h2>HAZOP WORKSHEET - ${escapeHtml(study?.studyName || '')}</h2>
+          <p>Project: ${escapeHtml(study?.projectName || '')} | Facility: ${escapeHtml(study?.facilityName || study?.siteLocation || '')} | Date: ${new Date().toLocaleDateString()}</p>
           <table border="1">
             <thead>
               <tr>
@@ -3278,37 +3370,40 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const renderNodeRows = (nodeScenarios, nodeName) => {
         let rowsHtml = '';
         if (nodeName) {
-          rowsHtml += `<tr><td colspan="24" class="node-banner">📁 NODE: ${nodeName}</td></tr>`;
+          rowsHtml += `<tr><td colspan="24" class="node-banner">📁 NODE: ${escapeHtml(nodeName)}</td></tr>`;
         }
 
-        const sorted = [...nodeScenarios].sort((a, b) => {
-          const devA = a.deviationId?._id || '';
-          const devB = b.deviationId?._id || '';
-          if (devA !== devB) return devA.localeCompare(devB);
-          const causeA = a.causeId?._id || '';
-          const causeB = b.causeId?._id || '';
-          if (causeA !== causeB) return causeA.localeCompare(causeB);
-          const orderA = typeof a.order === 'number' ? a.order : 0;
-          const orderB = typeof b.order === 'number' ? b.order : 0;
-          if (orderA !== orderB) return orderA - orderB;
-          const consA = a.consequenceGroupId || '';
-          const consB = b.consequenceGroupId || '';
-          if (consA !== consB) return consA.localeCompare(consB);
-          return (a._id || '').localeCompare(b._id || '');
-        });
+        const sorted = sortStudyScenarios(nodeScenarios, studyNodes);
 
         const getConsKey = (s) => s.consequenceGroupId || s._id;
         const getSafeKey = (s) => s.safeguardGroupId || s._id;
 
-        let recIndex = 1;
+        const getDevText = (s) => {
+          if (s.deviationId?.deviationAuto) return s.deviationId.deviationAuto;
+          if (s.deviationId?.deviation) return s.deviationId.deviation;
+          const id = s.deviationId?._id || s.deviationId;
+          const dObj = (allDeviations || []).find(d => String(d._id) === String(id));
+          return dObj?.deviationAuto || dObj?.deviation || '';
+        };
+
+        const getCauseText = (s) => {
+          if (s.causeId?.description) return s.causeId.description;
+          const id = s.causeId?._id || s.causeId;
+          const cObj = (allCauses || []).find(c => String(c._id) === String(id));
+          return cObj?.description || '';
+        };
+
+        const getDevId = (s) => s.deviationId?._id ? String(s.deviationId._id) : (s.deviationId ? String(s.deviationId) : '');
+        const getCauseId = (s) => s.causeId?._id ? String(s.causeId._id) : (s.causeId ? String(s.causeId) : '');
+
         let devCounter = 0;
 
         const isNewRecList = [];
         for (let i = 0; i < sorted.length; i++) {
           const sc = sorted[i];
           const prevSc = i > 0 ? sorted[i - 1] : null;
-          const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
-          const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+          const isNewDev = !prevSc || getDevId(sc) !== getDevId(prevSc);
+          const isNewCause = isNewDev || getCauseId(sc) !== getCauseId(prevSc);
           const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
           let isNewRec = isNewCons;
           if (!isNewRec && prevSc) {
@@ -3331,11 +3426,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const sc = sorted[i];
           const prevSc = i > 0 ? sorted[i - 1] : null;
 
-          const isNewDev = !prevSc || sc.deviationId?._id !== prevSc.deviationId?._id;
+          const isNewDev = !prevSc || getDevId(sc) !== getDevId(prevSc);
           if (isNewDev) {
             devCounter++;
           }
-          const isNewCause = isNewDev || sc.causeId?._id !== prevSc.causeId?._id;
+          const isNewCause = isNewDev || getCauseId(sc) !== getCauseId(prevSc);
           const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
           const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
           const isNewRec = isNewRecList[i];
@@ -3343,7 +3438,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let devSpan = 1;
           if (isNewDev) {
             for (let j = i + 1; j < sorted.length; j++) {
-              if (sorted[j].deviationId?._id === sc.deviationId?._id) devSpan++;
+              if (getDevId(sorted[j]) === getDevId(sc)) devSpan++;
               else break;
             }
           }
@@ -3351,7 +3446,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let causeSpan = 1;
           if (isNewCause) {
             for (let j = i + 1; j < sorted.length; j++) {
-              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id) causeSpan++;
+              if (getDevId(sorted[j]) === getDevId(sc) && getCauseId(sorted[j]) === getCauseId(sc)) causeSpan++;
               else break;
             }
           }
@@ -3359,7 +3454,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let consSpan = 1;
           if (isNewCons) {
             for (let j = i + 1; j < sorted.length; j++) {
-              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc)) consSpan++;
+              if (getDevId(sorted[j]) === getDevId(sc) && getCauseId(sorted[j]) === getCauseId(sc) && getConsKey(sorted[j]) === getConsKey(sc)) consSpan++;
               else break;
             }
           }
@@ -3367,7 +3462,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let safeSpan = 1;
           if (isNewSafe) {
             for (let j = i + 1; j < sorted.length; j++) {
-              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc) && getSafeKey(sorted[j]) === getSafeKey(sc)) safeSpan++;
+              if (getDevId(sorted[j]) === getDevId(sc) && getCauseId(sorted[j]) === getCauseId(sc) && getConsKey(sorted[j]) === getConsKey(sc) && getSafeKey(sorted[j]) === getSafeKey(sc)) safeSpan++;
               else break;
             }
           }
@@ -3375,7 +3470,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let recSpan = 1;
           if (isNewRec) {
             for (let j = i + 1; j < sorted.length; j++) {
-              if (sorted[j].deviationId?._id === sc.deviationId?._id && sorted[j].causeId?._id === sc.causeId?._id && getConsKey(sorted[j]) === getConsKey(sc) && !isNewRecList[j]) recSpan++;
+              if (getDevId(sorted[j]) === getDevId(sc) && getCauseId(sorted[j]) === getCauseId(sc) && getConsKey(sorted[j]) === getConsKey(sc) && !isNewRecList[j]) recSpan++;
               else break;
             }
           }
@@ -3386,57 +3481,62 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
           let recLabel = '';
           if (sc.additionalProtection && sc.additionalProtection.trim()) {
-            recLabel = sc.recommendationNo ? `[${sc.recommendationNo}] ` : (sc.displayRecNo ? `[${sc.displayRecNo}] ` : `[R${recIndex++}] `);
+            const key = normalizeRecText(sc.additionalProtection);
+            const rNum = studyRecMap.get(key) || sc.recommendationNo || sc.displayRecNo || '';
+            recLabel = rNum ? `[${rNum}] ` : '';
           }
+
+          const devText = getDevText(sc);
+          const causeText = getCauseText(sc);
 
           rowsHtml += `<tr>`;
           rowsHtml += `<td align="center">${devCounter}</td>`;
 
           if (isNewDev) {
-            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.deviationAuto || ''}</td>`;
-            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.parameter || ''}</td>`;
-            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.processFlowMaterial || ''}</td>`;
-            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.locationFrom || ''}</td>`;
-            rowsHtml += `<td rowspan="${devSpan}">${sc.deviationId?.locationTo || ''}</td>`;
-            rowsHtml += `<td rowspan="${devSpan}"><b>${sc.deviationId?.deviationAuto || ''}</b></td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(devText)}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.parameter || '')}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.processFlowMaterial || '')}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.locationFrom || '')}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.locationTo || '')}</td>`;
+            rowsHtml += `<td rowspan="${devSpan}"><b>${escapeHtml(devText)}</b></td>`;
           }
 
           if (isNewCause) {
-            rowsHtml += `<td rowspan="${causeSpan}">${sc.causeId?.description || ''}</td>`;
+            rowsHtml += `<td rowspan="${causeSpan}">${escapeHtml(causeText)}</td>`;
           }
 
           if (isNewCons) {
-            rowsHtml += `<td rowspan="${consSpan}">${sc.consequencesImmediate || ''}</td>`;
-            rowsHtml += `<td rowspan="${consSpan}">${sc.consequencesUltimate || ''}</td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.consequenceCategory || ''}</td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.inherentRiskS || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.inherentRiskL || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${irColor}; font-weight: bold; color: ${irColor !== 'transparent' ? '#000' : 'inherit'}">${sc.inherentRiskRR || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}">${escapeHtml(sc.consequencesImmediate || '')}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}">${escapeHtml(sc.consequencesUltimate || '')}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center">${escapeHtml(sc.consequenceCategory || '')}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.inherentRiskS || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.inherentRiskL || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${irColor}; font-weight: bold; color: ${irColor !== 'transparent' ? '#000' : 'inherit'}">${escapeHtml(sc.inherentRiskRR || '')}</td>`;
           }
 
           if (isNewSafe) {
-            rowsHtml += `<td rowspan="${safeSpan}">${sc.presentProtection || ''}</td>`;
+            rowsHtml += `<td rowspan="${safeSpan}">${escapeHtml(sc.presentProtection || '')}</td>`;
           }
 
           if (isNewCons) {
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.mitigatedRiskS || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.mitigatedRiskL || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${mrColor}; font-weight: bold; color: ${mrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.mitigatedRiskRR || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.mitigatedRiskS || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.mitigatedRiskL || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${mrColor}; font-weight: bold; color: ${mrColor !== 'transparent' ? '#000' : 'inherit'}">${escapeHtml(sc.mitigatedRiskRR || '')}</td>`;
           }
 
           if (isNewRec) {
             const againstBadge = sc.recommendationAgainst ? `[${sc.recommendationAgainst}] ` : '';
-            rowsHtml += `<td rowspan="${recSpan}">${recLabel}${againstBadge}${sc.additionalProtection || ''}</td>`;
+            rowsHtml += `<td rowspan="${recSpan}">${escapeHtml(recLabel + againstBadge + (sc.additionalProtection || ''))}</td>`;
           }
 
           if (isNewCons) {
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.residualRiskS || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${sc.residualRiskL || ''}</b></td>`;
-            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${rrColor}; font-weight: bold; color: ${rrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.residualRiskRR || ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.residualRiskS || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.residualRiskL || '')}</b></td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center" style="background-color: ${rrColor}; font-weight: bold; color: ${rrColor !== 'transparent' ? '#000' : 'inherit'}">${escapeHtml(sc.residualRiskRR || '')}</td>`;
           }
 
-          rowsHtml += `<td>${sc.remarks || ''}</td>`;
-          rowsHtml += `<td align="center">${sc.status || ''}</td>`;
+          rowsHtml += `<td>${escapeHtml(sc.remarks || '')}</td>`;
+          rowsHtml += `<td align="center">${escapeHtml(sc.status || '')}</td>`;
           if (isNewCons) {
             rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.isLopa ? '✓ LOPA' : ''}</td>`;
           }
@@ -3447,7 +3547,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (exportAll) {
         studyNodes.forEach((node) => {
-          const nodeScs = exportData.filter(s => s.nodeId && (s.nodeId._id === node._id || s.nodeId === node._id));
+          const nodeScs = exportData.filter(s => {
+            const sNId = s.nodeId?._id ? String(s.nodeId._id) : (s.nodeId ? String(s.nodeId) : '');
+            return sNId === String(node._id);
+          });
           if (nodeScs.length > 0) {
             tableHtml += renderNodeRows(nodeScs, `${node.nodeNumber || ''} - ${node.description || 'Node'}`);
           }
@@ -3461,18 +3564,31 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `PHA_Worksheet_${exportAll ? 'All_Nodes' : (selectedNode?.description || 'Node').replace(/[^a-zA-Z0-9_-]/g, '_')}.xls`;
+      const safeDesc = (exportAll ? 'All_Nodes' : (selectedNode?.description || 'Node')).replace(/[/\\?%*:|"<>]/g, '_');
+      link.download = `PHA_Worksheet_${safeDesc}.xls`;
       link.click();
     } catch (err) {
       console.error('Error exporting Excel:', err);
-      alert('Error generating Excel export: ' + err.message);
+      let reason = err.message || 'Unknown error occurred.';
+      if (reason.includes('Failed to fetch')) {
+        reason = 'Network connection failed or server is unreachable. Please check your internet connection.';
+      } else if (reason.includes('401')) {
+        reason = 'Your login session has expired. Please refresh the page and log in again.';
+      } else if (reason.includes('403')) {
+        reason = 'Access denied. You do not have permission to export this study.';
+      } else if (reason.includes('404')) {
+        reason = 'Study or node data was not found on the server.';
+      } else if (reason.includes('500') || reason.includes('502') || reason.includes('504')) {
+        reason = 'Server timeout or database error while generating large export. Please try again or export node-by-node.';
+      }
+      alert(`⚠️ Excel Export Failed!\n\nReason: ${reason}\n\nTechnical details: ${err.message}`);
     }
   };
 
   // Fixed PDF Export with Recommendations & Proper Headers (Issues 2, 8)
   const exportToPDF = async () => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert("PDF library is still loading.");
+      alert("PDF library is still loading. Please check your internet connection or refresh the page.");
       return;
     }
     
@@ -3482,10 +3598,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in'}/api/studies/${study._id}/full-export-data`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/studies/${study._id}/full-export-data`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.message || `Failed to fetch study data (HTTP ${response.status})`);
+      }
       const data = await response.json();
+      if (!data || !data.study) {
+        throw new Error('Study data is missing or incomplete on the server.');
+      }
       
       const activeRiskCriteria = data.riskCriteria || riskCriteria;
 
@@ -3579,7 +3704,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         head: [['Facility Information', 'Study Duration']],
         body: [
           [
-            `Company: ${data.study.companyCode || ''}\nFacility: ${data.study.facility || ''}\nPlant Unit: ${data.study.plantUnit || ''}`, 
+            `Company: ${data.study.companyCode || ''}\nFacility: ${data.study.facilityName || data.study.facility || data.study.siteLocation || ''}\nPlant Unit: ${data.study.plantUnit || ''}`, 
             `Start Date: ${data.study.createdAt ? new Date(data.study.createdAt).toLocaleDateString() : ''}`
           ]
         ],
@@ -3626,12 +3751,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             theme: 'grid',
             head: [['#', 'Name', 'Role', 'Discipline / Expertise', 'Company / Affiliation', 'Sessions Attended']],
             body: data.teamMembers.map((t, idx) => {
-              const attendedList = t.attendanceDates 
-                ? (t.attendanceDates instanceof Map 
-                    ? Array.from(t.attendanceDates.entries()).filter(([d, a]) => a).map(([d]) => d)
-                    : Object.entries(t.attendanceDates).filter(([d, a]) => a).map(([d]) => d)
-                  )
-                : [];
+              let attendedList = [];
+              if (t.attendanceDates) {
+                if (t.attendanceDates instanceof Map) {
+                  attendedList = Array.from(t.attendanceDates.entries()).filter(([d, a]) => a).map(([d]) => d);
+                } else if (typeof t.attendanceDates === 'object') {
+                  attendedList = Object.entries(t.attendanceDates).filter(([d, a]) => a).map(([d]) => d);
+                }
+              }
               const attendanceStr = attendedList.length > 0 ? attendedList.join(', ') : 'All / General';
               return [
                 String(idx + 1),
@@ -3739,17 +3866,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
 
       // Pre-compute unified recommendation numbering across all nodes for report fidelity
-      const studyRecMap = new Map();
-      let studyRecCount = 1;
-      (data.scenarios || []).forEach(s => {
-        const txt = (s.additionalProtection || '').trim();
-        if (txt) {
-          const key = normalizeRecText(txt);
-          if (!studyRecMap.has(key)) {
-            studyRecMap.set(key, `R${studyRecCount++}`);
-          }
-        }
-      });
+      const sortedPdfScenarios = sortStudyScenarios(data.scenarios || [], data.nodes || nodes);
+      const pdfRegistry = buildStudyRecommendationRegistry(sortedPdfScenarios);
+      const studyRecMap = pdfRegistry.studyRecMap;
 
       // Page N: Worksheets per Node (including Remarks and Status)
       if (data.nodes && data.nodes.length > 0) {
@@ -3889,11 +4008,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const iL = isSameCons ? '' : (g.iL || '');
             const iRR = (iS && iL) ? calcScore(iS, iL) : '';
 
-            const mS = isSameCons ? '' : (g.mS || g.iS || '');
+            const mS = isSameCons ? '' : (g.mS || '');
             const mL = isSameCons ? '' : (g.mL || '');
             const mRR = (mS && mL) ? calcScore(mS, mL) : '';
 
-            const rS = isSameCons ? '' : (g.rS || g.mS || g.iS || '');
+            const rS = isSameCons ? '' : (g.rS || '');
             const rL = isSameCons ? '' : (g.rL || '');
             const rRR = (rS && rL) ? calcScore(rS, rL) : '';
 
@@ -3922,7 +4041,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             head: head, 
             body: body, 
             theme: 'grid',
-            rowPageBreak: 'avoid',
+            rowPageBreak: 'auto',
             styles: { fontSize: 7, cellPadding: 3.5, textColor: [30, 30, 30], lineColor: [220, 220, 220] },
             headStyles: { fillColor: primaryDark, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold' },
             alternateRowStyles: { fillColor: rowLight },
@@ -3998,19 +4117,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       doc.text("Recommendation Register", 40, 38);
 
       // Build unified deduplicated recommendation list across the entire study
-      const nodeOrderMap = {};
-      (data.nodes || []).forEach((n, idx) => {
-        nodeOrderMap[n._id] = n.order !== undefined ? n.order : idx;
-      });
-
-      const sortedAllScenarios = [...(data.scenarios || [])].sort((a, b) => {
-        const nodeA = a.nodeId?._id || a.nodeId;
-        const nodeB = b.nodeId?._id || b.nodeId;
-        const oA = nodeOrderMap[nodeA] ?? 9999;
-        const oB = nodeOrderMap[nodeB] ?? 9999;
-        if (oA !== oB) return oA - oB;
-        return (a.order || 0) - (b.order || 0);
-      });
+      const sortedAllScenarios = sortStudyScenarios(data.scenarios || [], data.nodes || nodes);
 
       const uniqueRecsMap = new Map();
       let pdfRecCounter = 1;
@@ -4022,8 +4129,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const nodeDesc = s.nodeId?.description || 'General Node';
           if (!uniqueRecsMap.has(key)) {
             const recNo = `R${pdfRecCounter++}`;
-            const effResS = s.residualRiskS || s.mitigatedRiskS || s.inherentRiskS || 
-              (s.residualRiskRR && s.residualRiskL && !isNaN(parseInt(s.residualRiskRR)/parseInt(s.residualRiskL)) ? String(Math.round(parseInt(s.residualRiskRR)/parseInt(s.residualRiskL))) : '');
+            const resS = s.residualRiskS || '';
+            const resL = s.residualRiskL || '';
+            const resRR = s.residualRiskRR || ((resS && resL) ? calculateRiskScore(resS, resL) : '');
 
             uniqueRecsMap.set(key, {
               recNo,
@@ -4032,12 +4140,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               iS: s.inherentRiskS || '',
               iL: s.inherentRiskL || '',
               iRR: s.inherentRiskRR || (s.inherentRiskS && s.inherentRiskL ? String(parseInt(s.inherentRiskS) * parseInt(s.inherentRiskL)) : ''),
-              mS: s.mitigatedRiskS || s.inherentRiskS || '',
+              mS: s.mitigatedRiskS || '',
               mL: s.mitigatedRiskL || '',
               mRR: s.mitigatedRiskRR || (s.mitigatedRiskS && s.mitigatedRiskL ? String(parseInt(s.mitigatedRiskS) * parseInt(s.mitigatedRiskL)) : ''),
-              rS: effResS,
-              rL: s.residualRiskL || '',
-              rRR: s.residualRiskRR || (effResS && s.residualRiskL ? String(parseInt(effResS) * parseInt(s.residualRiskL)) : ''),
+              rS: resS,
+              rL: resL,
+              rRR: resRR,
               status: s.status || 'Proposed'
             });
           } else {
@@ -4139,10 +4247,25 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         doc.text("No recommendations found in this study.", 40, 100);
       }
 
-      doc.save(`Full_HAZOP_Report_${data.study.studyName || 'Study'}.pdf`);
+      const safeStudyName = (data.study?.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
+      doc.save(`Full_HAZOP_Report_${safeStudyName}.pdf`);
     } catch (e) {
-      console.error(e);
-      alert("Error generating full PDF: " + e.message);
+      console.error('Error generating full PDF:', e);
+      let reason = e.message || 'Unknown error occurred.';
+      if (reason.includes('Failed to fetch')) {
+        reason = 'Network connection failed or server is unreachable. Please check your internet connection.';
+      } else if (reason.includes('401')) {
+        reason = 'Your login session has expired. Please refresh the page and log in again.';
+      } else if (reason.includes('403')) {
+        reason = 'Access denied. You do not have permission to export this study.';
+      } else if (reason.includes('404')) {
+        reason = 'Study data was not found on the server.';
+      } else if (reason.includes('500') || reason.includes('502') || reason.includes('504')) {
+        reason = 'Server timeout or database error while generating PDF. Please try again.';
+      } else if (reason.includes('jspdf') || reason.includes('autoTable')) {
+        reason = 'PDF generation engine encountered a layout error. Please verify the study has valid node and worksheet entries.';
+      }
+      alert(`⚠️ PDF Generation Failed!\n\nReason: ${reason}\n\nTechnical details: ${e.message}`);
     }
   };
 
@@ -4999,26 +5122,19 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
                   {sc.isNewCons && (
                     <>
-                      {(() => {
-                        const effResS = getEffectiveResidualS(sc);
-                        return (
-                          <>
-                            <td className="w-risk-s" rowSpan={sc.consSpanCount}>
-                              <select disabled={!canEdit} className="risk-level-select" value={effResS} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
-                                {renderSeverityOptions(effResS)}
-                              </select>
-                            </td>
-                            <td className="w-risk-l" rowSpan={sc.consSpanCount}>
-                              <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
-                                {renderLikelihoodOptions(sc.residualRiskL)}
-                              </select>
-                            </td>
-                            <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(effResS, sc.residualRiskL)}}>
-                              <input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(effResS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || calculateRiskScore(effResS, sc.residualRiskL)} readOnly title="Auto-calculated from matrix"/>
-                            </td>
-                          </>
-                        );
-                      })()}
+                      <td className="w-risk-s" rowSpan={sc.consSpanCount}>
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskS || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskS', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskS', e.target.value)}>
+                          {renderSeverityOptions(sc.residualRiskS || '')}
+                        </select>
+                      </td>
+                      <td className="w-risk-l" rowSpan={sc.consSpanCount}>
+                        <select disabled={!canEdit} className="risk-level-select" value={sc.residualRiskL || ''} onChange={(e) => handleCellChange(sc._id, 'residualRiskL', e.target.value)} onBlur={(e) => handleBlur(sc._id, 'residualRiskL', e.target.value)}>
+                          {renderLikelihoodOptions(sc.residualRiskL || '')}
+                        </select>
+                      </td>
+                      <td className="w-risk-rr" rowSpan={sc.consSpanCount} style={{backgroundColor: getRiskColor(sc.residualRiskS, sc.residualRiskL)}}>
+                        <input disabled={!canEdit} style={{textAlign:'center', fontWeight:'bold', background:'transparent', border:'none', color: getRiskColor(sc.residualRiskS, sc.residualRiskL) !== 'transparent' ? '#000' : 'inherit'}} value={sc.residualRiskRR || calculateRiskScore(sc.residualRiskS, sc.residualRiskL)} readOnly title="Auto-calculated from matrix"/>
+                      </td>
                     </>
                   )}
                   <td className="w-remarks" style={{ position: 'relative' }}>

@@ -3586,7 +3586,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   };
 
   // Fixed PDF Export with Recommendations & Proper Headers (Issues 2, 8)
-  const exportToPDF = async () => {
+  const exportToPDF = async (exportAll = true) => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
       alert("PDF library is still loading. Please check your internet connection or refresh the page.");
       return;
@@ -3600,7 +3600,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
       const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/api/studies/${study._id}/full-export-data`, {
+      const fetchUrl = (exportAll || !selectedNodeId)
+        ? `${apiUrl}/api/studies/${study._id}/full-export-data`
+        : `${apiUrl}/api/studies/${study._id}/full-export-data?nodeId=${selectedNodeId}`;
+      const response = await fetch(fetchUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
@@ -3841,7 +3844,15 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      if (data.nodes && data.nodes.length > 0) {
+
+
+      const allStudyNodes = data.nodes || nodes || [];
+      const nodesToExport = (exportAll || !selectedNodeId)
+        ? allStudyNodes
+        : allStudyNodes.filter(n => String(n._id) === String(selectedNodeId));
+      const finalNodes = nodesToExport.length > 0 ? nodesToExport : (selectedNode ? [selectedNode] : allStudyNodes);
+
+      if (finalNodes && finalNodes.length > 0) {
         doc.addPage();
         doc.setFillColor(primaryTeal[0], primaryTeal[1], primaryTeal[2]);
         doc.rect(0, 0, pageWidth, 60, 'F');
@@ -3871,8 +3882,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const studyRecMap = pdfRegistry.studyRecMap;
 
       // Page N: Worksheets per Node (including Remarks and Status)
-      if (data.nodes && data.nodes.length > 0) {
-        data.nodes.forEach((node, nodeIdx) => {
+
+
+      if (finalNodes && finalNodes.length > 0) {
+        finalNodes.forEach((node, nodeIdx) => {
           doc.addPage();
           doc.setFillColor(primaryDark[0], primaryDark[1], primaryDark[2]);
           doc.rect(0, 0, pageWidth, 60, 'F');
@@ -4248,7 +4261,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       }
 
       const safeStudyName = (data.study?.studyName || 'Study').replace(/[/\\?%*:|"<>]/g, '_').trim();
-      doc.save(`Full_HAZOP_Report_${safeStudyName}.pdf`);
+      const nodeSuffix = exportAll ? 'All_Nodes' : (selectedNode?.description || 'Node').replace(/[/\\?%*:|"<>]/g, '_').substring(0, 30);
+      doc.save(`Full_HAZOP_Report_${safeStudyName}_${nodeSuffix}.pdf`);
     } catch (e) {
       console.error('Error generating full PDF:', e);
       let reason = e.message || 'Unknown error occurred.';
@@ -4558,7 +4572,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn" onClick={() => exportToExcel(false)} title="Export Current Node to Excel with Matrix Colors" style={{fontSize: '12px', fontWeight: '600', color: '#16a34a'}}>📥 Excel (Node)</button>
           <button className="toolbar-btn" onClick={() => exportToExcel(true)} title="Export All Nodes to Excel with Matrix Colors" style={{fontSize: '12px', fontWeight: '600', color: '#15803d'}}>📥 Excel (All)</button>
           <button className="toolbar-btn" onClick={() => exportToCSV(false)} title="Export CSV" style={{fontSize: '12px'}}>📥 CSV</button>
-          <button className="toolbar-btn" onClick={exportToPDF} title="Export PDF" style={{fontSize: '12px', fontWeight: '600', color: '#dc2626'}}>📥 PDF</button>
+          <button className="toolbar-btn" onClick={() => exportToPDF(false)} title="Export Current Node to PDF" style={{fontSize: '12px', fontWeight: '600', color: '#dc2626'}}>📥 PDF (Node)</button>
+          <button className="toolbar-btn" onClick={() => exportToPDF(true)} title="Export All Nodes to PDF" style={{fontSize: '12px', fontWeight: '600', color: '#991b1b'}}>📥 PDF (All)</button>
           <button 
             className={`toolbar-btn ${isFocusMode ? 'active' : ''}`} 
             onClick={() => {

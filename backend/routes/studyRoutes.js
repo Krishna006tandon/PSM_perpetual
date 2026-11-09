@@ -222,6 +222,7 @@ router.put('/:id', async (req, res) => {
 router.get('/:id/full-export-data', async (req, res) => {
   try {
     const studyId = req.params.id;
+    const zlib = require('zlib');
     const Study = require('../models/Study');
     const TeamMember = require('../models/TeamMember');
     const Session = require('../models/Session');
@@ -229,6 +230,9 @@ router.get('/:id/full-export-data', async (req, res) => {
     const StudyDocument = require('../models/StudyDocument');
     const Node = require('../models/Node');
     const Scenario = require('../models/Scenario');
+    const Deviation = require('../models/Deviation');
+    const Cause = require('../models/Cause');
+    const RiskCriteria = require('../models/RiskCriteria');
 
     const study = await Study.findById(studyId).lean();
     if (!study) return res.status(404).json({ message: 'Study not found' });
@@ -237,15 +241,24 @@ router.get('/:id/full-export-data', async (req, res) => {
     const sessions = await Session.find({ studyId }).sort({ date: 1 }).lean();
     const revisions = await StudyRevision.find({ studyId }).sort({ revision: 1 }).lean();
     const documents = await StudyDocument.find({ studyId }).lean();
-    const nodes = await Node.find({ studyId }).sort({ nodeNumber: 1, order: 1 }).lean();
-    const scenarios = await Scenario.find({ studyId })
-      .populate('nodeId')
-      .populate('deviationId')
-      .populate('causeId')
+    const nodes = await Node.find({ studyId })
+      .select('nodeNumber description intention boundary drawings order')
+      .sort({ nodeNumber: 1, order: 1 })
+      .lean();
+
+    const scenarioFilter = { studyId };
+    if (req.query.nodeId) {
+      scenarioFilter.nodeId = req.query.nodeId;
+    }
+
+    const scenarios = await Scenario.find(scenarioFilter)
+      .select('-safeguardData -recommendationData -riskData -checklistData -actionTrackingData -lopaData')
+      .populate('nodeId', 'nodeNumber description order')
+      .populate('deviationId', 'deviationAuto parameter processFlowMaterial locationFrom locationTo')
+      .populate('causeId', 'description')
       .sort({ order: 1 })
       .lean();
 
-    const RiskCriteria = require('../models/RiskCriteria');
     let riskCriteria = await RiskCriteria.findOne({ studyId }).lean();
     if (!riskCriteria) {
       const riskCriteriaRoutes = require('./riskCriteriaRoutes');
@@ -254,7 +267,7 @@ router.get('/:id/full-export-data', async (req, res) => {
       }
     }
 
-    res.json({
+    const payload = {
       study,
       teamMembers,
       sessions,
@@ -263,7 +276,23 @@ router.get('/:id/full-export-data', async (req, res) => {
       nodes,
       scenarios,
       riskCriteria
-    });
+    };
+
+    const acceptEncoding = req.headers['accept-encoding'] || '';
+    if (acceptEncoding.includes('gzip')) {
+      const rawJson = Buffer.from(JSON.stringify(payload));
+      zlib.gzip(rawJson, (gzipErr, gzipped) => {
+        if (gzipErr) {
+          return res.json(payload);
+        }
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Content-Length', gzipped.length);
+        res.send(gzipped);
+      });
+    } else {
+      res.json(payload);
+    }
   } catch (err) {
     console.error('Error fetching full export data:', err);
     res.status(500).json({ message: err.message });

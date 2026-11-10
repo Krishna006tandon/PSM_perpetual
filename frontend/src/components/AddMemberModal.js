@@ -113,7 +113,7 @@ const AddMemberModal = ({ studyId, member, onClose, onSuccess }) => {
         <form className="member-modal-body" onSubmit={handleSubmit}>
           <div className="form-group-row">
             <label>FULL NAME</label>
-            <input data-gramm="false" spellcheck="false" 
+            <input data-gramm="false" spellcheck="false" data-spellcheck="false"
               type="text" 
               name="fullName" 
               value={formData.fullName} 
@@ -142,7 +142,7 @@ const AddMemberModal = ({ studyId, member, onClose, onSuccess }) => {
           </div>
           <div className="form-group-row">
             <label>COMPANY / ORGANISATION</label>
-            <input data-gramm="false" spellcheck="false" 
+            <input data-gramm="false" spellcheck="false" data-spellcheck="false"
               type="text" 
               name="company" 
               value={formData.company} 

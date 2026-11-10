@@ -27,7 +27,8 @@ const AutoResizeTextarea = ({ value, onChange, onBlur, disabled }) => {
       onBlur={onBlur}
       rows={1}
       data-gramm="false" 
-      spellCheck="false"
+      spellCheck={true}
+      data-spellcheck="true"
       style={{
         width: '100%',
         minHeight: '28px',

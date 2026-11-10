@@ -1,4 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getSpellCheckSettings,
+  setSpellCheckEnabled as saveSpellCheckEnabled,
+  setAutoCorrectEnabled as saveAutoCorrectEnabled,
+  getCustomDictionary,
+  addCustomWord,
+  removeCustomWord,
+  subscribeSpellChecker
+} from '../utils/spellCheckEngine';
 import './Settings.css';
 import {
   getLopaMapping,
@@ -50,6 +59,19 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy,
 
   // 6. Toast notification
   const [toastMessage, setToastMessage] = useState(null);
+
+  // 7. Spelling Correction & Custom Dictionary
+  const [spellSettings, setSpellSettings] = useState(() => getSpellCheckSettings());
+  const [customDictWords, setCustomDictWords] = useState(() => getCustomDictionary());
+  const [newDictWord, setNewDictWord] = useState('');
+
+  useEffect(() => {
+    const unsub = subscribeSpellChecker(() => {
+      setSpellSettings(getSpellCheckSettings());
+      setCustomDictWords(getCustomDictionary());
+    });
+    return unsub;
+  }, []);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -122,9 +144,37 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy,
       setFontSize('13.5');
       const def = resetLopaMapping();
       setLopaMapping(def);
+      saveSpellCheckEnabled(true);
+      saveAutoCorrectEnabled(true);
 
       showToast('All preferences reset to factory defaults');
     }
+  };
+
+  const handleToggleSpellCheck = () => {
+    const nextVal = !spellSettings.spellCheckEnabled;
+    saveSpellCheckEnabled(nextVal);
+    showToast(`Live inline spell-check ${nextVal ? 'Enabled' : 'Disabled'}`);
+  };
+
+  const handleToggleAutoCorrect = () => {
+    const nextVal = !spellSettings.autoCorrectEnabled;
+    saveAutoCorrectEnabled(nextVal);
+    showToast(`Auto-correct while typing ${nextVal ? 'Enabled' : 'Disabled'}`);
+  };
+
+  const handleAddCustomDictWord = (e) => {
+    e.preventDefault();
+    const trimmed = newDictWord.trim();
+    if (!trimmed) return;
+    addCustomWord(trimmed);
+    setNewDictWord('');
+    showToast(`Added "${trimmed}" to custom dictionary`);
+  };
+
+  const handleRemoveCustomDictWord = (word) => {
+    removeCustomWord(word);
+    showToast(`Removed "${word}" from custom dictionary`);
   };
 
   const handleClearWorksheetCache = () => {
@@ -510,6 +560,115 @@ const Settings = ({ theme, toggleTheme, currentUser, onNavigate, hasActiveStudy,
           </div>
         </div>
         )}
+
+        {/* Section: Spelling Correction & Engineering Dictionary */}
+        <div className="settings-section-card">
+          <div className="settings-section-header">
+            <h2>✍️ Spelling Correction &amp; Dictionary</h2>
+            <span className="section-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
+              Offline English + PSM
+            </span>
+          </div>
+
+          <div className="setting-item-row">
+            <div className="setting-info">
+              <div className="setting-title-wrap">
+                <span className="setting-title">Live Inline Spell-Check</span>
+                <span className="setting-badge-highlight">Platform-Wide</span>
+              </div>
+              <p className="setting-desc">
+                Highlights spelling errors with a red wavy underline while typing across PHA Worksheets, LOPA, Registries, Incident FIR, MOC, and MOM. Click any underlined word for instant suggestions using the built-in English &amp; Process Safety dictionary (HAZOP, LOPA, PSV, LOPC, chemical &amp; instrumentation terms).
+              </p>
+            </div>
+            <div className="toggle-switch-container">
+              <label className="toggle-switch" title="Toggle live inline spell-check">
+                <input
+                  type="checkbox"
+                  checked={spellSettings.spellCheckEnabled}
+                  onChange={handleToggleSpellCheck}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+              <span className={`toggle-status-label ${spellSettings.spellCheckEnabled ? 'enabled' : 'disabled'}`}>
+                {spellSettings.spellCheckEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+
+          <div className="setting-item-row">
+            <div className="setting-info">
+              <div className="setting-title-wrap">
+                <span className="setting-title">Auto-Correct Common Typos While Typing</span>
+              </div>
+              <p className="setting-desc">
+                Automatically fixes unambiguous typos (such as <em>pressue → pressure</em>, <em>safegaurd → safeguard</em>, <em>temprature → temperature</em>, <em>teh → the</em>) when you press Space or punctuation, with a quick Undo pill. Equipment tags and short acronyms are never altered.
+              </p>
+            </div>
+            <div className="toggle-switch-container">
+              <label className="toggle-switch" title="Toggle auto-correct">
+                <input
+                  type="checkbox"
+                  checked={spellSettings.autoCorrectEnabled}
+                  disabled={!spellSettings.spellCheckEnabled}
+                  onChange={handleToggleAutoCorrect}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+              <span className={`toggle-status-label ${spellSettings.autoCorrectEnabled && spellSettings.spellCheckEnabled ? 'enabled' : 'disabled'}`}>
+                {spellSettings.autoCorrectEnabled && spellSettings.spellCheckEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+
+          <div className="setting-item-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div className="setting-info" style={{ paddingRight: 0 }}>
+              <div className="setting-title-wrap">
+                <span className="setting-title">Custom Dictionary ({customDictWords.length} terms)</span>
+              </div>
+              <p className="setting-desc">
+                Add plant-specific unit names, proprietary catalysts, or site terminology so they are recognized across the platform and suggested when misspelled.
+              </p>
+            </div>
+
+            <div className="custom-dict-panel">
+              <form className="custom-dict-input-row" onSubmit={handleAddCustomDictWord}>
+                <input
+                  type="text"
+                  data-spellcheck="false"
+                  className="custom-dict-input"
+                  value={newDictWord}
+                  onChange={(e) => setNewDictWord(e.target.value)}
+                  placeholder="Enter a term to add (e.g. Hydrocracker, Sulfolane, Ankleshwar)..."
+                />
+                <button type="submit" className="btn-add-dict-word">
+                  + Add Term
+                </button>
+              </form>
+
+              {customDictWords.length > 0 ? (
+                <div className="custom-dict-chips">
+                  {customDictWords.map((word) => (
+                    <span key={word} className="custom-dict-chip">
+                      <span>{word}</span>
+                      <button
+                        type="button"
+                        className="custom-dict-chip-remove"
+                        onClick={() => handleRemoveCustomDictWord(word)}
+                        title={`Remove "${word}"`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="custom-dict-empty">
+                  No custom terms added yet. You can also click &ldquo;+ Add to Dict&rdquo; directly from any inline spelling suggestion popover.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Section 2: Appearance & Theme */}
         <div className="settings-section-card">

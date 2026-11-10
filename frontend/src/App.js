@@ -24,6 +24,7 @@ import RecommendationsHub from './pages/RecommendationsHub';
 import BowTieAnalysis from './pages/BowTieAnalysis';
 import Settings from './pages/Settings';
 import SystemStabilizer from './components/SystemStabilizer';
+import GlobalSpellChecker from './components/GlobalSpellChecker';
 
 import Auth from './components/Auth';
 
@@ -761,6 +762,7 @@ function App() {
       {isAuthenticated && !showAuth && (
         <SystemStabilizer currentUser={currentUser} activeStudy={activeStudy} />
       )}
+      <GlobalSpellChecker />
     </div>
   );
 }

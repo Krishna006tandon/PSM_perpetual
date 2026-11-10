@@ -1705,7 +1705,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                               type="text" 
                               className="form-input-styled" 
                               style={{ margin: 0, padding: '6px 8px' }}
-                              placeholder="Tag No"
+                              placeholder="Tag No" data-spellcheck="false"
                               value={barrierForm.pb_tag_no[i] || ''}
                               onChange={(e) => updatePbField(i, 'pb_tag_no', e.target.value)}
                             />
@@ -1715,7 +1715,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                               type="text" 
                               className="form-input-styled" 
                               style={{ margin: 0, padding: '6px 8px' }}
-                              placeholder="Owner"
+                              placeholder="Owner" data-spellcheck="false"
                               value={barrierForm.barrier_owner[i] || ''}
                               onChange={(e) => updatePbField(i, 'barrier_owner', e.target.value)}
                             />

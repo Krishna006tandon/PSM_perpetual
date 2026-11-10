@@ -1,0 +1,364 @@
+/* Global Live Inline Spell-Check & Correction Overlay */
+.psm-spellcheck-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100050;
+  overflow: hidden;
+}
+
+/* Red wavy underline target */
+.psm-spell-underline {
+  position: fixed;
+  pointer-events: auto;
+  cursor: pointer;
+  height: 5px;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4' viewBox='0 0 6 4'%3E%3Cpath d='M0 3 Q1.5 0.5 3 3 T6 3' fill='none' stroke='%23ef4444' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  transition: background-color 0.12s ease;
+  border-radius: 1px;
+}
+
+.psm-spell-underline:hover,
+.psm-spell-underline.active {
+  background-color: rgba(239, 68, 68, 0.14);
+}
+
+/* Subtle active field typo counter badge */
+.psm-spell-badge {
+  position: fixed;
+  pointer-events: auto;
+  z-index: 100052;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.16);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.psm-spell-badge:hover {
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
+[data-theme='dark'] .psm-spell-badge {
+  background: #450a0a;
+  color: #fca5a5;
+  border-color: #991b1b;
+}
+
+.psm-spell-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: inline-block;
+}
+
+/* Suggestion Popover */
+.psm-spell-popover {
+  position: fixed;
+  pointer-events: auto;
+  z-index: 100060;
+  width: 248px;
+  max-width: calc(100vw - 16px);
+  background: var(--bg-paper, #ffffff);
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--divider, #cbd5e1);
+  border-radius: 10px;
+  box-shadow: 0 14px 30px -6px rgba(15, 23, 42, 0.24), 0 4px 10px -2px rgba(15, 23, 42, 0.1);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  animation: psmSpellPopIn 0.12s ease-out;
+}
+
+@keyframes psmSpellPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.psm-spell-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.07);
+  border-bottom: 1px solid var(--divider, #e2e8f0);
+}
+
+.psm-spell-word-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.psm-spell-word-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #dc2626;
+  text-decoration: line-through;
+  text-decoration-color: rgba(220, 38, 38, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .psm-spell-word-pill {
+  color: #fca5a5;
+}
+
+.psm-spell-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary, #64748b);
+}
+
+.psm-spell-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.psm-spell-close:hover {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--text-primary, #0f172a);
+}
+
+.psm-spell-suggestions {
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 195px;
+  overflow-y: auto;
+}
+
+.psm-spell-sugg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  font-family: inherit;
+  transition: background-color 0.1s ease;
+}
+
+.psm-spell-sugg-btn:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary-light, #2563eb);
+}
+
+.psm-spell-sugg-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.psm-spell-sugg-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .psm-spell-sugg-idx {
+  background: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+}
+
+.psm-spell-sugg-apply {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+  opacity: 0;
+}
+
+.psm-spell-sugg-btn:hover .psm-spell-sugg-apply {
+  opacity: 1;
+}
+
+.psm-spell-no-sugg {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  font-style: italic;
+}
+
+.psm-spell-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--divider, #e2e8f0);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.psm-spell-action-btn {
+  flex: 1;
+  padding: 5px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--divider, #cbd5e1);
+  background: var(--bg-paper, #ffffff);
+  color: var(--text-primary, #334155);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.12s ease;
+}
+
+.psm-spell-action-btn:hover {
+  border-color: var(--primary-light, #2563eb);
+  color: var(--primary-light, #2563eb);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.psm-spell-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-top: 1px solid var(--divider, #e2e8f0);
+  font-size: 10.5px;
+  color: var(--text-secondary, #64748b);
+}
+
+.psm-spell-autocorrect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #475569);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.psm-spell-autocorrect-toggle:hover {
+  background: rgba(100, 116, 139, 0.12);
+}
+
+.psm-spell-ac-pill {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.psm-spell-ac-pill.on {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.psm-spell-ac-pill.off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Auto-corrected Toast with Undo */
+.psm-autocorrect-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  z-index: 100065;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+  border: 1px solid #334155;
+  animation: psmSpellPopIn 0.15s ease-out;
+}
+
+.psm-autocorrect-toast code {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.psm-autocorrect-undo {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.psm-autocorrect-undo:hover {
+  background: #1d4ed8;
+}
+
+.psm-autocorrect-dict {
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  border: none;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.psm-autocorrect-dict:hover {
+  background: rgba(255, 255, 255, 0.24);
+}

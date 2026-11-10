@@ -25,6 +25,7 @@ import BowTieAnalysis from './pages/BowTieAnalysis';
 import Settings from './pages/Settings';
 import IncidentDashboard from './pages/IncidentDashboard';
 import SystemStabilizer from './components/SystemStabilizer';
+import GlobalSpellChecker from './components/GlobalSpellChecker';
 
 import Auth from './components/Auth';
 
@@ -774,6 +775,8 @@ function App() {
       {/* System & Plant Health Stabilizer (Visible across all dashboards and worksheets after login) */}
       {isAuthenticated && !showAuth && (
         <SystemStabilizer currentUser={currentUser} activeStudy={activeStudy} />
+      )}
+      <GlobalSpellChecker />
       )}
     </div>
   );

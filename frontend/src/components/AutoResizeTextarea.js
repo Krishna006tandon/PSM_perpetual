@@ -90,6 +90,7 @@ const AutoResizeTextarea = ({
       disabled={disabled}
       placeholder={placeholder}
       spellCheck={spellCheck}
+      data-spellcheck={spellCheck === false ? 'false' : 'true'}
       data-gramm={dataGramm}
       className={className}
       style={{

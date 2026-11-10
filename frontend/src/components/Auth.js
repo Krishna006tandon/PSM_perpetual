@@ -222,11 +222,11 @@ const Auth = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Company Name *</label>
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Acme Petrochem" style={inputStyle} />
+                <input type="text" data-spellcheck="false" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Acme Petrochem" style={inputStyle} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}>Admin Full Name *</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" style={inputStyle} />
+                <input type="text" data-spellcheck="false" value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" style={inputStyle} />
               </div>
             </div>
 

@@ -20,7 +20,8 @@ const AutocompleteTextarea = ({
   style,
   className,
   placeholder,
-  minHeight = 36
+  minHeight = 36,
+  spellCheck = true
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
@@ -277,7 +278,8 @@ const AutocompleteTextarea = ({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         data-gramm="false"
-        spellCheck={true}
+        spellCheck={spellCheck}
+        data-spellcheck={spellCheck === false ? 'false' : 'true'}
       />
       {showSuggestions && (
         <ul className="suggestions-list" style={{ maxHeight: '280px', overflowY: 'auto', zIndex: 9999 }}>

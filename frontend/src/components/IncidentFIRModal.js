@@ -655,7 +655,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                     <label className="fir-label">Equipment / Tag Number</label>
                     <input
                       type="text"
-                      placeholder="e.g. 02-P-101A / PSV-2004"
+                      placeholder="e.g. 02-P-101A / PSV-2004" data-spellcheck="false"
                       value={equipmentTag}
                       onChange={(e) => setEquipmentTag(e.target.value)}
                       className="fir-input"
@@ -735,7 +735,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                     <label className="fir-label">Reported By (Full Name)</label>
                     <input
                       type="text"
-                      value={reporterName}
+                      value={reporterName} data-spellcheck="false"
                       onChange={(e) => setReporterName(e.target.value)}
                       className="fir-input"
                     />
@@ -979,7 +979,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                         <label className="fir-label">CAS Registry Number</label>
                         <input
                           type="text"
-                          placeholder="e.g. 7783-06-4"
+                          placeholder="e.g. 7783-06-4" data-spellcheck="false"
                           value={casNumber}
                           onChange={(e) => setCasNumber(e.target.value)}
                           className="fir-input"

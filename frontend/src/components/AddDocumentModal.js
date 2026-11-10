@@ -61,7 +61,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
             <label>DRAWING ID <span className="required">*</span></label>
             <input data-gramm="false" spellcheck="false" 
               type="text" 
-              name="drawingId" 
+              name="drawingId" data-spellcheck="false" 
               value={formData.drawingId} 
               onChange={handleChange} 
               required 
@@ -71,7 +71,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
             <label>REV.</label>
             <input data-gramm="false" spellcheck="false" 
               type="text" 
-              name="revision" 
+              name="revision" data-spellcheck="false" 
               value={formData.revision} 
               onChange={handleChange} 
             />
@@ -102,7 +102,7 @@ const AddDocumentModal = ({ studyId, onClose, onSuccess }) => {
             <label>HYPERLINK / URI</label>
             <input data-gramm="false" spellcheck="false" 
               type="text" 
-              name="hyperlink" 
+              name="hyperlink" data-spellcheck="false" 
               value={formData.hyperlink} 
               onChange={handleChange} 
               placeholder="https://..."

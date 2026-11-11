@@ -448,6 +448,18 @@ router.delete('/detail/:id', async (req, res) => {
     if (!bowtie) {
       return res.status(404).json({ message: 'BowTie analysis not found' });
     }
+    if (bowtie.isFromPha && bowtie.studyId) {
+      const clearFilter = { studyId: bowtie.studyId };
+      if (bowtie.consequenceGroupId) {
+        clearFilter.$or = [{ consequenceGroupId: bowtie.consequenceGroupId }];
+        if (bowtie.scenarioId) clearFilter.$or.push({ _id: bowtie.scenarioId });
+      } else if (bowtie.scenarioId) {
+        clearFilter._id = bowtie.scenarioId;
+      }
+      if (clearFilter.$or || clearFilter._id) {
+        await Scenario.updateMany(clearFilter, { $set: { isBowtie: false } });
+      }
+    }
     res.json({ message: 'BowTie deleted successfully' });
   } catch (err) {
     console.error('Error deleting bowtie:', err);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import AddScenarioModal from '../components/AddScenarioModal';
 import AutocompleteTextarea from '../components/AutocompleteTextarea';
@@ -10,6 +10,8 @@ import { sortStudyScenarios, buildStudyRecommendationRegistry, normalizeRecText 
 
 import * as XLSX from 'xlsx';
 import './PHAWorksheet.css';
+
+const API_BASE = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
 
 export const DEFAULT_PHA_DEVIATIONS = [
   { num: 1, text: 'No/Less Flow' },
@@ -236,6 +238,37 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const [nodes, setNodes] = useState([]);
   const [riskCriteria, setRiskCriteria] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState('');
+  const pendingSavesRef = useRef(new Set());
+
+  const trackSave = (promise) => {
+    if (!promise || typeof promise.then !== 'function') return promise;
+    pendingSavesRef.current.add(promise);
+    const cleanup = () => pendingSavesRef.current.delete(promise);
+    promise.then(cleanup, cleanup);
+    return promise;
+  };
+
+  const navigateAfterFlushing = async (tab) => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    if (study?._id && selectedNodeId) {
+      try { localStorage.setItem(`pha_last_node_${study._id}`, selectedNodeId); } catch (e) {}
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (pendingSavesRef.current.size > 0) {
+      await Promise.allSettled(Array.from(pendingSavesRef.current));
+    }
+    onNavigate(tab);
+  };
+
+  useEffect(() => {
+    if (study?._id && selectedNodeId) {
+      try {
+        localStorage.setItem(`pha_last_node_${study._id}`, selectedNodeId);
+      } catch (e) {}
+    }
+  }, [study?._id, selectedNodeId]);
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -783,7 +816,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchRiskCriteria = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/risk-criteria/${study._id}`, {
+      const res = await fetch(`${API_BASE}/api/risk-criteria/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setRiskCriteria(await res.json());
@@ -795,7 +828,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchAllDeviations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
+      const res = await fetch(`${API_BASE}/api/deviations/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setAllDeviations(await res.json());
@@ -807,7 +840,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchAllCauses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+      const res = await fetch(`${API_BASE}/api/causes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setAllCauses(await res.json());
@@ -819,7 +852,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchStudyRecommendations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const res = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -859,7 +892,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchNodes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+      const response = await fetch(`${API_BASE}/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -867,8 +900,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         setNodes(data);
         if (data.length > 0) {
           const targetNodeId = localStorage.getItem('targetNodeId');
+          const lastNodeId = study?._id ? localStorage.getItem(`pha_last_node_${study._id}`) : null;
           if (targetNodeId && data.some(n => n._id === targetNodeId)) {
             setSelectedNodeId(targetNodeId);
+            if (!localStorage.getItem('targetScenarioId')) {
+              localStorage.removeItem('targetNodeId');
+            }
+          } else if (lastNodeId && data.some(n => n._id === lastNodeId)) {
+            setSelectedNodeId(lastNodeId);
           } else {
             setSelectedNodeId(data[0]._id);
           }
@@ -886,7 +925,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (showLoading) setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}?nodeId=${nodeId}`, {
+      const response = await fetch(`${API_BASE}/api/scenarios/${study._id}?nodeId=${nodeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -909,7 +948,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
               if (uniqueDevIdx < selectableDevs.length) {
                 assignedText = selectableDevs[uniqueDevIdx].text;
                 // Sync to DB in background
-                const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+                const apiUrl = API_BASE;
                 fetch(`${apiUrl}/api/deviations/${devId}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -1237,8 +1276,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       if (targetConsGroupId) scenariosToUpdate = scenarios.filter(s => s.consequenceGroupId === targetConsGroupId);
       else if (targetSafeGroupId) scenariosToUpdate = scenarios.filter(s => s.safeguardGroupId === targetSafeGroupId);
 
-      await Promise.all(scenariosToUpdate.map(sc => 
-        fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${sc._id}`, {
+      await trackSave(Promise.all(scenariosToUpdate.map(sc => 
+        fetch(`${API_BASE}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1246,7 +1285,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           },
           body: JSON.stringify(payload)
         })
-      ));
+      )));
     } catch (error) {
       console.error('Failed to save scenario:', error);
     }
@@ -1260,7 +1299,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       if (lastAction.type === 'DELETE_ROW' || lastAction.type === 'DELETE_ROWS' || (lastAction.type === 'DELETE_RECOMMENDATION' && lastAction.mode === 'row')) {
         let restoredScenarios = [];
@@ -1401,7 +1440,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleRestoreItem = async (item) => {
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       if (item.type === 'row' || item.type === 'rows' || (item.type === 'recommendation' && item.mode === 'row')) {
         let restoredScenarios = [];
@@ -1492,7 +1531,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const scToDelete = scenarios.find(sc => sc._id === id);
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       const response = await fetch(`${apiUrl}/api/scenarios/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1573,7 +1612,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       const targetAfterId = insertAfterId || (rowIds.length === 1 ? rowIds[0] : (selectedRowIds.length > 0 ? selectedRowIds[selectedRowIds.length - 1] : null));
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}/bulk-duplicate`, {
+      const response = await fetch(`${API_BASE}/api/scenarios/${study._id}/bulk-duplicate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1623,7 +1662,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!selectedNodeId || !targetSc) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       // 1. Create a brand new blank deviation
       const devRes = await fetch(`${apiUrl}/api/deviations/${study._id}`, {
@@ -1713,7 +1752,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!selectedNodeId || !sc) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       const targetIndex = processedScenarios.findIndex(s => s._id === sc._id);
       const payload = {
@@ -1867,7 +1906,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       let rowsToPaste = null;
 
@@ -2072,7 +2111,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}/${selectedNodeId}/duplicate`, {
+      const res = await fetch(`${API_BASE}/api/nodes/${study._id}/${selectedNodeId}/duplicate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description: newName })
@@ -2120,7 +2159,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId || !causeId) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       const payload = { 
         nodeId: selectedNodeId, 
         deviationId, 
@@ -2160,7 +2199,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       // 1. Create a blank cause
       const causeRes = await fetch(`${apiUrl}/api/causes/${study._id}`, {
         method: 'POST',
@@ -2215,7 +2254,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+      const response = await fetch(`${API_BASE}/api/nodes/${study._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2276,7 +2315,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       // 1. Collect unique deviation IDs already present in this node
       const seenDevIds = [];
@@ -2352,7 +2391,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       // 1. Create a blank deviation
-      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
+      const devRes = await fetch(`${API_BASE}/api/deviations/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ deviationAuto: '', guidewords: '', parameter: '' })
@@ -2360,7 +2399,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const newDev = await devRes.json();
       
       // 2. Create a blank cause
-      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+      const causeRes = await fetch(`${API_BASE}/api/causes/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description: '' })
@@ -2368,7 +2407,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const newCause = await causeRes.json();
       
       // 3. Create scenario
-      const response = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const response = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -2407,7 +2446,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!sc.deviationId || !sc.causeId) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       
       let groupId = sc.consequenceGroupId;
       
@@ -2466,7 +2505,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleToggleLopa = async (sc, checked) => {
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
 
       // Find all sibling scenarios in the same consequence group (or this single row)
       const siblingIds = scenarios
@@ -2516,7 +2555,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const handleToggleBowtie = async (sc, checked) => {
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+      const apiUrl = API_BASE;
 
       const siblingIds = scenarios
         .filter(s => (sc.consequenceGroupId ? s.consequenceGroupId === sc.consequenceGroupId : s._id === sc._id))
@@ -2543,7 +2582,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         });
       }
 
-      const res = await fetch(`${apiUrl}/api/scenarios/${study._id}/toggle-bowtie`, {
+      const res = await trackSave(fetch(`${apiUrl}/api/scenarios/${study._id}/toggle-bowtie`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -2554,7 +2593,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           consequenceGroupId: sc.consequenceGroupId,
           isBowtie: checked
         })
-      });
+      }));
 
       if (!res.ok) {
         await Promise.all(siblingIds.map(id =>
@@ -2585,7 +2624,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     try {
       const token = localStorage.getItem('token');
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       let groupId = sc.safeguardGroupId;
       
       if (!groupId) {
@@ -2704,7 +2743,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       const targetLabel = selectedTarget.label;
 
       const currentIsEmpty = !currentSc.additionalProtection || !currentSc.additionalProtection.trim();
@@ -2909,7 +2948,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       const siblingsInSafeguardGroup = scenarios.filter(s => s.safeguardGroupId && s.safeguardGroupId === sc.safeguardGroupId);
       
       const consGroupId = sc.consequenceGroupId;
@@ -3036,12 +3075,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!deviationId) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
-      await fetch(`${apiUrl}/api/deviations/${deviationId}`, {
+      const apiUrl = API_BASE;
+      await trackSave(fetch(`${apiUrl}/api/deviations/${deviationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ [field]: value })
-      });
+      }));
     } catch (error) {
       console.error(`Failed to save deviation ${field}:`, error);
     }
@@ -3069,11 +3108,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     if (!causeId) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`https://api.perpetualsolutions.co.in/api/causes/${causeId}`, {
+      await trackSave(fetch(`${API_BASE}/api/causes/${causeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ [field]: value })
-      });
+      }));
     } catch (error) {
       console.error(`Failed to save cause ${field}:`, error);
     }
@@ -3118,7 +3157,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           setLoading(false);
           return;
         }
-        const res = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+        const res = await fetch(`${API_BASE}/api/nodes/${study._id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ description: newNodeName })
@@ -3133,7 +3172,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         // Delete existing scenarios for the selected node
         const scenariosToDelete = scenarios.filter(s => (s.nodeId?._id === targetNodeId) || (s.nodeId === targetNodeId));
         for (const s of scenariosToDelete) {
-          await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${s._id}`, {
+          await fetch(`${API_BASE}/api/scenarios/${s._id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -3163,7 +3202,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           devId = existingDev._id;
         } else if (devAuto || param || mat) {
           // Create deviation
-          const res = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
+          const res = await fetch(`${API_BASE}/api/deviations/${study._id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ parameter: param, processFlowMaterial: mat, locationFrom: eq, locationTo: ins, deviationAuto: devAuto })
@@ -3183,7 +3222,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             causeId = existingCause._id;
           } else {
             // Create cause
-            const res = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+            const res = await fetch(`${API_BASE}/api/causes/${study._id}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ description: causeDesc })
@@ -3209,7 +3248,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const resRiskRR = row['RESIDUAL RISK RR'] || calcRisk(row['RESIDUAL RISK S'], row['RESIDUAL RISK L']);
 
         // Create scenario
-        const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+        const scRes = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -3267,7 +3306,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       let rowsToExport = [];
       if (exportAll) {
         const token = localStorage.getItem('token');
-        const res = await fetch(`https://api.perpetualsolutions.co.in/api/studies/${study._id}/full-export-data`, {
+        const res = await fetch(`${API_BASE}/api/studies/${study._id}/full-export-data`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch full study data');
@@ -3353,7 +3392,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           .replace(/'/g, '&#039;');
       };
 
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       let exportData = [];
       let studyNodes = nodes || [];
       let activeCriteria = riskCriteria;
@@ -3690,7 +3729,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in';
+      const apiUrl = API_BASE;
       const token = localStorage.getItem('token');
       const fetchUrl = (exportAll || !selectedNodeId)
         ? `${apiUrl}/api/studies/${study._id}/full-export-data`
@@ -4429,7 +4468,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       const val = e.target.value;
                       try {
                         const token = localStorage.getItem('token');
-                        await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${selectedNode._id}`, {
+                        await fetch(`${API_BASE}/api/nodes/${selectedNode._id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                           body: JSON.stringify({ intention: val })
@@ -4652,7 +4691,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           <button className="toolbar-btn icon-only" onClick={() => window.print()} title="Print">🖨️</button>
           <button 
             className="toolbar-btn" 
-            onClick={() => onNavigate('bowtie')} 
+            onClick={() => navigateAfterFlushing('bowtie')} 
             title="Open BowTie Analysis for this Study" 
             style={{fontSize: '12px', fontWeight: '700', color: '#db2777', borderColor: '#fbcfe8', background: '#fdf2f8'}}
           >
@@ -5455,7 +5494,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                         {sc.isLopa && (
                           <button
                             type="button"
-                            onClick={() => onNavigate('lopa')}
+                            onClick={() => navigateAfterFlushing('lopa')}
                             title="Open in LOPA Worksheet"
                             style={{
                               fontSize: '9.5px',
@@ -5502,7 +5541,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             type="button"
                             onClick={() => {
                               localStorage.setItem('bowtie_focus_consequence_group', sc.consequenceGroupId || sc._id);
-                              onNavigate('bowtie');
+                              navigateAfterFlushing('bowtie');
                             }}
                             title="Open in BowTie Analysis"
                             style={{

@@ -887,6 +887,21 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
     }
   };
 
+  const handleReturnToPha = (bt = selectedBowtie) => {
+    if (bt) {
+      const nodeIdVal = bt.nodeId?._id || bt.nodeId;
+      const scenarioIdVal = bt.scenarioId?._id || bt.scenarioId;
+      if (nodeIdVal) {
+        localStorage.setItem('targetNodeId', nodeIdVal);
+        if (study?._id) localStorage.setItem(`pha_last_node_${study._id}`, nodeIdVal);
+      }
+      if (scenarioIdVal) {
+        localStorage.setItem('targetScenarioId', scenarioIdVal);
+      }
+    }
+    onNavigate('pha-worksheets');
+  };
+
   // Filtered bowties for Hub
   const filteredBowties = bowties.filter(b => {
     if (!searchQuery.trim()) return true;
@@ -1196,6 +1211,16 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                 >
                   📸 Snapshot
                 </button>
+                {(selectedBowtie?.isFromPha || selectedBowtie?.nodeId || selectedBowtie?.scenarioId) && (
+                  <button
+                    type="button"
+                    className="btn-bowtie-secondary"
+                    onClick={() => handleReturnToPha(selectedBowtie)}
+                    title="Return to this scenario row in PHA Worksheet"
+                  >
+                    📋 Open in PHA
+                  </button>
+                )}
                 <button 
                   className="btn-bowtie-primary" 
                   onClick={() => handleExportExcel(selectedBowtie)}
@@ -1228,7 +1253,7 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                   type="button"
                   className="btn-bowtie-secondary"
                   style={{ padding: '5px 10px', fontSize: '12px', whiteSpace: 'nowrap' }}
-                  onClick={() => onNavigate('pha-worksheets')}
+                  onClick={() => handleReturnToPha(selectedBowtie)}
                 >
                   Open PHA Worksheet
                 </button>

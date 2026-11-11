@@ -637,6 +637,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     return result;
   }, [scenarios, studyRecNumberMap, nextRecNo]);
 
+  const hasAnyBowtie = useMemo(
+    () => scenarios.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '')),
+    [scenarios]
+  );
+
   const uniqueDropdownOptions = useMemo(() => {
     const guidewords = new Set();
     const parameters = new Set();
@@ -1051,7 +1056,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     setScenarios(prev => {
       const targetSc = prev.find(s => s._id === id);
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
-      const isSafeGroupField = ['presentProtection'].includes(field);
+      const isSafeGroupField = ['presentProtection', 'safeguardType'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
       const hasRecInGroup = hasRecommendationForConsGroup(prev, targetConsGroupId, id);
@@ -1148,7 +1153,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       let payload = { [field]: value };
       const targetSc = scenarios.find(s => s._id === id);
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
-      const isSafeGroupField = ['presentProtection'].includes(field);
+      const isSafeGroupField = ['presentProtection', 'safeguardType'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
       const hasRecInGroup = hasRecommendationForConsGroup(scenarios, targetConsGroupId, id);
@@ -1811,6 +1816,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         likelihoodInherent: sc.likelihoodInherent,
         riskInherent: sc.riskInherent || '',
         safeguards: sc.safeguards || '',
+        presentProtection: sc.presentProtection || '',
+        safeguardType: sc.safeguardType || '',
         severityMitigated: sc.severityMitigated,
         likelihoodMitigated: sc.likelihoodMitigated,
         riskMitigated: sc.riskMitigated || '',
@@ -2431,6 +2438,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           inherentRiskS: sc.inherentRiskS,
           inherentRiskL: sc.inherentRiskL,
           isLopa: !!sc.isLopa,
+          isBowtie: !!sc.isBowtie,
           insertAfterScenarioId: sc._id
         })
       });
@@ -2505,6 +2513,73 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     }
   };
 
+  const handleToggleBowtie = async (sc, checked) => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
+      const siblingIds = scenarios
+        .filter(s => (sc.consequenceGroupId ? s.consequenceGroupId === sc.consequenceGroupId : s._id === sc._id))
+        .map(s => s._id);
+
+      setScenarios(prev => prev.map(s => {
+        if (siblingIds.includes(s._id)) {
+          return { ...s, isBowtie: checked };
+        }
+        return s;
+      }));
+
+      if (checked) {
+        const hasUnclassified = scenarios.some(s =>
+          siblingIds.includes(s._id) &&
+          (s.presentProtection || '').trim() !== '' &&
+          !s.safeguardType
+        );
+        setUndoToast({
+          message: hasUnclassified
+            ? '🎀 Added to BowTie! Mark each safeguard as P (Preventive) or M (Mitigative) in the TYPE (P/M) column next to Safeguards.'
+            : '🎀 Added to BowTie Analysis! Click "BOWTIE ↗" to view the diagram.',
+          isSuccess: true
+        });
+      }
+
+      const res = await fetch(`${apiUrl}/api/scenarios/${study._id}/toggle-bowtie`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          scenarioIds: siblingIds,
+          consequenceGroupId: sc.consequenceGroupId,
+          isBowtie: checked
+        })
+      });
+
+      if (!res.ok) {
+        await Promise.all(siblingIds.map(id =>
+          fetch(`${apiUrl}/api/scenarios/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ isBowtie: checked })
+          })
+        ));
+      }
+    } catch (err) {
+      console.error('Error toggling BowTie:', err);
+    }
+  };
+
+  const handleSafeguardTypeChange = async (sc, nextType) => {
+    if (!canEdit) return;
+    const value = sc.safeguardType === nextType ? '' : nextType;
+    handleCellChange(sc._id, 'safeguardType', value);
+    await handleBlur(sc._id, 'safeguardType', value);
+  };
+
   const handleQuickAddRecommendation = async (sc, recText = '', recNo = '') => {
     if (!sc.deviationId || !sc.causeId) return;
     try {
@@ -2539,6 +2614,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           inherentRiskL: sc.inherentRiskL,
           safeguardGroupId: groupId,
           presentProtection: sc.presentProtection,
+          safeguardType: sc.safeguardType || '',
+          isLopa: !!sc.isLopa,
+          isBowtie: !!sc.isBowtie,
           mitigatedRiskS: sc.mitigatedRiskS,
           mitigatedRiskL: sc.mitigatedRiskL,
           additionalProtection: recText,
@@ -2723,10 +2801,12 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       // If NO free row exists, insert a new scenario sub-row into the database!
       let safeguardGroupId = currentSc.safeguardGroupId;
       let presentProtection = currentSc.presentProtection || '';
+      let safeguardType = currentSc.safeguardType || '';
 
       if (selectedTarget.type === 'safeguard' && selectedTarget.scenario) {
         safeguardGroupId = selectedTarget.scenario.safeguardGroupId;
         presentProtection = selectedTarget.scenario.presentProtection || '';
+        safeguardType = selectedTarget.scenario.safeguardType || '';
         if (!safeguardGroupId) {
           safeguardGroupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
           await fetch(`${apiUrl}/api/scenarios/${selectedTarget.scenario._id}`, {
@@ -2759,9 +2839,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         inherentRiskL: currentSc.inherentRiskL,
         safeguardGroupId: safeguardGroupId,
         presentProtection: presentProtection,
+        safeguardType: safeguardType,
         mitigatedRiskS: currentSc.mitigatedRiskS,
         mitigatedRiskL: currentSc.mitigatedRiskL,
         isLopa: !!currentSc.isLopa,
+        isBowtie: !!currentSc.isBowtie,
         additionalProtection: '',
         recommendationNo: nextRecNo,
         recommendationAgainst: targetLabel,
@@ -3195,7 +3277,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         rowsToExport = processedScenarios;
       }
 
-      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA\n`;
+      const csvHasBowtie = rowsToExport.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== ''));
+      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,${csvHasBowtie ? 'SAFEGUARD TYPE (P/M),' : ''}MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA,BOWTIE\n`;
       let devCounter = 0;
       let lastDevId = null;
 
@@ -3221,6 +3304,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           escape(sc.inherentRiskL),
           escape(sc.inherentRiskRR),
           escape(sc.presentProtection),
+          ...(csvHasBowtie ? [escape(sc.safeguardType || '')] : []),
           escape(sc.mitigatedRiskS),
           escape(sc.mitigatedRiskL),
           escape(sc.mitigatedRiskRR),
@@ -3230,7 +3314,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           escape(sc.residualRiskRR),
           escape(sc.remarks),
           escape(sc.status),
-          escape(sc.isLopa ? 'Yes' : 'No')
+          escape(sc.isLopa ? 'Yes' : 'No'),
+          escape(sc.isBowtie ? 'Yes' : 'No')
         ];
 
         if (exportAll) {
@@ -3304,6 +3389,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const { studyRecMap } = buildStudyRecommendationRegistry(sortedFullScenarios);
 
       const rawSheetName = exportAll ? 'HAZOP All Nodes' : (selectedNode?.description || 'HAZOP Worksheet');
+      const excelHasBowtie = exportData.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== ''));
       const cleanSheetName = rawSheetName.replace(/[[\]*?:/\\]/g, '_').substring(0, 31);
 
       let tableHtml = `
@@ -3343,12 +3429,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th rowspan="2">CAT</th>
                 <th colspan="3">INHERENT RISK</th>
                 <th rowspan="2">PRESENT / PLANNED PROTECTION (SAFEGUARDS)</th>
+                ${excelHasBowtie ? '<th rowspan="2">TYPE (P/M)</th>' : ''}
                 <th colspan="3">MITIGATED RISK</th>
                 <th rowspan="2">ADDITIONAL PROTECTION (RECOMMENDATIONS)</th>
                 <th colspan="3">RESIDUAL RISK</th>
                 <th rowspan="2">REMARKS</th>
                 <th rowspan="2">STATUS</th>
                 <th rowspan="2">LOPA</th>
+                <th rowspan="2">BOWTIE</th>
               </tr>
               <tr>
                 <th class="th-sub">DEVIATION</th>
@@ -3370,7 +3458,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const renderNodeRows = (nodeScenarios, nodeName) => {
         let rowsHtml = '';
         if (nodeName) {
-          rowsHtml += `<tr><td colspan="24" class="node-banner">📁 NODE: ${escapeHtml(nodeName)}</td></tr>`;
+          rowsHtml += `<tr><td colspan="${excelHasBowtie ? 26 : 25}" class="node-banner">📁 NODE: ${escapeHtml(nodeName)}</td></tr>`;
         }
 
         const sorted = sortStudyScenarios(nodeScenarios, studyNodes);
@@ -3516,6 +3604,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
           if (isNewSafe) {
             rowsHtml += `<td rowspan="${safeSpan}">${escapeHtml(sc.presentProtection || '')}</td>`;
+            if (excelHasBowtie) {
+              rowsHtml += `<td rowspan="${safeSpan}" align="center"><b>${escapeHtml(sc.safeguardType || '')}</b></td>`;
+            }
           }
 
           if (isNewCons) {
@@ -3539,6 +3630,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           rowsHtml += `<td align="center">${escapeHtml(sc.status || '')}</td>`;
           if (isNewCons) {
             rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.isLopa ? '✓ LOPA' : ''}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}" align="center">${sc.isBowtie ? '✓ BOWTIE' : ''}</td>`;
           }
           rowsHtml += `</tr>`;
         }
@@ -4736,6 +4828,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary th-risk-inherent" colSpan={3} style={{borderBottom: 'none'}}>INHERENT RISK</th>
                 
                 <th className="th-primary w-protection" rowSpan={2}>PRESENT / PLANNED PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Safeguards / IPLs)</span></th>
+                {hasAnyBowtie && (
+                  <th className="th-primary w-safe-type" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}} title="Define Safeguard Type for BowTie: P = Preventive, M = Mitigative">
+                    TYPE<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(P / M)</span>
+                  </th>
+                )}
                 
                 <th className="th-primary th-risk-mitigated" colSpan={3} style={{borderBottom: 'none'}}>MITIGATED RISK</th>
                 
@@ -4745,6 +4842,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
                 <th className="th-primary w-status" rowSpan={2}>STATUS</th>
                 <th className="th-primary w-lopa" rowSpan={2} style={{width: '75px', minWidth: '75px', textAlign: 'center'}}>LOPA</th>
+                <th className="th-primary w-bowtie" rowSpan={2} style={{width: '82px', minWidth: '82px', textAlign: 'center'}}>BOWTIE</th>
               </tr>
               <tr>
                 {/* Sub headers - Hidden in Focus Mode */}
@@ -4777,7 +4875,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             <tbody>
               {!loading && scenarios.length === 0 && (
                 <tr>
-                  <td colSpan={isDecompositionHidden ? 20 : 25}>
+                  <td colSpan={(isDecompositionHidden ? 21 : 26) + (hasAnyBowtie ? 1 : 0)}>
                     <div className="pha-empty-state">
                       NO SCENARIOS YET — CLICK "+ ADD DEVIATION" TO BEGIN
                       {canEdit && (
@@ -5046,6 +5144,81 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           }}
                         />
                       </td>
+                      {hasAnyBowtie && (
+                        <td
+                          className="w-safe-type bg-protection"
+                          rowSpan={sc.safeSpanCount}
+                          style={{
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            padding: '4px',
+                            borderLeft: '1px solid var(--border-color, #e2e8f0)',
+                            backgroundColor: (sc.isBowtie && (sc.presentProtection || '').trim() && !sc.safeguardType)
+                              ? 'rgba(245, 158, 11, 0.12)'
+                              : undefined
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              gap: '4px',
+                              padding: '2px',
+                              borderRadius: '6px',
+                              border: (sc.isBowtie && (sc.presentProtection || '').trim() && !sc.safeguardType)
+                                ? '1px dashed #d97706'
+                                : '1px solid transparent'
+                            }}
+                            title={
+                              sc.isBowtie && (sc.presentProtection || '').trim() && !sc.safeguardType
+                                ? 'Select P (Preventive) or M (Mitigative) for BowTie'
+                                : 'Safeguard Type: P = Preventive (Left), M = Mitigative (Right)'
+                            }
+                          >
+                            <button
+                              type="button"
+                              disabled={!canEdit}
+                              onClick={() => handleSafeguardTypeChange(sc, 'P')}
+                              title="Preventive Safeguard (Cause → Immediate Consequence)"
+                              style={{
+                                minWidth: '26px',
+                                height: '24px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: canEdit ? 'pointer' : 'default',
+                                border: sc.safeguardType === 'P' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                                backgroundColor: sc.safeguardType === 'P' ? '#dbeafe' : '#ffffff',
+                                color: sc.safeguardType === 'P' ? '#1d4ed8' : '#64748b',
+                                opacity: canEdit ? 1 : 0.75,
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              P
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!canEdit}
+                              onClick={() => handleSafeguardTypeChange(sc, 'M')}
+                              title="Mitigative Safeguard (Immediate Consequence → Ultimate Consequence)"
+                              style={{
+                                minWidth: '26px',
+                                height: '24px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: canEdit ? 'pointer' : 'default',
+                                border: sc.safeguardType === 'M' ? '1.5px solid #7c3aed' : '1px solid #cbd5e1',
+                                backgroundColor: sc.safeguardType === 'M' ? '#ede9fe' : '#ffffff',
+                                color: sc.safeguardType === 'M' ? '#6d28d9' : '#64748b',
+                                opacity: canEdit ? 1 : 0.75,
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              M
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </>
                   )}
                   
@@ -5297,6 +5470,54 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                             }}
                           >
                             LOPA ↗
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                  {sc.isNewCons && (
+                    <td
+                      className="w-bowtie"
+                      rowSpan={sc.consSpanCount}
+                      style={{
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        backgroundColor: sc.isBowtie ? 'rgba(219, 39, 119, 0.08)' : 'inherit',
+                        borderLeft: '1px solid var(--border-color, #e2e8f0)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '4px' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: canEdit ? 'pointer' : 'default', margin: 0 }}>
+                          <input
+                            disabled={!canEdit}
+                            type="checkbox"
+                            checked={!!sc.isBowtie}
+                            onChange={(e) => handleToggleBowtie(sc, e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: canEdit ? 'pointer' : 'default', accentColor: '#db2777' }}
+                            title={sc.isBowtie ? "Included in BowTie Analysis (Click to uncheck)" : "Tick to send Immediate Consequence (Center), Ultimate Consequence (Right), Cause (Left) & Safeguards (P/M) to BowTie"}
+                          />
+                        </label>
+                        {sc.isBowtie && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.setItem('bowtie_focus_consequence_group', sc.consequenceGroupId || sc._id);
+                              onNavigate('bowtie');
+                            }}
+                            title="Open in BowTie Analysis"
+                            style={{
+                              fontSize: '9.5px',
+                              fontWeight: '700',
+                              color: '#be185d',
+                              backgroundColor: '#fce7f3',
+                              border: '1px solid #f9a8d4',
+                              borderRadius: '4px',
+                              padding: '2px 5px',
+                              cursor: 'pointer',
+                              lineHeight: 1.2
+                            }}
+                          >
+                            BOWTIE ↗
                           </button>
                         )}
                       </div>

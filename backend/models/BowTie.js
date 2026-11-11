@@ -22,7 +22,9 @@ const barrierItemSchema = new mongoose.Schema({
   action_by: { type: String, default: '' },
   target_completion: { type: String, default: '' },
   remark: { type: String, default: '' },
-  status: { type: String, default: 'Open' }
+  status: { type: String, default: 'Open' },
+  phaScenarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Scenario' },
+  phaSafeguardKey: { type: String, default: '' }
 }, { timestamps: true });
 
 const bowTieSchema = new mongoose.Schema({
@@ -35,6 +37,27 @@ const bowTieSchema = new mongoose.Schema({
   scenarioId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Scenario'
+  },
+  consequenceGroupId: {
+    type: String,
+    default: '',
+    index: true
+  },
+  isFromPha: {
+    type: Boolean,
+    default: false
+  },
+  defaultThreatName: {
+    type: String,
+    default: ''
+  },
+  defaultConsequenceName: {
+    type: String,
+    default: ''
+  },
+  unclassifiedSafeguardCount: {
+    type: Number,
+    default: 0
   },
   nodeId: {
     type: mongoose.Schema.Types.ObjectId,

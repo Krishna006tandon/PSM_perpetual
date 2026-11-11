@@ -255,6 +255,9 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
                 <th className="col-custom">PRESENT PROTECTION (SAFEGUARDS)</th>
+                {scenarios.some(s => !!s.isBowtie || !!s.safeguardType) && (
+                  <th style={{ width: '80px', minWidth: '80px', textAlign: 'center' }}>TYPE (P/M)</th>
+                )}
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
@@ -276,6 +279,44 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                       minHeight={36}
                     />
                   </td>
+                  {scenarios.some(s => !!s.isBowtie || !!s.safeguardType) && (
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'inline-flex', gap: '4px' }}>
+                        {['P', 'M'].map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            disabled={!canEdit}
+                            onClick={() => {
+                              const nextVal = sc.safeguardType === t ? '' : t;
+                              handleCellChange(sc._id, 'safeguardType', nextVal);
+                              handleBlur(sc._id, 'safeguardType', nextVal);
+                            }}
+                            title={t === 'P' ? 'Preventive Safeguard' : 'Mitigative Safeguard'}
+                            style={{
+                              minWidth: '26px',
+                              height: '24px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: canEdit ? 'pointer' : 'default',
+                              border: sc.safeguardType === t
+                                ? (t === 'P' ? '1.5px solid #2563eb' : '1.5px solid #7c3aed')
+                                : '1px solid #cbd5e1',
+                              backgroundColor: sc.safeguardType === t
+                                ? (t === 'P' ? '#dbeafe' : '#ede9fe')
+                                : '#ffffff',
+                              color: sc.safeguardType === t
+                                ? (t === 'P' ? '#1d4ed8' : '#6d28d9')
+                                : '#64748b'
+                            }}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  )}
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">
                       {renderCustomCell(sc, col)}

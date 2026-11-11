@@ -5,6 +5,7 @@ const Scenario = require('../models/Scenario');
 const Study = require('../models/Study');
 const auth = require('../middleware/auth');
 const checkStudyAccess = require('../middleware/checkStudyAccess');
+const { buildPhaBowtiePayload, syncBowTiesFromPHA } = require('../services/bowtieSyncService');
 
 // Helper to chunk barriers for Cytoscape mapping
 function formatGraphData(bowtie) {
@@ -14,7 +15,7 @@ function formatGraphData(bowtie) {
   const causeBarriers = barriers.filter(b => b.barrier_type === 'cause');
   const consBarriers = barriers.filter(b => b.barrier_type === 'consequence');
 
-  function chunkBarriers(barrierArray, defaultGroupName) {
+  function chunkBarriers(barrierArray, defaultGroupName, explicitFallbackName = '') {
     const groups = [];
     
     // Group by custom threat_or_consequence_name if present, otherwise group every 5
@@ -88,10 +89,13 @@ function formatGraphData(bowtie) {
       });
     });
 
-    // If no barriers, provide an empty threat/consequence placeholder
+    // If no barriers, provide an empty threat/consequence placeholder (preserving PHA Cause / Ultimate Consequence name when present)
     if (groups.length === 0) {
+      const fallbackName = (explicitFallbackName && explicitFallbackName.trim())
+        ? explicitFallbackName.trim()
+        : `${defaultGroupName} 1`;
       groups.push({
-        name: `${defaultGroupName} 1`,
+        name: fallbackName,
         barriers: []
       });
     }
@@ -102,17 +106,19 @@ function formatGraphData(bowtie) {
   return {
     title: eventName,
     section: bowtie.section || '',
-    causes: chunkBarriers(causeBarriers, "Threat"),
-    consequences: chunkBarriers(consBarriers, "Consequence")
+    causes: chunkBarriers(causeBarriers, "Threat", bowtie.defaultThreatName),
+    consequences: chunkBarriers(consBarriers, "Consequence", bowtie.defaultConsequenceName)
   };
 }
 
 // Apply auth middleware
 router.use(auth);
 
-// 1. GET all BowTie analyses for a specific study
+// 1. GET all BowTie analyses for a specific study (syncs PHA-flagged BowTies first)
 router.get('/study/:studyId', checkStudyAccess, async (req, res) => {
   try {
+    await syncBowTiesFromPHA(req.params.studyId);
+
     const bowties = await BowTie.find({ studyId: req.params.studyId })
       .populate('nodeId', 'nodeNumber name description')
       .populate('deviationId', 'deviationAuto parameter')
@@ -122,6 +128,22 @@ router.get('/study/:studyId', checkStudyAccess, async (req, res) => {
     res.json(bowties);
   } catch (err) {
     console.error('Error fetching bowties:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 1b. POST force re-sync BowTies from PHA
+router.post('/study/:studyId/sync-from-pha', checkStudyAccess, async (req, res) => {
+  try {
+    await syncBowTiesFromPHA(req.params.studyId);
+    const bowties = await BowTie.find({ studyId: req.params.studyId })
+      .populate('nodeId', 'nodeNumber name description')
+      .populate('deviationId', 'deviationAuto parameter')
+      .populate('scenarioId')
+      .sort({ createdAt: -1 });
+    res.json(bowties);
+  } catch (err) {
+    console.error('Error syncing bowties from PHA:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -144,73 +166,57 @@ router.post('/study/:studyId', checkStudyAccess, async (req, res) => {
       return res.status(400).json({ message: 'Event Name is required' });
     }
 
-    const newBarriers = [...barriers];
+    let newBarriers = [...barriers];
+    let defaultThreatName = '';
+    let defaultConsequenceName = '';
+    let unclassifiedSafeguardCount = 0;
+    let resolvedNodeId = nodeId || null;
+    let resolvedDevId = deviationId || null;
 
-    // If a scenarioId was provided and no custom barriers given, auto-seed from PHA Scenario
+    // If a scenarioId was provided and no custom barriers given, auto-seed from PHA Scenario group
     if (scenarioId && newBarriers.length === 0) {
       const scenario = await Scenario.findById(scenarioId)
-        .populate('causeId')
-        .populate('deviationId');
+        .populate('nodeId', 'nodeNumber description')
+        .populate('causeId', 'description categoryType')
+        .populate('deviationId', 'deviationAuto parameter');
 
       if (scenario) {
-        const threatName = scenario.causeId?.description || scenario.causeId?.categoryType || 'Identified Hazard Cause';
-        
-        // Add Cause Barrier from Present Protection / Safeguards
-        if (scenario.presentProtection && scenario.presentProtection.trim()) {
-          newBarriers.push({
-            event_name: eventName,
-            barrier_type: 'cause',
-            threat_or_consequence_name: threatName,
-            pb: [scenario.presentProtection.trim()],
-            pb_tag_no: [],
-            barrier_owner: [],
-            escalation_factor: '',
-            escalation_control: '',
-            available_new: 'Available',
-            type: 'Engg',
-            c: Number(scenario.inherentRiskS) || 3,
-            p: Number(scenario.inherentRiskL) || 2,
-            r: Number(scenario.inherentRiskRR) || 6,
-            recommendation: scenario.additionalProtection || '',
-            c_rec: Number(scenario.mitigatedRiskS) || 2,
-            p_rec: Number(scenario.mitigatedRiskL) || 1,
-            r_rec: Number(scenario.mitigatedRiskRR) || 2
-          });
+        let groupScenarios = [scenario];
+        if (scenario.consequenceGroupId && String(scenario.consequenceGroupId).trim() !== '') {
+          groupScenarios = await Scenario.find({
+            studyId: req.params.studyId,
+            consequenceGroupId: scenario.consequenceGroupId
+          })
+            .populate('nodeId', 'nodeNumber description')
+            .populate('causeId', 'description categoryType')
+            .populate('deviationId', 'deviationAuto parameter')
+            .sort({ order: 1, createdAt: 1 });
         }
 
-        // Add Consequence Barrier
-        const consText = scenario.consequencesUltimate || scenario.consequencesImmediate || 'Hazard Consequence';
-        newBarriers.push({
-          event_name: eventName,
-          barrier_type: 'consequence',
-          threat_or_consequence_name: consText,
-          pb: scenario.additionalProtection ? [scenario.additionalProtection.trim()] : ['Emergency Response / Relief'],
-          pb_tag_no: [],
-          barrier_owner: [],
-          escalation_factor: '',
-          escalation_control: '',
-          available_new: 'Available',
-          type: 'Engg',
-          c: Number(scenario.mitigatedRiskS) || 3,
-          p: Number(scenario.mitigatedRiskL) || 2,
-          r: Number(scenario.mitigatedRiskRR) || 6,
-          recommendation: '',
-          c_rec: Number(scenario.residualRiskS) || 2,
-          p_rec: Number(scenario.residualRiskL) || 1,
-          r_rec: Number(scenario.residualRiskRR) || 2
-        });
+        const seeded = buildPhaBowtiePayload(groupScenarios, eventName.trim());
+        if (seeded) {
+          newBarriers = seeded.barriers;
+          defaultThreatName = seeded.defaultThreatName;
+          defaultConsequenceName = seeded.defaultConsequenceName;
+          unclassifiedSafeguardCount = seeded.unclassifiedSafeguardCount;
+          resolvedNodeId = resolvedNodeId || seeded.nodeId;
+          resolvedDevId = resolvedDevId || seeded.deviationId;
+        }
       }
     }
 
     const bowtie = new BowTie({
       studyId: req.params.studyId,
       scenarioId: scenarioId || null,
-      nodeId: nodeId || null,
-      deviationId: deviationId || null,
+      nodeId: resolvedNodeId,
+      deviationId: resolvedDevId,
       eventName: eventName.trim(),
       section: section || '',
       hazardDescription: hazardDescription || '',
       riskRating: Number(riskRating) || 0,
+      defaultThreatName,
+      defaultConsequenceName,
+      unclassifiedSafeguardCount,
       barriers: newBarriers
     });
 
@@ -225,7 +231,16 @@ router.post('/study/:studyId', checkStudyAccess, async (req, res) => {
 // 3. GET detail of a specific BowTie with graph-ready format
 router.get('/detail/:id', async (req, res) => {
   try {
-    const bowtie = await BowTie.findById(req.params.id)
+    let bowtie = await BowTie.findById(req.params.id);
+    if (!bowtie) {
+      return res.status(404).json({ message: 'BowTie analysis not found' });
+    }
+
+    if (bowtie.isFromPha && bowtie.studyId) {
+      await syncBowTiesFromPHA(bowtie.studyId);
+    }
+
+    bowtie = await BowTie.findById(req.params.id)
       .populate('studyId', 'title plant companyCode studyType')
       .populate('nodeId', 'nodeNumber name description')
       .populate('deviationId', 'deviationAuto parameter');

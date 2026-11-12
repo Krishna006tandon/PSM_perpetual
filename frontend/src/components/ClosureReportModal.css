@@ -389,25 +389,14 @@
 
 /* Print / PDF Export Mode */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-
-  .cr-printable-area,
-  .cr-printable-area * {
-    visibility: visible;
-  }
-
   .cr-printable-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    margin: 0;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .cr-no-print {

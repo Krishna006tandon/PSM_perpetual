@@ -7,6 +7,7 @@ import CapaWorkspaceModal from '../components/CapaWorkspaceModal';
 import BarrierEvidenceModal from '../components/BarrierEvidenceModal';
 import TimelinePhaModal from '../components/TimelinePhaModal';
 import ClosureReportModal from '../components/ClosureReportModal';
+import PsmAnalyticsModal from '../components/PsmAnalyticsModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -49,6 +50,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [selectedIncidentForEvidence, setSelectedIncidentForEvidence] = useState(null);
   const [selectedIncidentForTimeline, setSelectedIncidentForTimeline] = useState(null);
   const [selectedIncidentForClosure, setSelectedIncidentForClosure] = useState(null);
+  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [capaInitialWhyNodeId, setCapaInitialWhyNodeId] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
@@ -133,7 +135,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
       <div className="incident-header">
         <div className="incident-header-left">
           {onBack && (
-            <button className="btn-back" onClick={onBack} title="Back to Main Dashboard">
+              <button className="btn-back" onClick={onBack} title="Back to Main Dashboard">
               ← Back
             </button>
           )}
@@ -149,12 +151,23 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           </div>
         </div>
 
-        <button 
-          className="btn-primary-gradient"
-          onClick={() => setIsFIRModalOpen(true)}
-        >
-          <span style={{ fontSize: '1.1rem' }}>+</span> Log New Incident (FIR)
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn-action-view"
+            style={{ padding: '10px 16px', fontSize: '0.88rem', fontWeight: 700, borderRadius: '8px' }}
+            onClick={() => setIsAnalyticsModalOpen(true)}
+            title="Open Stage 5 Plant-Wide API RP 754 KPI Analytics, PSER Calculator & Excel Export"
+          >
+            📊 PSM Analytics & Export
+          </button>
+          <button
+            className="btn-primary-gradient"
+            onClick={() => setIsFIRModalOpen(true)}
+          >
+            <span style={{ fontSize: '1.1rem' }}>+</span> Log New Incident (FIR)
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Cards */}
@@ -288,7 +301,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           <div className="empty-icon">🛡️</div>
           <h3>No Incidents Found</h3>
           <p>There are no incidents matching your active filters. Log a new FIR to begin.</p>
-          <button 
+            <button 
             className="btn-primary-gradient"
             onClick={() => setIsFIRModalOpen(true)}
             style={{ marginTop: '14px' }}
@@ -515,6 +528,11 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         incident={selectedIncidentForClosure}
         currentUser={currentUser}
         onUpdated={fetchIncidentsAndStats}
+      />
+
+      <PsmAnalyticsModal
+        isOpen={isAnalyticsModalOpen}
+        onClose={() => setIsAnalyticsModalOpen(false)}
       />
 
       <IncidentDetailsModal

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
+import { printElementIsolated } from '../utils/printHelper';
 import './ClosureReportModal.css';
 
 const API_URL = getApiUrl();
 
 export default function ClosureReportModal({ isOpen, onClose, incident, currentUser, onUpdated }) {
+  const printSheetRef = useRef(null);
   const [activeTab, setActiveTab] = useState('gatekeeper');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -274,7 +276,16 @@ export default function ClosureReportModal({ isOpen, onClose, incident, currentU
 
           <div style={{ display: 'flex', gap: '8px' }}>
             {(activeTab === 'lessons' || activeTab === 'report') && (
-              <button type="button" className="cr-btn-primary" onClick={() => window.print()}>
+              <button
+                type="button"
+                className="cr-btn-primary"
+                onClick={() =>
+                  printElementIsolated(
+                    printSheetRef.current,
+                    `${fullInc.incidentNumber} - ${activeTab === 'lessons' ? 'PSM Safety Flash' : 'Final Investigation Report'}`
+                  )
+                }
+              >
                 🖨️ Print / Export PDF
               </button>
             )}
@@ -562,7 +573,7 @@ export default function ClosureReportModal({ isOpen, onClose, incident, currentU
               </form>
 
               {/* Live One-Page Safety Flash Print Preview */}
-              <div className="cr-report-sheet cr-printable-area">
+              <div className="cr-report-sheet cr-printable-area" ref={printSheetRef}>
                 <div className="cr-flash-banner">
                   <div>
                     <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.1em', opacity: 0.9 }}>
@@ -634,7 +645,7 @@ export default function ClosureReportModal({ isOpen, onClose, incident, currentU
 
           {/* TAB 3: EXECUTIVE FINAL INVESTIGATION REPORT (PRINT / PDF) */}
           {!loading && activeTab === 'report' && (
-            <div className="cr-report-sheet cr-printable-area">
+            <div className="cr-report-sheet cr-printable-area" ref={printSheetRef}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #0f172a', paddingBottom: '12px' }}>
                 <div>
                   <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#475569', letterSpacing: '0.08em' }}>

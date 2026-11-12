@@ -255,11 +255,14 @@ exports.getAllIncidents = async (req, res) => {
       filter.status = status;
     }
 
+    const andConditions = [];
     if (tier && tier !== 'all') {
-      filter.$or = [
-        { 'api754Classification.tier': tier },
-        { 'api754Classification.category': tier }
-      ];
+      andConditions.push({
+        $or: [
+          { 'api754Classification.tier': tier },
+          { 'api754Classification.category': tier }
+        ]
+      });
     }
 
     if (plantZone && plantZone !== 'all') {
@@ -267,12 +270,18 @@ exports.getAllIncidents = async (req, res) => {
     }
 
     if (search) {
-      filter.$or = [
-        { incidentNumber: { $regex: search, $options: 'i' } },
-        { title: { $regex: search, $options: 'i' } },
-        { 'descriptionMatrix.whatHappened': { $regex: search, $options: 'i' } },
-        { plantZone: { $regex: search, $options: 'i' } }
-      ];
+      andConditions.push({
+        $or: [
+          { incidentNumber: { $regex: search, $options: 'i' } },
+          { title: { $regex: search, $options: 'i' } },
+          { 'descriptionMatrix.whatHappened': { $regex: search, $options: 'i' } },
+          { plantZone: { $regex: search, $options: 'i' } }
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     const incidents = await Incident.find(filter).sort({ dateTime: -1 });

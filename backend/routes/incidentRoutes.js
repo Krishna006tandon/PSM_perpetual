@@ -11,6 +11,7 @@ const capaController = require('../controllers/capaController');
 const evidenceBarrierController = require('../controllers/evidenceBarrierController');
 const timelinePhaController = require('../controllers/timelinePhaController');
 const closureReportController = require('../controllers/closureReportController');
+const analyticsController = require('../controllers/analyticsController');
 
 const capaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -126,6 +127,7 @@ router.use(optionalAuth);
 router.post('/', incidentController.createIncident);
 router.get('/', incidentController.getAllIncidents);
 router.get('/stats', incidentController.getIncidentStats);
+router.get('/analytics', analyticsController.getPlantPsmAnalytics);
 router.get('/taxonomy', incidentController.getApi754Taxonomy);
 router.post('/evaluate-live', incidentController.evaluateApi754Live);
 router.get('/:id', incidentController.getIncidentById);

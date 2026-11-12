@@ -298,6 +298,45 @@ const incidentSchema = new mongoose.Schema({
     }]
   },
 
+  // Stage 3C: Barrier Effectiveness Analysis (LOPA / Swiss-Cheese Layers)
+  barrierAnalysis: [{
+    layerName: { type: String, required: true },
+    barrierType: { type: String, enum: ['Prevention', 'Mitigation'], default: 'Prevention' },
+    safeguardTag: { type: String, default: '' },
+    status: {
+      type: String,
+      enum: [
+        'Worked as Intended',
+        'Failed / Degraded',
+        'Bypassed / Defeated',
+        'Missing / Not Installed',
+        'Not Applicable'
+      ],
+      default: 'Not Applicable'
+    },
+    failureReason: { type: String, default: '' },
+    evaluatedBy: { type: String, default: '' },
+    evaluatedAt: { type: Date, default: Date.now }
+  }],
+
+  // Stage 3C: Mandatory Supporting Evidence & Document Vault
+  supportingEvidence: [{
+    checklistKey: { type: String, default: 'custom' },
+    title: { type: String, required: true },
+    category: { type: String, default: 'General Evidence' },
+    isApplicable: { type: Boolean, default: true },
+    status: {
+      type: String,
+      enum: ['Pending', 'Uploaded / Attached', 'Not Applicable'],
+      default: 'Pending'
+    },
+    fileUrl: { type: String, default: '' },
+    originalName: { type: String, default: '' },
+    notes: { type: String, default: '' },
+    uploadedBy: { type: String, default: '' },
+    uploadedAt: { type: Date }
+  }],
+
   auditTrail: [{
     action: String,
     actor: String,

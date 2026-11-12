@@ -187,7 +187,7 @@ const normalizeApi754Input = (data) => {
   };
 };
 
-// 1. Create FIR (First Incident Report)
+exports._normalizeApi754Input = normalizeApi754Input;
 exports.createIncident = async (req, res) => {
   try {
     const data = req.body;

@@ -540,6 +540,23 @@
   border-color: #d97706;
 }
 
+.btn-action-evidence {
+  background: rgba(8, 145, 178, 0.1);
+  border: 1px solid rgba(8, 145, 178, 0.35);
+  color: #0e7490;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-action-evidence:hover {
+  background: #0891b2;
+  color: #ffffff;
+  border-color: #0891b2;
+}
+
 .btn-action-view {
   background: var(--bg-default);
   border: 1px solid var(--divider);

@@ -4,6 +4,7 @@ import ManagerTriageModal from '../components/ManagerTriageModal';
 import IncidentDetailsModal from '../components/IncidentDetailsModal';
 import InvestigationWorkspaceModal from '../components/InvestigationWorkspaceModal';
 import CapaWorkspaceModal from '../components/CapaWorkspaceModal';
+import BarrierEvidenceModal from '../components/BarrierEvidenceModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -43,6 +44,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState(null);
   const [selectedIncidentForInvestigation, setSelectedIncidentForInvestigation] = useState(null);
   const [selectedIncidentForCapa, setSelectedIncidentForCapa] = useState(null);
+  const [selectedIncidentForEvidence, setSelectedIncidentForEvidence] = useState(null);
   const [capaInitialWhyNodeId, setCapaInitialWhyNodeId] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
@@ -398,6 +400,13 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                         📋 CAPAs
                       </button>
                       <button
+                        className="btn-action-evidence"
+                        onClick={() => setSelectedIncidentForEvidence(inc)}
+                        title="Open Stage 3C Barrier Analysis, Supporting Evidence Vault & Classification Validator"
+                      >
+                        🛡️ Barriers & Docs
+                      </button>
+                      <button
                         className="btn-action-triage"
                         onClick={() => setSelectedIncidentForTriage(inc)}
                         title="Conduct Manager Review & CFT Setup"
@@ -468,11 +477,22 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         onCapaUpdated={fetchIncidentsAndStats}
       />
 
+      <BarrierEvidenceModal
+        isOpen={!!selectedIncidentForEvidence}
+        onClose={() => setSelectedIncidentForEvidence(null)}
+        incident={selectedIncidentForEvidence}
+        onUpdated={fetchIncidentsAndStats}
+      />
+
       <IncidentDetailsModal
         isOpen={!!selectedIncidentForDetails}
         onClose={() => setSelectedIncidentForDetails(null)}
         incident={selectedIncidentForDetails}
         onOpenTriage={(inc) => setSelectedIncidentForTriage(inc)}
+        onOpenEvidence={(inc) => {
+          setSelectedIncidentForDetails(null);
+          setSelectedIncidentForEvidence(inc);
+        }}
         onOpenInvestigation={(inc) => {
           setSelectedIncidentForDetails(null);
           setSelectedIncidentForInvestigation(inc);

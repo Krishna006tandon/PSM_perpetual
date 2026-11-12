@@ -3,15 +3,17 @@ import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa }) {
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence }) {
   const [rcaNodes, setRcaNodes] = useState([]);
   const [capas, setCapas] = useState([]);
+  const [fullIncident, setFullIncident] = useState(null);
 
   useEffect(() => {
     let active = true;
     if (!isOpen || !incident?._id) {
       setRcaNodes([]);
       setCapas([]);
+      setFullIncident(null);
       return undefined;
     }
 
@@ -28,6 +30,9 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
         }
         if (active && Array.isArray(data?.capas)) {
           setCapas(data.capas);
+        }
+        if (active && data?.incident) {
+          setFullIncident(data.incident);
         }
       })
       .catch(() => {
@@ -520,6 +525,70 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Stage 3C: Barrier Effectiveness & Supporting Evidence Summary */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>
+                Stage 3C: Barrier Analysis & Supporting Evidence Vault
+              </h4>
+              {onOpenEvidence && (
+                <button
+                  type="button"
+                  onClick={() => onOpenEvidence(incident)}
+                  style={{
+                    background: '#0891b2',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🛡️ Open Barriers & Evidence Vault
+                </button>
+              )}
+            </div>
+
+            {(() => {
+              const sourceInc = fullIncident || incident;
+              const barriers = sourceInc.barrierAnalysis || [];
+              const evidence = sourceInc.supportingEvidence || [];
+              const failedCount = barriers.filter((b) => b.status === 'Failed / Degraded' || b.status === 'Bypassed / Defeated').length;
+              const workedCount = barriers.filter((b) => b.status === 'Worked as Intended').length;
+              const applicableEv = evidence.filter((e) => e.isApplicable && e.status !== 'Not Applicable');
+              const uploadedEv = applicableEv.filter((e) => e.status === 'Uploaded / Attached' || e.fileUrl);
+
+              if (barriers.length === 0 && evidence.length === 0) {
+                return (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    Barrier scorecard and 12-item evidence checklist not yet initialized. Click "Open Barriers & Evidence Vault" to evaluate safeguards and attach documents.
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-default)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)', fontSize: '0.82rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>LOPA Barriers Evaluated</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px' }}>{barriers.length} layers ({workedCount} worked)</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Failed / Bypassed</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px', color: failedCount > 0 ? '#dc2626' : '#16a34a' }}>{failedCount} safeguards</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Evidence Documents</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px', color: '#0284c7' }}>
+                      {uploadedEv.length} / {applicableEv.length} uploaded
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Immutable Audit Trail */}

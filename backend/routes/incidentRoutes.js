@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const whyWhyController = require('../controllers/whyWhyController');
 const capaController = require('../controllers/capaController');
+const evidenceBarrierController = require('../controllers/evidenceBarrierController');
 
 const capaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -32,6 +33,47 @@ const capaPhotoUpload = multer({
       return cb(null, true);
     }
     cb(new Error('Only image files (PNG, JPG, WEBP, GIF) are allowed for CAPA photo verification.'));
+  }
+});
+
+const evidenceUploadDir = path.join(__dirname, '..', 'uploads', 'evidence');
+if (!fs.existsSync(evidenceUploadDir)) {
+  fs.mkdirSync(evidenceUploadDir, { recursive: true });
+}
+
+const evidenceStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, evidenceUploadDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    cb(null, `evidence-${uniqueSuffix}${ext}`);
+  }
+});
+
+const evidenceAllowedMimePrefixes = ['image/'];
+const evidenceAllowedMimes = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'text/plain'
+]);
+const evidenceAllowedExts = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt']);
+
+const evidenceUpload = multer({
+  storage: evidenceStorage,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const mimeOk =
+      (file.mimetype && evidenceAllowedMimePrefixes.some((p) => file.mimetype.startsWith(p))) ||
+      evidenceAllowedMimes.has(file.mimetype);
+    if (mimeOk || evidenceAllowedExts.has(ext)) {
+      return cb(null, true);
+    }
+    cb(new Error('Unsupported file type. Allowed: PDF, Images, Word, Excel, CSV, TXT.'));
   }
 });
 
@@ -95,5 +137,13 @@ router.post('/:id/capas/:capaId/verify', capaController.verifyCapa);
 router.post('/:id/capas/:capaId/escalate', capaController.escalateCapa);
 router.post('/:id/capas/:capaId/initiate-moc', capaController.initiateCapaMoc);
 router.delete('/:id/capas/:capaId', capaController.deleteCapa);
+
+// Stage 3C: Barrier Effectiveness Analysis, Supporting Evidence Vault & Pending Classification Resolver
+router.get('/:id/barriers-evidence', evidenceBarrierController.getBarrierAndEvidence);
+router.put('/:id/barriers', evidenceBarrierController.saveBarrierAnalysis);
+router.post('/:id/evidence/upload', evidenceUpload.single('file'), evidenceBarrierController.uploadEvidenceFile);
+router.post('/:id/evidence', evidenceBarrierController.upsertEvidenceItem);
+router.delete('/:id/evidence/:itemId', evidenceBarrierController.deleteEvidenceItem);
+router.post('/:id/recalculate-classification', evidenceBarrierController.recalculateClassification);
 
 module.exports = router;

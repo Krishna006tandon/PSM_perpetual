@@ -51,6 +51,7 @@ function buildPhaBowtiePayload(groupScenarios, customEventName = '') {
 
   // Deduplicate safeguards within the consequence group by safeguardGroupId (or scenario _id)
   const safeGroupMap = new Map();
+  const recGroupMap = new Map();
   for (const sc of groupScenarios) {
     const safeKey = sc.safeguardGroupId || String(sc._id);
     if (!safeGroupMap.has(safeKey)) {
@@ -81,6 +82,31 @@ function buildPhaBowtiePayload(groupScenarios, customEventName = '') {
     const recText = (sc.additionalProtection || '').trim();
     if (recText && !entry.recommendations.includes(recText)) {
       entry.recommendations.push(recText);
+    }
+
+    const recKey = sc.recommendationGroupId
+      ? String(sc.recommendationGroupId)
+      : (recText ? 'text:' + recText.toLowerCase() : String(sc._id));
+    if (!recGroupMap.has(recKey)) {
+      recGroupMap.set(recKey, {
+        recKey,
+        scenarioId: sc._id,
+        additionalProtection: recText,
+        additionalProtectionType: sc.additionalProtectionType || '',
+        mitigatedS: Number(sc.mitigatedRiskS) || 2,
+        mitigatedL: Number(sc.mitigatedRiskL) || 1,
+        mitigatedRR: Number(sc.mitigatedRiskRR) || 2,
+        residualS: Number(sc.residualRiskS) || 2,
+        residualL: Number(sc.residualRiskL) || 1,
+        residualRR: Number(sc.residualRiskRR) || 2
+      });
+    }
+    const recEntry = recGroupMap.get(recKey);
+    if (!recEntry.additionalProtection && recText) {
+      recEntry.additionalProtection = recText;
+    }
+    if (!recEntry.additionalProtectionType && sc.additionalProtectionType) {
+      recEntry.additionalProtectionType = sc.additionalProtectionType;
     }
   }
 
@@ -117,6 +143,39 @@ function buildPhaBowtiePayload(groupScenarios, customEventName = '') {
       r_rec: isPreventive ? entry.mitigatedRR : entry.residualRR,
       phaScenarioId: entry.scenarioId,
       phaSafeguardKey: entry.safeKey
+    });
+  }
+
+  for (const recEntry of recGroupMap.values()) {
+    if (!recEntry.additionalProtection) continue;
+
+    if (recEntry.additionalProtectionType !== 'P' && recEntry.additionalProtectionType !== 'M') {
+      unclassifiedSafeguardCount++;
+      continue;
+    }
+
+    const isPreventive = recEntry.additionalProtectionType === 'P';
+    barriers.push({
+      event_name: eventName,
+      barrier_type: isPreventive ? 'cause' : 'consequence',
+      threat_or_consequence_name: isPreventive ? causeName : ultimateConsName,
+      pb: [recEntry.additionalProtection],
+      pb_tag_no: [],
+      barrier_owner: [],
+      escalation_factor: '',
+      escalation_control: '',
+      escalation_control_owner: '',
+      available_new: 'New',
+      type: 'Engg',
+      c: recEntry.mitigatedS,
+      p: recEntry.mitigatedL,
+      r: recEntry.mitigatedRR,
+      recommendation: recEntry.additionalProtection,
+      c_rec: recEntry.residualS,
+      p_rec: recEntry.residualL,
+      r_rec: recEntry.residualRR,
+      phaScenarioId: recEntry.scenarioId,
+      phaSafeguardKey: 'rec:' + recEntry.recKey
     });
   }
 
@@ -183,10 +242,13 @@ async function syncBowTiesFromPHA(studyId) {
       const manualBarriers = existingBarriers.filter(b => !b.phaSafeguardKey && !b.phaScenarioId);
 
       const mergedPhaBarriers = payload.barriers.map(pbItem => {
-        const match = existingBarriers.find(b =>
-          (b.phaSafeguardKey && b.phaSafeguardKey === pbItem.phaSafeguardKey) ||
-          (b.phaScenarioId && String(b.phaScenarioId) === String(pbItem.phaScenarioId))
-        );
+        const isRecBarrier = String(pbItem.phaSafeguardKey || '').startsWith('rec:');
+        const match = existingBarriers.find(b => {
+          if (b.phaSafeguardKey && pbItem.phaSafeguardKey) {
+            return b.phaSafeguardKey === pbItem.phaSafeguardKey;
+          }
+          return !isRecBarrier && b.phaScenarioId && String(b.phaScenarioId) === String(pbItem.phaScenarioId);
+        });
         if (!match) return pbItem;
 
         const baseObj = match.toObject ? match.toObject() : { ...match };

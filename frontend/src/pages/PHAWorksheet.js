@@ -5,7 +5,6 @@ import AutocompleteTextarea from '../components/AutocompleteTextarea';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import ReportSettingsModal from '../components/ReportSettingsModal';
 import AddRecommendationModal from '../components/AddRecommendationModal';
-import SelectRecTargetModal from '../components/SelectRecTargetModal';
 import { sortStudyScenarios, buildStudyRecommendationRegistry, normalizeRecText } from '../utils/recommendationUtils';
 
 import * as XLSX from 'xlsx';
@@ -290,12 +289,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   });
   const isDecompositionHidden = isFocusMode || hideDecomposition;
   const [recModalConfig, setRecModalConfig] = useState({ isOpen: false, targetScenario: null });
-  const [recTargetModal, setRecTargetModal] = useState({
-    isOpen: false,
-    scenario: null,
-    options: [],
-    selectedTarget: null
-  });
   const [allStudyRecommendations, setAllStudyRecommendations] = useState([]);
   const [allStudyScenarios, setAllStudyScenarios] = useState([]);
   const [clipboardScenarios, setClipboardScenarios] = useState(() => {
@@ -537,8 +530,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       if (!isNewRec && prevSc) {
         if (sc.recommendationGroupId) {
           isNewRec = sc.recommendationGroupId !== prevSc.recommendationGroupId;
-        } else if (sc.recommendationAgainst && sc.recommendationAgainst !== prevSc.recommendationAgainst) {
-          isNewRec = true;
         } else if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
           if (!prevSc.additionalProtection || prevSc.additionalProtection.trim() === '') {
             isNewRec = true;
@@ -671,7 +662,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   }, [scenarios, studyRecNumberMap, nextRecNo]);
 
   const hasAnyBowtie = useMemo(
-    () => scenarios.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '')),
+    () => scenarios.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '') || (s.additionalProtectionType && s.additionalProtectionType !== '')),
     [scenarios]
   );
 
@@ -1096,12 +1087,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const targetSc = prev.find(s => s._id === id);
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
       const isSafeGroupField = ['presentProtection', 'safeguardType'].includes(field);
+      const isRecGroupField = ['additionalProtection', 'additionalProtectionType'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
+      const targetRecGroupId = (isRecGroupField && targetSc?.recommendationGroupId) ? targetSc.recommendationGroupId : null;
       const hasRecInGroup = hasRecommendationForConsGroup(prev, targetConsGroupId, id);
 
       return prev.map(sc => {
-        if (sc._id === id || (targetConsGroupId && sc.consequenceGroupId === targetConsGroupId) || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId)) {
+        if (sc._id === id || (targetConsGroupId && sc.consequenceGroupId === targetConsGroupId) || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId) || (targetRecGroupId && sc.recommendationGroupId === targetRecGroupId)) {
           const updatedSc = { ...sc, [field]: value };
           
           if (field === 'inherentRiskS' || field === 'inherentRiskL') {
@@ -1193,8 +1186,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const targetSc = scenarios.find(s => s._id === id);
       const isConsGroupField = ['consequenceCategory', 'consequencesImmediate', 'consequencesUltimate', 'inherentRiskS', 'inherentRiskL', 'mitigatedRiskS', 'mitigatedRiskL', 'residualRiskS', 'residualRiskL'].includes(field);
       const isSafeGroupField = ['presentProtection', 'safeguardType'].includes(field);
+      const isRecGroupField = ['additionalProtection', 'additionalProtectionType'].includes(field);
       const targetConsGroupId = (isConsGroupField && targetSc?.consequenceGroupId) ? targetSc.consequenceGroupId : null;
       const targetSafeGroupId = (isSafeGroupField && targetSc?.safeguardGroupId) ? targetSc.safeguardGroupId : null;
+      const targetRecGroupId = (isRecGroupField && targetSc?.recommendationGroupId) ? targetSc.recommendationGroupId : null;
       const hasRecInGroup = hasRecommendationForConsGroup(scenarios, targetConsGroupId, id);
       
       if (field === 'inherentRiskS' || field === 'inherentRiskL') {
@@ -1275,6 +1270,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       let scenariosToUpdate = [targetSc];
       if (targetConsGroupId) scenariosToUpdate = scenarios.filter(s => s.consequenceGroupId === targetConsGroupId);
       else if (targetSafeGroupId) scenariosToUpdate = scenarios.filter(s => s.safeguardGroupId === targetSafeGroupId);
+      else if (targetRecGroupId) scenariosToUpdate = scenarios.filter(s => s.recommendationGroupId === targetRecGroupId);
 
       await trackSave(Promise.all(scenariosToUpdate.map(sc => 
         fetch(`${API_BASE}/api/scenarios/${sc._id}`, {
@@ -1861,6 +1857,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         likelihoodMitigated: sc.likelihoodMitigated,
         riskMitigated: sc.riskMitigated || '',
         additionalProtection: sc.additionalProtection || '',
+        additionalProtectionType: sc.additionalProtectionType || '',
         recommendationNo: sc.recommendationNo || '',
         severityResidual: sc.severityResidual,
         likelihoodResidual: sc.likelihoodResidual,
@@ -2570,13 +2567,14 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
       if (checked) {
         const hasUnclassified = scenarios.some(s =>
-          siblingIds.includes(s._id) &&
-          (s.presentProtection || '').trim() !== '' &&
-          !s.safeguardType
+          siblingIds.includes(s._id) && (
+            ((s.presentProtection || '').trim() !== '' && !s.safeguardType) ||
+            ((s.additionalProtection || '').trim() !== '' && !s.additionalProtectionType)
+          )
         );
         setUndoToast({
           message: hasUnclassified
-            ? '🎀 Added to BowTie! Mark each safeguard as P (Preventive) or M (Mitigative) in the TYPE (P/M) column next to Safeguards.'
+            ? '🎀 Added to BowTie! Mark each Safeguard and Additional Protection as P (Preventive) or M (Mitigative) in the TYPE (P/M) columns.'
             : '🎀 Added to BowTie Analysis! Click "BOWTIE ↗" to view the diagram.',
           isSuccess: true
         });
@@ -2619,24 +2617,41 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     await handleBlur(sc._id, 'safeguardType', value);
   };
 
+  const handleAdditionalProtectionTypeChange = async (sc, nextType) => {
+    if (!canEdit) return;
+    const value = sc.additionalProtectionType === nextType ? '' : nextType;
+    handleCellChange(sc._id, 'additionalProtectionType', value);
+    await handleBlur(sc._id, 'additionalProtectionType', value);
+  };
+
   const handleQuickAddRecommendation = async (sc, recText = '', recNo = '') => {
     if (!sc.deviationId || !sc.causeId) return;
     try {
       const token = localStorage.getItem('token');
-      
       const apiUrl = API_BASE;
       let groupId = sc.safeguardGroupId;
-      
+      let currentRecGroupId = sc.recommendationGroupId;
+      const currentUpdates = {};
+
       if (!groupId) {
         groupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-        
+        currentUpdates.safeguardGroupId = groupId;
+      }
+      if (!currentRecGroupId) {
+        currentRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        currentUpdates.recommendationGroupId = currentRecGroupId;
+      }
+
+      if (Object.keys(currentUpdates).length > 0) {
         await fetch(`${apiUrl}/api/scenarios/${sc._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ safeguardGroupId: groupId })
+          body: JSON.stringify(currentUpdates)
         });
-        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, safeguardGroupId: groupId } : s));
+        setScenarios(prev => prev.map(s => s._id === sc._id ? { ...s, ...currentUpdates } : s));
       }
+
+      const newRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
       const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
         method: 'POST',
@@ -2659,7 +2674,9 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           mitigatedRiskS: sc.mitigatedRiskS,
           mitigatedRiskL: sc.mitigatedRiskL,
           additionalProtection: recText,
+          additionalProtectionType: '',
           recommendationNo: recNo,
+          recommendationGroupId: newRecGroupId,
           insertAfterScenarioId: sc._id
         })
       });
@@ -2684,236 +2701,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
     } catch (error) {
       console.error('Error adding quick recommendation:', error);
       alert("Network error: Could not add recommendation. Please check your connection.");
-    }
-  };
-
-  const handleOpenRecTargetModal = (sc) => {
-    if (!sc) return;
-
-    // Find all sibling scenarios in this consequence group
-    const consKey = sc.consequenceGroupId || sc._id;
-    const consScenarios = processedScenarios.filter(s => (s.consequenceGroupId || s._id) === consKey);
-
-    const consOption = {
-      type: 'consequence',
-      id: consKey,
-      badge: sc.badgeCons || 'Consequence',
-      label: `Consequence ${sc.badgeCons || ''}`.trim(),
-      description: sc.consequencesImmediate || sc.consequencesUltimate || '(Current Consequence)'
-    };
-
-    const safeguardOptions = [];
-    const seenSafeKeys = new Set();
-    consScenarios.forEach(s => {
-      const sSafeKey = s.safeguardGroupId || s._id;
-      if (!seenSafeKeys.has(sSafeKey) && (s.presentProtection || '').trim() !== '') {
-        seenSafeKeys.add(sSafeKey);
-        safeguardOptions.push({
-          type: 'safeguard',
-          id: s._id,
-          safeguardGroupId: s.safeguardGroupId,
-          badge: s.badgeSafe || 'Safeguard',
-          label: `Safeguard ${s.badgeSafe || ''}`.trim(),
-          description: s.presentProtection,
-          scenario: s
-        });
-      }
-    });
-
-    const options = [consOption, ...safeguardOptions];
-    
-    let defaultSelected = options[0];
-    if (sc.recommendationAgainst) {
-      const found = options.find(o => o.label === sc.recommendationAgainst || sc.recommendationAgainst.includes(o.badge));
-      if (found) defaultSelected = found;
-    }
-
-    setRecTargetModal({
-      isOpen: true,
-      scenario: sc,
-      options,
-      selectedTarget: defaultSelected
-    });
-  };
-
-  const handleConfirmRecTarget = async (selectedTarget) => {
-    if (!selectedTarget || !recTargetModal.scenario) return;
-    const currentSc = recTargetModal.scenario;
-    setRecTargetModal({ isOpen: false, scenario: null, options: [], selectedTarget: null });
-
-    try {
-      const token = localStorage.getItem('token');
-      const apiUrl = API_BASE;
-      const targetLabel = selectedTarget.label;
-
-      const currentIsEmpty = !currentSc.additionalProtection || !currentSc.additionalProtection.trim();
-
-      if (currentIsEmpty) {
-        const recGroupId = currentSc.recommendationGroupId || ('rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
-        const newRecNo = currentSc.recommendationNo || nextRecNo;
-
-        setScenarios(prev => prev.map(s => {
-          if (s._id === currentSc._id) {
-            return {
-              ...s,
-              recommendationAgainst: targetLabel,
-              recommendationGroupId: recGroupId,
-              recommendationNo: newRecNo
-            };
-          }
-          return s;
-        }));
-
-        await fetch(`${apiUrl}/api/scenarios/${currentSc._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            recommendationAgainst: targetLabel,
-            recommendationGroupId: recGroupId,
-            recommendationNo: newRecNo
-          })
-        });
-
-        fetchStudyRecommendations();
-        setTimeout(() => {
-          const row = document.getElementById(`scenario-row-${currentSc._id}`);
-          const textarea = row ? row.querySelector('.w-additional textarea') : null;
-          if (textarea) textarea.focus();
-        }, 100);
-        return;
-      }
-
-      // If current scenario ALREADY has text, we want to ADD a new recommendation!
-      const consKey = currentSc.consequenceGroupId || currentSc._id;
-      const consScenarios = scenarios.filter(s => (s.consequenceGroupId || s._id) === consKey);
-
-      let freeRow = null;
-      if (selectedTarget.type === 'safeguard' && selectedTarget.scenario) {
-        const targetRow = consScenarios.find(s => s._id === selectedTarget.scenario._id);
-        if (targetRow && (!targetRow.additionalProtection || !targetRow.additionalProtection.trim()) && !targetRow.recommendationGroupId) {
-          freeRow = targetRow;
-        }
-      }
-
-      if (!freeRow) {
-        freeRow = consScenarios.find(s => s._id !== currentSc._id && (!s.additionalProtection || !s.additionalProtection.trim()) && !s.recommendationGroupId);
-      }
-
-      if (freeRow) {
-        const newRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-        const newRecNo = nextRecNo;
-
-        setScenarios(prev => prev.map(s => {
-          if (s._id === freeRow._id) {
-            return {
-              ...s,
-              recommendationAgainst: targetLabel,
-              recommendationGroupId: newRecGroupId,
-              recommendationNo: newRecNo
-            };
-          }
-          return s;
-        }));
-
-        await fetch(`${apiUrl}/api/scenarios/${freeRow._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            recommendationAgainst: targetLabel,
-            recommendationGroupId: newRecGroupId,
-            recommendationNo: newRecNo
-          })
-        });
-
-        fetchStudyRecommendations();
-        setTimeout(() => {
-          const row = document.getElementById(`scenario-row-${freeRow._id}`);
-          if (row) {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const textarea = row.querySelector('.w-additional textarea');
-            if (textarea) textarea.focus();
-          }
-        }, 200);
-        return;
-      }
-
-      // If NO free row exists, insert a new scenario sub-row into the database!
-      let safeguardGroupId = currentSc.safeguardGroupId;
-      let presentProtection = currentSc.presentProtection || '';
-      let safeguardType = currentSc.safeguardType || '';
-
-      if (selectedTarget.type === 'safeguard' && selectedTarget.scenario) {
-        safeguardGroupId = selectedTarget.scenario.safeguardGroupId;
-        presentProtection = selectedTarget.scenario.presentProtection || '';
-        safeguardType = selectedTarget.scenario.safeguardType || '';
-        if (!safeguardGroupId) {
-          safeguardGroupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-          await fetch(`${apiUrl}/api/scenarios/${selectedTarget.scenario._id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ safeguardGroupId })
-          });
-        }
-      } else {
-        if (!safeguardGroupId) {
-          safeguardGroupId = 'sgrp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-          await fetch(`${apiUrl}/api/scenarios/${currentSc._id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ safeguardGroupId })
-          });
-        }
-      }
-
-      const newRecGroupId = 'rec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-      const postPayload = {
-        nodeId: selectedNodeId,
-        deviationId: currentSc.deviationId?._id || currentSc.deviationId,
-        causeId: currentSc.causeId?._id || currentSc.causeId,
-        consequenceGroupId: currentSc.consequenceGroupId,
-        consequencesImmediate: currentSc.consequencesImmediate,
-        consequencesUltimate: currentSc.consequencesUltimate,
-        consequenceCategory: currentSc.consequenceCategory,
-        inherentRiskS: currentSc.inherentRiskS,
-        inherentRiskL: currentSc.inherentRiskL,
-        safeguardGroupId: safeguardGroupId,
-        presentProtection: presentProtection,
-        safeguardType: safeguardType,
-        mitigatedRiskS: currentSc.mitigatedRiskS,
-        mitigatedRiskL: currentSc.mitigatedRiskL,
-        isLopa: !!currentSc.isLopa,
-        isBowtie: !!currentSc.isBowtie,
-        additionalProtection: '',
-        recommendationNo: nextRecNo,
-        recommendationAgainst: targetLabel,
-        recommendationGroupId: newRecGroupId,
-        insertAfterScenarioId: currentSc._id
-      };
-
-      const response = await fetch(`${apiUrl}/api/scenarios/${study._id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(postPayload)
-      });
-
-      if (response.ok) {
-        const newScenario = await response.json();
-        insertScenarioLocally(newScenario, currentSc._id);
-        setSelectedRowIds([newScenario._id]);
-        setTimeout(() => {
-          const newRow = document.getElementById(`scenario-row-${newScenario._id}`);
-          if (newRow) {
-            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            newRow.classList.add('row-just-added');
-            setTimeout(() => newRow.classList.remove('row-just-added'), 2500);
-            const textarea = newRow.querySelector('.w-additional textarea');
-            if (textarea) textarea.focus();
-          }
-        }, 100);
-      }
-    } catch (error) {
-      console.error('Error adding targeted recommendation:', error);
-      alert('Failed to add recommendation target. Please try again.');
     }
   };
 
@@ -3034,6 +2821,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
         const updatePayload = { 
           additionalProtection: '', 
+          additionalProtectionType: '',
           recommendationNo: '',
           recommendationAgainst: '',
           recommendationGroupId: ''
@@ -3316,8 +3104,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         rowsToExport = processedScenarios;
       }
 
-      const csvHasBowtie = rowsToExport.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== ''));
-      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,${csvHasBowtie ? 'SAFEGUARD TYPE (P/M),' : ''}MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA,BOWTIE\n`;
+      const csvHasBowtie = rowsToExport.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '') || (s.additionalProtectionType && s.additionalProtectionType !== ''));
+      let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,${csvHasBowtie ? 'SAFEGUARD TYPE (P/M),' : ''}MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),${csvHasBowtie ? 'REC TYPE (P/M),' : ''}RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA,BOWTIE\n`;
       let devCounter = 0;
       let lastDevId = null;
 
@@ -3348,6 +3136,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           escape(sc.mitigatedRiskL),
           escape(sc.mitigatedRiskRR),
           escape(sc.additionalProtection ? `${sc.recommendationNo || sc.displayRecNo ? (sc.recommendationNo || sc.displayRecNo) + ': ' : ''}${sc.additionalProtection}` : ''),
+          ...(csvHasBowtie ? [escape(sc.additionalProtectionType || '')] : []),
           escape(sc.residualRiskS),
           escape(sc.residualRiskL),
           escape(sc.residualRiskRR),
@@ -3428,7 +3217,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const { studyRecMap } = buildStudyRecommendationRegistry(sortedFullScenarios);
 
       const rawSheetName = exportAll ? 'HAZOP All Nodes' : (selectedNode?.description || 'HAZOP Worksheet');
-      const excelHasBowtie = exportData.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== ''));
+      const excelHasBowtie = exportData.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '') || (s.additionalProtectionType && s.additionalProtectionType !== ''));
       const cleanSheetName = rawSheetName.replace(/[[\]*?:/\\]/g, '_').substring(0, 31);
 
       let tableHtml = `
@@ -3471,6 +3260,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 ${excelHasBowtie ? '<th rowspan="2">TYPE (P/M)</th>' : ''}
                 <th colspan="3">MITIGATED RISK</th>
                 <th rowspan="2">ADDITIONAL PROTECTION (RECOMMENDATIONS)</th>
+                ${excelHasBowtie ? '<th rowspan="2">REC TYPE (P/M)</th>' : ''}
                 <th colspan="3">RESIDUAL RISK</th>
                 <th rowspan="2">REMARKS</th>
                 <th rowspan="2">STATUS</th>
@@ -3497,7 +3287,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const renderNodeRows = (nodeScenarios, nodeName) => {
         let rowsHtml = '';
         if (nodeName) {
-          rowsHtml += `<tr><td colspan="${excelHasBowtie ? 26 : 25}" class="node-banner">📁 NODE: ${escapeHtml(nodeName)}</td></tr>`;
+          rowsHtml += `<tr><td colspan="${excelHasBowtie ? 27 : 25}" class="node-banner">📁 NODE: ${escapeHtml(nodeName)}</td></tr>`;
         }
 
         const sorted = sortStudyScenarios(nodeScenarios, studyNodes);
@@ -3536,8 +3326,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           if (!isNewRec && prevSc) {
             if (sc.recommendationGroupId) {
               isNewRec = sc.recommendationGroupId !== prevSc.recommendationGroupId;
-            } else if (sc.recommendationAgainst && sc.recommendationAgainst !== prevSc.recommendationAgainst) {
-              isNewRec = true;
             } else if (sc.additionalProtection && sc.additionalProtection.trim() !== '') {
               if (!prevSc.additionalProtection || prevSc.additionalProtection.trim() === '') {
                 isNewRec = true;
@@ -3655,8 +3443,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           }
 
           if (isNewRec) {
-            const againstBadge = sc.recommendationAgainst ? `[${sc.recommendationAgainst}] ` : '';
-            rowsHtml += `<td rowspan="${recSpan}">${escapeHtml(recLabel + againstBadge + (sc.additionalProtection || ''))}</td>`;
+            rowsHtml += `<td rowspan="${recSpan}">${escapeHtml(recLabel + (sc.additionalProtection || ''))}</td>`;
+            if (excelHasBowtie) {
+              rowsHtml += `<td rowspan="${recSpan}" align="center"><b>${escapeHtml(sc.additionalProtectionType || '')}</b></td>`;
+            }
           }
 
           if (isNewCons) {
@@ -4876,6 +4666,11 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                 <th className="th-primary th-risk-mitigated" colSpan={3} style={{borderBottom: 'none'}}>MITIGATED RISK</th>
                 
                 <th className="th-primary w-additional" rowSpan={2}>ADDITIONAL PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Recommendations)</span></th>
+                {hasAnyBowtie && (
+                  <th className="th-primary w-safe-type" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}} title="Define Additional Protection Type for BowTie: P = Preventive, M = Mitigative">
+                    TYPE<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(P / M)</span>
+                  </th>
+                )}
                 
                 <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
                 <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
@@ -5278,73 +5073,129 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                   )}
                   
                   {sc.isNewRec && (
-                    <td className="w-additional" rowSpan={sc.recSpanCount}>
-                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px'}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
-                            {sc.displayRecNo && (
-                              <span style={{fontWeight: 'bold', fontSize: '11px', color: '#2563eb'}}>
-                                {sc.displayRecNo}.
-                              </span>
+                    <>
+                      <td className="w-additional" rowSpan={sc.recSpanCount}>
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px'}}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
+                              {sc.displayRecNo && (
+                                <span style={{fontWeight: 'bold', fontSize: '11px', color: '#2563eb'}}>
+                                  {sc.displayRecNo}.
+                                </span>
+                              )}
+                            </div>
+                            {canEdit && sc.additionalProtection && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRecommendation(sc)}
+                                title={`Delete recommendation ${sc.displayRecNo || ''}`}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  padding: '2px 4px',
+                                  lineHeight: 1
+                                }}
+                              >
+                                ✕
+                              </button>
                             )}
+                          </div>
+                          <AutocompleteTextarea disabled={!canEdit} 
+                            style={{flex: 1}}
+                            value={sc.additionalProtection || ''} 
+                            onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
+                            onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
+                            suggestions={uniqueSuggestions.recs}
+                            placeholder="Enter recommendation (Press Enter to add row, Shift+Enter for new line)"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                e.target.blur();
+                                handleQuickAddRecommendation(sc);
+                              }
+                            }}
+                          />
+                        </div>
+                      </td>
+                      {hasAnyBowtie && (
+                        <td
+                          className="w-safe-type"
+                          rowSpan={sc.recSpanCount}
+                          style={{
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            padding: '4px',
+                            borderLeft: '1px solid var(--border-color, #e2e8f0)',
+                            backgroundColor: (sc.isBowtie && (sc.additionalProtection || '').trim() && !sc.additionalProtectionType)
+                              ? 'rgba(245, 158, 11, 0.12)'
+                              : undefined
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              gap: '4px',
+                              padding: '2px',
+                              borderRadius: '6px',
+                              border: (sc.isBowtie && (sc.additionalProtection || '').trim() && !sc.additionalProtectionType)
+                                ? '1px dashed #d97706'
+                                : '1px solid transparent'
+                            }}
+                            title={
+                              sc.isBowtie && (sc.additionalProtection || '').trim() && !sc.additionalProtectionType
+                                ? 'Select P (Preventive) or M (Mitigative) for BowTie'
+                                : 'Additional Protection Type: P = Preventive (Left), M = Mitigative (Right)'
+                            }
+                          >
                             <button
                               type="button"
-                              onClick={() => handleOpenRecTargetModal(sc)}
-                              title="Click to set or change recommendation target (Consequence / Safeguard)"
+                              disabled={!canEdit}
+                              onClick={() => handleAdditionalProtectionTypeChange(sc, 'P')}
+                              title="Preventive Safeguard (Cause → Immediate Consequence)"
                               style={{
-                                background: (sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#fef3c7' : '#e0e7ff',
-                                color: (sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#92400e' : '#3730a3',
-                                border: '1px solid ' + ((sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '#fde68a' : '#c7d2fe'),
+                                minWidth: '26px',
+                                height: '24px',
                                 borderRadius: '4px',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                padding: '1px 6px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px'
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: canEdit ? 'pointer' : 'default',
+                                border: sc.additionalProtectionType === 'P' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                                backgroundColor: sc.additionalProtectionType === 'P' ? '#dbeafe' : '#ffffff',
+                                color: sc.additionalProtectionType === 'P' ? '#1d4ed8' : '#64748b',
+                                opacity: canEdit ? 1 : 0.75,
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              <span>{(sc.recommendationAgainst && sc.recommendationAgainst.startsWith('Safeguard')) ? '🛡️' : '📌'}</span>
-                              <span>{sc.recommendationAgainst || 'Consequence'}</span>
+                              P
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!canEdit}
+                              onClick={() => handleAdditionalProtectionTypeChange(sc, 'M')}
+                              title="Mitigative Safeguard (Immediate Consequence → Ultimate Consequence)"
+                              style={{
+                                minWidth: '26px',
+                                height: '24px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: canEdit ? 'pointer' : 'default',
+                                border: sc.additionalProtectionType === 'M' ? '1.5px solid #7c3aed' : '1px solid #cbd5e1',
+                                backgroundColor: sc.additionalProtectionType === 'M' ? '#ede9fe' : '#ffffff',
+                                color: sc.additionalProtectionType === 'M' ? '#6d28d9' : '#64748b',
+                                opacity: canEdit ? 1 : 0.75,
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              M
                             </button>
                           </div>
-                          {canEdit && sc.additionalProtection && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRecommendation(sc)}
-                              title={`Delete recommendation ${sc.displayRecNo || ''}`}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#ef4444',
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                padding: '2px 4px',
-                                lineHeight: 1
-                              }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                        <AutocompleteTextarea disabled={!canEdit} 
-                          style={{flex: 1}}
-                          value={sc.additionalProtection || ''} 
-                          onChange={(e) => handleCellChange(sc._id, 'additionalProtection', e.target.value)}
-                          onBlur={(e) => handleBlur(sc._id, 'additionalProtection', e.target.value)}
-                          suggestions={uniqueSuggestions.recs}
-                          placeholder="Enter recommendation (Press Enter to add/target, Shift+Enter for new line)"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              e.target.blur();
-                              handleOpenRecTargetModal(sc);
-                            }
-                          }}
-                        />
-                      </div>
-                    </td>
+                        </td>
+                      )}
+                    </>
                   )}
 
                   {sc.isNewCons && (
@@ -5676,14 +5527,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         nextRecNo={nextRecNo}
       />
 
-      <SelectRecTargetModal
-        isOpen={recTargetModal.isOpen}
-        onClose={() => setRecTargetModal({ isOpen: false, scenario: null, options: [], selectedTarget: null })}
-        scenario={recTargetModal.scenario}
-        options={recTargetModal.options}
-        initialSelectedTarget={recTargetModal.selectedTarget}
-        onConfirm={handleConfirmRecTarget}
-      />
 
       {/* Floating Exit Focus Mode Button */}
       {isFocusMode && (

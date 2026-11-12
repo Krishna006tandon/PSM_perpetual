@@ -728,6 +728,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               <tr>
                 <th rowSpan={2} style={{width:'60px', textAlign:'center'}}>#</th>
                 <th rowSpan={2} className="col-custom" style={{width: '280px'}}>RECOMMENDATION STATEMENT</th>
+                {scenarios.some(s => !!s.isBowtie || !!s.additionalProtectionType) && (
+                  <th rowSpan={2} style={{ width: '80px', minWidth: '80px', textAlign: 'center' }}>TYPE (P/M)</th>
+                )}
                 
                 <th colSpan={3} className="th-risk-inherent" style={{textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)'}}>INHERENT RISK</th>
                 <th colSpan={3} className="th-risk-mitigated" style={{textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)'}}>MITIGATED RISK</th>
@@ -768,7 +771,7 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                   <React.Fragment key={sc._id}>
                     {isNewNode && (
                       <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 'bold' }}>
-                        <td colSpan={12 + columns.length} style={{ padding: '8px 12px', color: '#0f172a', fontSize: '12px' }}>
+                        <td colSpan={(scenarios.some(s => !!s.isBowtie || !!s.additionalProtectionType) ? 13 : 12) + columns.length} style={{ padding: '8px 12px', color: '#0f172a', fontSize: '12px' }}>
                           📁 NODE: {sc.nodeId?.description || 'General Node'}
                         </td>
                       </tr>
@@ -793,6 +796,44 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
                           </div>
                         )}
                       </td>
+                      {scenarios.some(s => !!s.isBowtie || !!s.additionalProtectionType) && (
+                        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'inline-flex', gap: '4px' }}>
+                            {['P', 'M'].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                disabled={!canEdit}
+                                onClick={() => {
+                                  const nextVal = sc.additionalProtectionType === t ? '' : t;
+                                  handleCellChange(sc._id, 'additionalProtectionType', nextVal);
+                                  handleBlur(sc._id, 'additionalProtectionType', nextVal);
+                                }}
+                                title={t === 'P' ? 'Preventive Safeguard' : 'Mitigative Safeguard'}
+                                style={{
+                                  minWidth: '26px',
+                                  height: '24px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: canEdit ? 'pointer' : 'default',
+                                  border: sc.additionalProtectionType === t
+                                    ? (t === 'P' ? '1.5px solid #2563eb' : '1.5px solid #7c3aed')
+                                    : '1px solid #cbd5e1',
+                                  backgroundColor: sc.additionalProtectionType === t
+                                    ? (t === 'P' ? '#dbeafe' : '#ede9fe')
+                                    : '#ffffff',
+                                  color: sc.additionalProtectionType === t
+                                    ? (t === 'P' ? '#1d4ed8' : '#6d28d9')
+                                    : '#64748b'
+                                }}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                      )}
 
                       {/* INHERENT RISK */}
                       <td className="w-risk-s">

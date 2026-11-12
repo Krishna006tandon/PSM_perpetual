@@ -492,6 +492,7 @@ router.post('/:studyId/bulk-paste', async (req, res) => {
         likelihoodMitigated: row.likelihoodMitigated !== undefined && row.likelihoodMitigated !== '' ? row.likelihoodMitigated : null,
         riskMitigated: row.riskMitigated || '',
         additionalProtection: row.additionalProtection || '',
+        additionalProtectionType: row.additionalProtectionType || '',
         recommendationNo: row.recommendationNo || '',
         severityResidual: row.severityResidual !== undefined && row.severityResidual !== '' ? row.severityResidual : null,
         likelihoodResidual: row.likelihoodResidual !== undefined && row.likelihoodResidual !== '' ? row.likelihoodResidual : null,

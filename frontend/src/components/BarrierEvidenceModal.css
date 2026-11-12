@@ -15,12 +15,17 @@
 }
 
 .be-modal-container {
+  --bg-default: #f8fafc;
+  --bg-paper: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --divider: #cbd5e1;
   width: 100vw;
   height: 100vh;
   max-width: 100vw;
   max-height: 100vh;
-  background: var(--bg-paper, #ffffff);
-  color: var(--text-primary, #0f172a);
+  background: #ffffff;
+  color: #0f172a;
   border-radius: 0;
   display: flex;
   flex-direction: column;

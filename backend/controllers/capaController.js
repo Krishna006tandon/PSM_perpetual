@@ -30,8 +30,15 @@ const generateActionNumber = async (incident) => {
 };
 
 const createLinkedMocTicket = async (incident, capa, actorName) => {
-  const count = await MOCTicket.countDocuments();
-  const mocId = `MOC-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+  const year = new Date().getFullYear();
+  const prefix = `MOC-${year}-`;
+  const existingMocs = await MOCTicket.find({ mocId: { $regex: `^${prefix}` } }, { mocId: 1 });
+  let maxSeq = 0;
+  existingMocs.forEach((m) => {
+    const tail = parseInt(String(m.mocId || '').replace(prefix, ''), 10);
+    if (!Number.isNaN(tail) && tail > maxSeq) maxSeq = tail;
+  });
+  const mocId = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
   const titleBase = `[CAPA ${capa.actionNumber}] ${String(capa.description || '').slice(0, 75)}`;
 
   const ticket = new MOCTicket({

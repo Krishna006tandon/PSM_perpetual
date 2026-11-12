@@ -58,7 +58,7 @@ exports.getPlantPsmAnalytics = async (req, res) => {
     const [rootCauseNodes, capas] = incidentIds.length > 0
       ? await Promise.all([
           WhyWhyNode.find({ incidentId: { $in: incidentIds }, isRootCause: true }),
-          CAPA.find({ incidentId: { $in: incidentIds } }).populate('mocReference.mocId', 'mocNumber status')
+          CAPA.find({ incidentId: { $in: incidentIds } }).populate('mocReference.mocId', 'mocId status')
         ])
       : [[], []];
 

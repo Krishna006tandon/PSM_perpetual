@@ -12,8 +12,13 @@
 }
 
 .capa-modal-shell {
-  background: var(--bg-paper, #ffffff);
-  color: var(--text-primary, #0f172a);
+  --bg-default: #f8fafc;
+  --bg-paper: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --divider: #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
   border-radius: 0;
   width: 100vw;
   max-width: 100vw;

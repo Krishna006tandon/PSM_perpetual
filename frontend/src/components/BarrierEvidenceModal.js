@@ -89,7 +89,10 @@ export default function BarrierEvidenceModal({ isOpen, onClose, incident, onUpda
     if (!incident?._id) return;
     setLoading(true);
     try {
-      const data = await safeFetchJson(`${API_URL}/api/incidents/${incident._id}/barriers-evidence`);
+      const token = localStorage.getItem('token');
+      const data = await safeFetchJson(`${API_URL}/api/incidents/${incident._id}/barriers-evidence`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       setBarriers(data.barrierAnalysis || []);
       setEvidenceList(data.supportingEvidence || []);
       setSummary(

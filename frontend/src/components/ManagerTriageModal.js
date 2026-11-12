@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
@@ -42,6 +42,33 @@ export default function ManagerTriageModal({ isOpen, onClose, incident, onTriage
           { name: '', designation: 'Maintenance Lead', department: 'Mechanical Maintenance', email: '', role: 'Technical Specialist' }
         ]
   );
+
+  // Sync modal state whenever a different incident is opened
+  useEffect(() => {
+    if (!isOpen || !incident) return;
+    setActiveTab('declaration');
+    setDecision(incident.triage?.decision || 'Formal Investigation Mandated');
+    setComments(incident.triage?.comments || '');
+    setError(null);
+    setReviewerName(incident.reviewerDeclaration?.reviewedBy || currentUser?.name || 'Plant Manager / HSE Head');
+    setReviewerRole(incident.reviewerDeclaration?.reviewerRole || currentUser?.role || 'Process Safety / HSE Reviewer');
+    setReviewerEmail(incident.reviewerDeclaration?.reviewerEmail || currentUser?.email || '');
+    setIsDeclarationConfirmed(incident.reviewerDeclaration?.isConfirmed ?? true);
+    setLeader({
+      name: incident.cft?.leader?.name || '',
+      designation: incident.cft?.leader?.designation || 'EHS Lead Investigator',
+      email: incident.cft?.leader?.email || '',
+      department: incident.cft?.leader?.department || 'Safety & EHS'
+    });
+    setMembers(
+      incident.cft?.members && incident.cft.members.length > 0
+        ? incident.cft.members.map((m) => ({ ...m }))
+        : [
+            { name: '', designation: 'Operations Specialist', department: 'Operations', email: '', role: 'Investigator' },
+            { name: '', designation: 'Maintenance Lead', department: 'Mechanical Maintenance', email: '', role: 'Technical Specialist' }
+          ]
+    );
+  }, [isOpen, incident, currentUser?.name, currentUser?.role, currentUser?.email]);
 
   if (!isOpen || !incident) return null;
 

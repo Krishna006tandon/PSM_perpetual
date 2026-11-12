@@ -3,6 +3,7 @@ import IncidentFIRModal from '../components/IncidentFIRModal';
 import ManagerTriageModal from '../components/ManagerTriageModal';
 import IncidentDetailsModal from '../components/IncidentDetailsModal';
 import InvestigationWorkspaceModal from '../components/InvestigationWorkspaceModal';
+import CapaWorkspaceModal from '../components/CapaWorkspaceModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -22,7 +23,10 @@ export default function IncidentDashboard({ currentUser, onBack }) {
     pendingTriageCount: 0,
     overdueSlaCount: 0,
     activeInvestigationCount: 0,
-    closedCount: 0
+    closedCount: 0,
+    openCapaCount: 0,
+    overdueCapaCount: 0,
+    pendingCapaVerificationCount: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,6 +42,8 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [selectedIncidentForTriage, setSelectedIncidentForTriage] = useState(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState(null);
   const [selectedIncidentForInvestigation, setSelectedIncidentForInvestigation] = useState(null);
+  const [selectedIncidentForCapa, setSelectedIncidentForCapa] = useState(null);
+  const [capaInitialWhyNodeId, setCapaInitialWhyNodeId] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
     setLoading(true);
@@ -179,6 +185,20 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           </div>
         )}
 
+        <div className={`kpi-card ${(stats.overdueCapaCount || 0) > 0 ? 'kpi-card-breached' : ''}`}>
+          <div className="kpi-label">Stage 3B CAPA Tracker</div>
+          <div className="kpi-value">
+            {(stats.overdueCapaCount || 0) > 0 ? (
+              <span className="text-danger">{stats.overdueCapaCount} Overdue</span>
+            ) : (
+              <span>{stats.openCapaCount || 0} Active</span>
+            )}
+          </div>
+          <div className="kpi-sub">
+            {stats.pendingCapaVerificationCount || 0} awaiting HSE verification
+          </div>
+        </div>
+
         <div className={`kpi-card ${stats.overdueSlaCount > 0 ? 'kpi-card-breached' : ''}`}>
           <div className="kpi-label">7-Day SLA Status</div>
           <div className="kpi-value">
@@ -230,6 +250,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
             <option value="Submitted">Submitted (Pending Review)</option>
             <option value="Investigation Active">Investigation Active</option>
             <option value="CAPA Pending">CAPA Pending</option>
+            <option value="CAPA Verification">CAPA Verification</option>
             <option value="Closed">Closed</option>
             <option value="Administratively Closed">Administratively Closed</option>
           </select>
@@ -367,6 +388,16 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                         🔬 Why-Why RCA
                       </button>
                       <button
+                        className="btn-action-capa"
+                        onClick={() => {
+                          setCapaInitialWhyNodeId(null);
+                          setSelectedIncidentForCapa(inc);
+                        }}
+                        title="Open Stage 3B CAPA Action & Verification Workspace"
+                      >
+                        📋 CAPAs
+                      </button>
+                      <button
                         className="btn-action-triage"
                         onClick={() => setSelectedIncidentForTriage(inc)}
                         title="Conduct Manager Review & CFT Setup"
@@ -418,6 +449,23 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         incident={selectedIncidentForInvestigation}
         currentUser={currentUser}
         onInvestigationUpdated={fetchIncidentsAndStats}
+        onCreateCapaFromNode={(inc, whyNode) => {
+          setSelectedIncidentForInvestigation(null);
+          setCapaInitialWhyNodeId(whyNode?._id || null);
+          setSelectedIncidentForCapa(inc);
+        }}
+      />
+
+      <CapaWorkspaceModal
+        isOpen={!!selectedIncidentForCapa}
+        onClose={() => {
+          setSelectedIncidentForCapa(null);
+          setCapaInitialWhyNodeId(null);
+        }}
+        incident={selectedIncidentForCapa}
+        currentUser={currentUser}
+        initialWhyNodeId={capaInitialWhyNodeId}
+        onCapaUpdated={fetchIncidentsAndStats}
       />
 
       <IncidentDetailsModal
@@ -428,6 +476,11 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         onOpenInvestigation={(inc) => {
           setSelectedIncidentForDetails(null);
           setSelectedIncidentForInvestigation(inc);
+        }}
+        onOpenCapa={(inc) => {
+          setSelectedIncidentForDetails(null);
+          setCapaInitialWhyNodeId(null);
+          setSelectedIncidentForCapa(inc);
         }}
       />
     </div>

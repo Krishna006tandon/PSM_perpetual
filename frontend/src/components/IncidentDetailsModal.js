@@ -3,13 +3,15 @@ import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation }) {
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa }) {
   const [rcaNodes, setRcaNodes] = useState([]);
+  const [capas, setCapas] = useState([]);
 
   useEffect(() => {
     let active = true;
     if (!isOpen || !incident?._id) {
       setRcaNodes([]);
+      setCapas([]);
       return undefined;
     }
 
@@ -23,6 +25,9 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
       .then((data) => {
         if (active && Array.isArray(data?.nodes)) {
           setRcaNodes(data.nodes);
+        }
+        if (active && Array.isArray(data?.capas)) {
+          setCapas(data.capas);
         }
       })
       .catch(() => {
@@ -82,19 +87,20 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 10000,
-      padding: '20px'
+      padding: 0
     }}>
       <div style={{
         background: 'var(--bg-paper, #ffffff)',
         color: 'var(--text-primary, #0f172a)',
-        borderRadius: '16px',
+        borderRadius: 0,
         width: '100%',
-        maxWidth: '920px',
-        maxHeight: '94vh',
+        maxWidth: '100vw',
+        height: '100vh',
+        maxHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-        border: '1px solid var(--divider, #cbd5e1)',
+        border: 'none',
         overflow: 'hidden'
       }}>
         {/* Header */}
@@ -455,6 +461,65 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
                 </div>
               );
             })()}
+          </div>
+
+          {/* Stage 3B: CAPA Actions Summary */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>
+                Stage 3B: Corrective & Preventive Actions ({capas.length} CAPA{capas.length === 1 ? '' : 's'})
+              </h4>
+              {onOpenCapa && (
+                <button
+                  type="button"
+                  onClick={() => onOpenCapa(incident)}
+                  style={{
+                    background: '#d97706',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📋 Open CAPA Tracker
+                </button>
+              )}
+            </div>
+
+            {capas.length === 0 ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                No CAPA items assigned yet. Open the CAPA Tracker to assign corrective & preventive actions.
+              </div>
+            ) : (
+              <div style={{ background: 'var(--bg-default)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)', fontSize: '0.82rem' }}>
+                {capas.map((c) => (
+                  <div
+                    key={c._id}
+                    style={{
+                      padding: '6px 8px',
+                      marginBottom: '6px',
+                      background: c.status === 'Verified & Closed' ? '#f0fdf4' : '#ffffff',
+                      border: '1px solid var(--divider)',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', gap: '8px' }}>
+                      <span>{c.actionNumber} ({c.actionType})</span>
+                      <span style={{ color: c.status === 'Verified & Closed' ? '#15803d' : '#b45309' }}>
+                        {c.status}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '3px' }}>{c.description}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Owner: {c.assignee?.name} ({c.department}) | Due: {new Date(c.targetDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Immutable Audit Trail */}

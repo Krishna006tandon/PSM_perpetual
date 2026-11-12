@@ -150,19 +150,20 @@ export default function ManagerTriageModal({ isOpen, onClose, incident, onTriage
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 10000,
-      padding: '20px'
+      padding: 0
     }}>
       <div style={{
         background: 'var(--bg-paper, #ffffff)',
         color: 'var(--text-primary, #0f172a)',
-        borderRadius: '16px',
+        borderRadius: 0,
         width: '100%',
-        maxWidth: '860px',
-        maxHeight: '92vh',
+        maxWidth: '100vw',
+        height: '100vh',
+        maxHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-        border: '1px solid var(--divider, #cbd5e1)',
+        border: 'none',
         overflow: 'hidden'
       }}>
         {/* Header */}

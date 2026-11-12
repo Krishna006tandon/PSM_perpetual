@@ -522,6 +522,24 @@
   border-color: #6d28d9;
 }
 
+.btn-action-capa {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action-capa:hover {
+  background: #d97706;
+  color: #ffffff;
+  border-color: #d97706;
+}
+
 .btn-action-view {
   background: var(--bg-default);
   border: 1px solid var(--divider);

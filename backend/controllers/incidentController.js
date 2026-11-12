@@ -332,6 +332,15 @@ exports.getIncidentStats = async (req, res) => {
     let activeInvestigationCount = 0;
     let closedCount = 0;
 
+    const incidentIds = incidents.map(i => i._id);
+    const activeCapas = await CAPA.find({
+      incidentId: { $in: incidentIds },
+      status: { $ne: 'Verified & Closed' }
+    }, { targetDate: 1, status: 1 });
+    const openCapaCount = activeCapas.length;
+    const overdueCapaCount = activeCapas.filter(c => c.targetDate && now > new Date(c.targetDate)).length;
+    const pendingCapaVerificationCount = activeCapas.filter(c => c.status === 'Submitted For Verification').length;
+
     incidents.forEach(inc => {
       const cat = inc.api754Classification?.category || inc.api754Classification?.tier;
       if (cat === 'Tier 1 PSE' || cat === 'Tier 1') tier1Count++;
@@ -349,7 +358,7 @@ exports.getIncidentStats = async (req, res) => {
         }
       }
 
-      if (inc.status === 'Investigation Active' || inc.status === 'CAPA Pending') {
+      if (inc.status === 'Investigation Active' || inc.status === 'CAPA Pending' || inc.status === 'CAPA Verification') {
         activeInvestigationCount++;
       } else if (inc.status === 'Closed' || inc.status === 'Administratively Closed') {
         closedCount++;
@@ -365,6 +374,9 @@ exports.getIncidentStats = async (req, res) => {
       nearMissCount,
       otherIncidentCount,
       pendingClassificationCount,
+      openCapaCount,
+      overdueCapaCount,
+      pendingCapaVerificationCount,
       pendingTriageCount,
       overdueSlaCount,
       activeInvestigationCount,
@@ -386,7 +398,9 @@ exports.getIncidentById = async (req, res) => {
 
     // Also fetch associated Why-Why Nodes and CAPAs
     const nodes = await WhyWhyNode.find({ incidentId: incident._id }).sort({ whyLevel: 1, branchIndex: 1 });
-    const capas = await CAPA.find({ incidentId: incident._id }).sort({ targetDate: 1 });
+    const capas = await CAPA.find({ incidentId: incident._id })
+      .populate('whyNodeId', 'statement whyLevel rootCauseType api754Category api754Subcategory')
+      .sort({ targetDate: 1 });
 
     res.json({
       ...incident.toObject(),

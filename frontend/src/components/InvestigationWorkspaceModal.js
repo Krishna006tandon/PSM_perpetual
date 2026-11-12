@@ -159,7 +159,8 @@ export default function InvestigationWorkspaceModal({
   onClose,
   incident,
   currentUser,
-  onInvestigationUpdated
+  onInvestigationUpdated,
+  onCreateCapaFromNode
 }) {
   const [nodes, setNodes] = useState([]);
   const [causalFactors, setCausalFactors] = useState(FALLBACK_CAUSAL_FACTORS);
@@ -1270,7 +1271,7 @@ export default function InvestigationWorkspaceModal({
                             <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>Untagged</span>
                           )}
                         </td>
-                        <td>
+                        <td style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             className="rca-mini-btn add-why"
@@ -1281,6 +1282,16 @@ export default function InvestigationWorkspaceModal({
                           >
                             Edit Step
                           </button>
+                          {onCreateCapaFromNode && (
+                            <button
+                              type="button"
+                              className="rca-mini-btn"
+                              style={{ background: '#fffbeb', borderColor: '#f59e0b', color: '#92400e' }}
+                              onClick={() => onCreateCapaFromNode(incident, rc)}
+                            >
+                              📋 + CAPA
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

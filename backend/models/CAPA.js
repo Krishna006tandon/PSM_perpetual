@@ -63,6 +63,12 @@ const capaSchema = new mongoose.Schema({
     isAccepted: Boolean
   },
 
+  mocReference: {
+    requiresMoc: { type: Boolean, default: false },
+    mocId: { type: mongoose.Schema.Types.ObjectId, ref: 'MOCTicket', default: null },
+    mocNumber: { type: String, default: '' }
+  },
+
   escalation: {
     isEscalated: { type: Boolean, default: false },
     escalationDate: Date,

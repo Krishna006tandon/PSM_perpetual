@@ -1,0 +1,290 @@
+/* Stage 3B: CAPA Action Engine & Digital Verification Workspace */
+
+.capa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-paper, #ffffff);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  z-index: 10600;
+  padding: 0;
+}
+
+.capa-modal-shell {
+  background: var(--bg-paper, #ffffff);
+  color: var(--text-primary, #0f172a);
+  border-radius: 0;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: none;
+  border: none;
+  overflow: hidden;
+}
+
+.capa-header {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--divider, #cbd5e1);
+  background: var(--bg-default, #f8fafc);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.capa-stage-pill {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.capa-progress-strip {
+  padding: 10px 22px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--divider, #cbd5e1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.capa-progress-track {
+  width: 180px;
+  height: 9px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.capa-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+  transition: width 0.25s ease;
+}
+
+.capa-body-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .capa-body-grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.capa-list-pane {
+  padding: 16px 22px;
+  overflow-y: auto;
+  background: #f8fafc;
+  border-right: 1px solid var(--divider, #cbd5e1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.capa-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.capa-card {
+  background: #ffffff;
+  border: 1.5px solid var(--divider, #cbd5e1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  transition: all 0.15s ease;
+}
+
+.capa-card.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.capa-card.overdue {
+  border-left: 5px solid #dc2626;
+}
+
+.capa-card.closed {
+  border-left: 5px solid #16a34a;
+  background: linear-gradient(to right, #f0fdf4 0%, #ffffff 35%);
+}
+
+.capa-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.capa-badge-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capa-num-pill {
+  background: #1e293b;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.capa-type-pill {
+  font-size: 0.71rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.capa-type-corrective {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.capa-type-preventive {
+  background: #faf5ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.capa-priority-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.prio-low { background: #f1f5f9; color: #475569; }
+.prio-medium { background: #fef3c7; color: #92400e; }
+.prio-high { background: #ffedd5; color: #9a3412; }
+.prio-critical { background: #fee2e2; color: #991b1b; }
+
+.capa-status-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.st-open { background: #eff6ff; color: #1d4ed8; }
+.st-in-progress { background: #fef3c7; color: #92400e; }
+.st-submitted-for-verification { background: #ede9fe; color: #5b21b6; }
+.st-verified-and-closed { background: #dcfce7; color: #166534; }
+.st-rejected-rework { background: #fee2e2; color: #991b1b; }
+
+.capa-desc {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.42;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.capa-rc-link-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.76rem;
+  color: #7f1d1d;
+  margin-bottom: 8px;
+}
+
+.capa-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.capa-evidence-preview-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.capa-photo-thumb {
+  width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.capa-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.capa-drawer-pane {
+  padding: 18px 22px;
+  overflow-y: auto;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.capa-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider, #e2e8f0);
+}
+
+.capa-drawer-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.capa-upload-box {
+  border: 1.5px dashed #94a3b8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

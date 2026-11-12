@@ -504,6 +504,24 @@
   color: #ffffff;
 }
 
+.btn-action-rca {
+  background: #f5f3ff;
+  border: 1px solid #8b5cf6;
+  color: #5b21b6;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action-rca:hover {
+  background: #6d28d9;
+  color: #ffffff;
+  border-color: #6d28d9;
+}
+
 .btn-action-view {
   background: var(--bg-default);
   border: 1px solid var(--divider);

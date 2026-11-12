@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import IncidentFIRModal from '../components/IncidentFIRModal';
 import ManagerTriageModal from '../components/ManagerTriageModal';
 import IncidentDetailsModal from '../components/IncidentDetailsModal';
+import InvestigationWorkspaceModal from '../components/InvestigationWorkspaceModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -36,6 +37,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [isFIRModalOpen, setIsFIRModalOpen] = useState(false);
   const [selectedIncidentForTriage, setSelectedIncidentForTriage] = useState(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState(null);
+  const [selectedIncidentForInvestigation, setSelectedIncidentForInvestigation] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
     setLoading(true);
@@ -358,6 +360,13 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                   <td style={{ textAlign: 'right' }}>
                     <div className="row-actions">
                       <button
+                        className="btn-action-rca"
+                        onClick={() => setSelectedIncidentForInvestigation(inc)}
+                        title="Open Stage 3A Why-Why RCA Investigation Workspace"
+                      >
+                        🔬 Why-Why RCA
+                      </button>
+                      <button
                         className="btn-action-triage"
                         onClick={() => setSelectedIncidentForTriage(inc)}
                         title="Conduct Manager Review & CFT Setup"
@@ -403,11 +412,23 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         currentUser={currentUser}
       />
 
+      <InvestigationWorkspaceModal
+        isOpen={!!selectedIncidentForInvestigation}
+        onClose={() => setSelectedIncidentForInvestigation(null)}
+        incident={selectedIncidentForInvestigation}
+        currentUser={currentUser}
+        onInvestigationUpdated={fetchIncidentsAndStats}
+      />
+
       <IncidentDetailsModal
         isOpen={!!selectedIncidentForDetails}
         onClose={() => setSelectedIncidentForDetails(null)}
         incident={selectedIncidentForDetails}
         onOpenTriage={(inc) => setSelectedIncidentForTriage(inc)}
+        onOpenInvestigation={(inc) => {
+          setSelectedIncidentForDetails(null);
+          setSelectedIncidentForInvestigation(inc);
+        }}
       />
     </div>
   );

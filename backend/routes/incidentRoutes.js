@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const incidentController = require('../controllers/incidentController');
+const whyWhyController = require('../controllers/whyWhyController');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
 
@@ -45,5 +46,13 @@ router.get('/:id', incidentController.getIncidentById);
 router.patch('/:id', incidentController.updateIncident);
 router.patch('/:id/triage', incidentController.triageIncident);
 router.delete('/:id', incidentController.deleteIncident);
+
+// Stage 3A: Why-Why RCA Tree & API RP 754 Causal Factor Tagging
+router.get('/:id/why-nodes', whyWhyController.getWhyWhyNodes);
+router.post('/:id/why-nodes', whyWhyController.createWhyWhyNode);
+router.patch('/:id/why-nodes/:nodeId', whyWhyController.updateWhyWhyNode);
+router.delete('/:id/why-nodes/:nodeId', whyWhyController.deleteWhyWhyNode);
+router.post('/:id/why-nodes/:nodeId/evidence', whyWhyController.addWhyNodeEvidence);
+router.delete('/:id/why-nodes/:nodeId/evidence/:evidenceId', whyWhyController.removeWhyNodeEvidence);
 
 module.exports = router;

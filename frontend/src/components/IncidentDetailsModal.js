@@ -1,6 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage }) {
+const API_URL = getApiUrl();
+
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation }) {
+  const [rcaNodes, setRcaNodes] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !incident?._id) {
+      setRcaNodes([]);
+      return undefined;
+    }
+
+    const token = localStorage.getItem('token');
+    safeFetchJson(`${API_URL}/api/incidents/${incident._id}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    })
+      .then((data) => {
+        if (active && Array.isArray(data?.nodes)) {
+          setRcaNodes(data.nodes);
+        }
+      })
+      .catch(() => {
+        if (active) setRcaNodes([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, incident?._id]);
   if (!isOpen || !incident) return null;
 
   const classification = incident.api754Classification || {};
@@ -367,6 +399,62 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
                 No CFT committee assigned yet. Awaiting manager triage review.
               </div>
             )}
+          </div>
+
+          {/* Stage 3A: Why-Why RCA Summary */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>
+                Stage 3A: Why-Why Root Cause Analysis ({rcaNodes.length} Node{rcaNodes.length === 1 ? '' : 's'})
+              </h4>
+              {onOpenInvestigation && (
+                <button
+                  type="button"
+                  onClick={() => onOpenInvestigation(incident)}
+                  style={{
+                    background: '#6d28d9',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔬 Open Why-Why RCA Workspace
+                </button>
+              )}
+            </div>
+
+            {(() => {
+              const rootCauses = rcaNodes.filter((n) => n.isRootCause || (n.rootCauseType && n.rootCauseType !== 'None'));
+              if (rcaNodes.length === 0) {
+                return (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No Why-Why investigation nodes recorded yet. Open the Investigation Workspace to begin RCA.
+                  </div>
+                );
+              }
+              return (
+                <div style={{ background: 'var(--bg-default)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)', fontSize: '0.82rem' }}>
+                  <div style={{ marginBottom: rootCauses.length > 0 ? '8px' : 0 }}>
+                    <strong>Progress:</strong> {rcaNodes.length} node(s) mapped |{' '}
+                    <strong style={{ color: '#b91c1c' }}>{rootCauses.length} Root Cause(s) / Contributing Factor(s)</strong> identified
+                  </div>
+                  {rootCauses.map((rc) => (
+                    <div key={rc._id} style={{ padding: '6px 8px', marginTop: '6px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}>
+                      <strong style={{ color: '#991b1b' }}>{rc.rootCauseType}:</strong> {rc.statement}
+                      {rc.api754Category && (
+                        <div style={{ fontSize: '0.75rem', color: '#1d4ed8', marginTop: '2px' }}>
+                          API 754 Taxonomy: {rc.api754Category}{rc.api754Subcategory ? ` → ${rc.api754Subcategory}` : ''}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Immutable Audit Trail */}

@@ -6,6 +6,7 @@ import InvestigationWorkspaceModal from '../components/InvestigationWorkspaceMod
 import CapaWorkspaceModal from '../components/CapaWorkspaceModal';
 import BarrierEvidenceModal from '../components/BarrierEvidenceModal';
 import TimelinePhaModal from '../components/TimelinePhaModal';
+import ClosureReportModal from '../components/ClosureReportModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -47,6 +48,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [selectedIncidentForCapa, setSelectedIncidentForCapa] = useState(null);
   const [selectedIncidentForEvidence, setSelectedIncidentForEvidence] = useState(null);
   const [selectedIncidentForTimeline, setSelectedIncidentForTimeline] = useState(null);
+  const [selectedIncidentForClosure, setSelectedIncidentForClosure] = useState(null);
   const [capaInitialWhyNodeId, setCapaInitialWhyNodeId] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
@@ -416,6 +418,13 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                         ⏱️ Timeline & PHA
                       </button>
                       <button
+                        className="btn-action-closure"
+                        onClick={() => setSelectedIncidentForClosure(inc)}
+                        title="Open Stage 4 Closure Gatekeeper, Digital Sign-Off & PDF Investigation Report"
+                      >
+                        📑 Report & Close
+                      </button>
+                      <button
                         className="btn-action-triage"
                         onClick={() => setSelectedIncidentForTriage(inc)}
                         title="Conduct Manager Review & CFT Setup"
@@ -500,6 +509,14 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         onUpdated={fetchIncidentsAndStats}
       />
 
+      <ClosureReportModal
+        isOpen={!!selectedIncidentForClosure}
+        onClose={() => setSelectedIncidentForClosure(null)}
+        incident={selectedIncidentForClosure}
+        currentUser={currentUser}
+        onUpdated={fetchIncidentsAndStats}
+      />
+
       <IncidentDetailsModal
         isOpen={!!selectedIncidentForDetails}
         onClose={() => setSelectedIncidentForDetails(null)}
@@ -512,6 +529,10 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         onOpenTimeline={(inc) => {
           setSelectedIncidentForDetails(null);
           setSelectedIncidentForTimeline(inc);
+        }}
+        onOpenClosure={(inc) => {
+          setSelectedIncidentForDetails(null);
+          setSelectedIncidentForClosure(inc);
         }}
         onOpenInvestigation={(inc) => {
           setSelectedIncidentForDetails(null);

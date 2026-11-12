@@ -10,6 +10,7 @@ const whyWhyController = require('../controllers/whyWhyController');
 const capaController = require('../controllers/capaController');
 const evidenceBarrierController = require('../controllers/evidenceBarrierController');
 const timelinePhaController = require('../controllers/timelinePhaController');
+const closureReportController = require('../controllers/closureReportController');
 
 const capaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -167,5 +168,12 @@ router.post('/:id/witnesses/upload', witnessUpload.single('file'), timelinePhaCo
 router.post('/:id/witnesses', timelinePhaController.upsertWitnessStatement);
 router.delete('/:id/witnesses/:witnessId', timelinePhaController.deleteWitnessStatement);
 router.put('/:id/pha-link', timelinePhaController.savePhaBowTieLink);
+
+// Stage 4: Final Investigation Report, Closure Gatekeeper, Digital Sign-Off & Lessons Learned
+router.get('/:id/closure-report', closureReportController.getClosureReportWorkspace);
+router.put('/:id/lessons-learned', closureReportController.saveLessonsLearned);
+router.post('/:id/signoff', closureReportController.submitClosureSignOff);
+router.post('/:id/finalize-closure', closureReportController.finalizeIncidentClosure);
+router.post('/:id/reopen', closureReportController.reopenIncident);
 
 module.exports = router;

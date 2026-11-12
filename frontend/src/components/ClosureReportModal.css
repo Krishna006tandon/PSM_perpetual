@@ -1,0 +1,416 @@
+/* Stage 4: Final Investigation Report, Closure Gatekeeper & Lessons Learned */
+/* Full-Window Workspace Mode (100vw x 100vh) + Clean PDF Print Styles */
+
+.cr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.75);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  z-index: 2300;
+  padding: 0;
+}
+
+.cr-modal-container {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  background: var(--bg-paper, #ffffff);
+  color: var(--text-primary, #0f172a);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #14532d 100%);
+  color: #f8fafc;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  flex-shrink: 0;
+}
+
+.cr-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #86efac;
+}
+
+.cr-title {
+  margin: 4px 0 2px 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.cr-sub {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.cr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cr-status-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.cr-status-pill.is-closed {
+  background: #16a34a;
+  border-color: #86efac;
+}
+
+.cr-btn-close {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.cr-btn-close:hover {
+  background: rgba(239, 68, 68, 0.85);
+  border-color: #ef4444;
+}
+
+.cr-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--bg-default, #f8fafc);
+  border-bottom: 1px solid var(--divider, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.cr-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cr-tab-btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--divider, #cbd5e1);
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cr-tab-btn.active {
+  background: #14532d;
+  color: #ffffff;
+  border-color: #14532d;
+}
+
+.cr-tab-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  font-weight: 800;
+}
+
+.cr-tab-btn.active .cr-tab-badge {
+  background: rgba(134, 239, 172, 0.28);
+  color: #dcfce7;
+}
+
+.cr-toast {
+  margin: 12px 24px 0 24px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cr-toast.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.cr-toast.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.cr-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 36px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cr-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1050px) {
+  .cr-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cr-card {
+  background: var(--bg-paper, #ffffff);
+  border: 1px solid var(--divider, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cr-card h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.cr-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.cr-input,
+.cr-select,
+.cr-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.82rem;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.cr-textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.cr-btn-primary {
+  background: #14532d;
+  color: #ffffff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.cr-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cr-btn-secondary {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cr-btn-warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Gatekeeper Checklist */
+.cr-check-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.cr-check-item.pass {
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.cr-check-item.fail {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+.cr-check-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cr-check-pill.pass { background: #dcfce7; color: #166534; }
+.cr-check-pill.fail { background: #fee2e2; color: #991b1b; }
+
+/* Digital Sign-Off Cards */
+.cr-signoff-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cr-signoff-card.approved {
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.cr-signoff-card.rework {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+/* Printable Safety Flash & Executive Report Sheet */
+.cr-report-sheet {
+  max-width: 1020px;
+  width: 100%;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 28px 32px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cr-flash-banner {
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+  color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.cr-report-sec-title {
+  margin: 0 0 8px 0;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #0f172a;
+  font-size: 0.94rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #0f172a;
+}
+
+.cr-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.cr-report-table th,
+.cr-report-table td {
+  border: 1px solid #cbd5e1;
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cr-report-table th {
+  background: #f1f5f9;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Print / PDF Export Mode */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .cr-printable-area,
+  .cr-printable-area * {
+    visibility: visible;
+  }
+
+  .cr-printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .cr-no-print {
+    display: none !important;
+  }
+}

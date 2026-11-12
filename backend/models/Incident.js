@@ -401,6 +401,43 @@ const incidentSchema = new mongoose.Schema({
     updatedAt: { type: Date }
   },
 
+  // Stage 4: Lessons Learned, Digital Closure Sign-Off & Governance
+  lessonsLearned: {
+    executiveSummary: { type: String, default: '' },
+    keyLessons: [{ type: String }],
+    preventiveTakeaways: { type: String, default: '' },
+    applicablePlantUnits: [{ type: String }],
+    requiresToolboxTalk: { type: Boolean, default: true },
+    disseminatedToShifts: { type: Boolean, default: false },
+    disseminatedDate: { type: Date },
+    updatedBy: { type: String, default: '' },
+    updatedAt: { type: Date }
+  },
+
+  closureGovernance: {
+    signOffs: [{
+      role: {
+        type: String,
+        enum: ['CFT Leader', 'Plant / Area Manager', 'HSE / Process Safety Lead'],
+        required: true
+      },
+      signerName: { type: String, default: '' },
+      signerDesignation: { type: String, default: '' },
+      status: {
+        type: String,
+        enum: ['Pending', 'Approved', 'Returned for Rework'],
+        default: 'Pending'
+      },
+      comments: { type: String, default: '' },
+      signedAt: { type: Date }
+    }],
+    overrideUsed: { type: Boolean, default: false },
+    overrideJustification: { type: String, default: '' },
+    closedBy: { type: String, default: '' },
+    closedAt: { type: Date },
+    reopenedReason: { type: String, default: '' }
+  },
+
   auditTrail: [{
     action: String,
     actor: String,

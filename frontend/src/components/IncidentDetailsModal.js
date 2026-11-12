@@ -3,7 +3,7 @@ import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline }) {
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline, onOpenClosure }) {
   const [rcaNodes, setRcaNodes] = useState([]);
   const [capas, setCapas] = useState([]);
   const [fullIncident, setFullIncident] = useState(null);
@@ -637,6 +637,59 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>PHA / BowTie Status</div>
                     <div style={{ fontWeight: '800', marginTop: '2px', color: phaLink.phaRevalidationRequired ? '#dc2626' : '#16a34a' }}>
                       {phaLink.revalidationStatus || 'Not Required'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Stage 4: Closure Gatekeeper, Digital Sign-Off & Final Report */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>
+                Stage 4: Final Report, Digital Sign-Off & Closure Governance
+              </h4>
+              {onOpenClosure && (
+                <button
+                  type="button"
+                  onClick={() => onOpenClosure(incident)}
+                  style={{
+                    background: '#14532d',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📑 Open Final Report & Close
+                </button>
+              )}
+            </div>
+
+            {(() => {
+              const sourceInc = fullIncident || incident;
+              const signOffs = sourceInc.closureGovernance?.signOffs || [];
+              const approvedCount = signOffs.filter((s) => s.status === 'Approved').length;
+              const lessonsCount = sourceInc.lessonsLearned?.keyLessons?.length || 0;
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-default)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)', fontSize: '0.82rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Closure Sign-Offs</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px' }}>{approvedCount} / {signOffs.length || 3} approved</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Lessons Learned</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px' }}>{lessonsCount} takeaways logged</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Governance Status</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px', color: sourceInc.status === 'Closed' ? '#16a34a' : '#b45309' }}>
+                      {sourceInc.status}
                     </div>
                   </div>
                 </div>

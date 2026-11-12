@@ -337,6 +337,70 @@ const incidentSchema = new mongoose.Schema({
     uploadedAt: { type: Date }
   }],
 
+  // Stage 3D: Sequence-of-Events Timeline, Witness Statements & PHA / BowTie Revalidation Link
+  sequenceTimeline: [{
+    timestamp: { type: Date, required: true },
+    phase: {
+      type: String,
+      enum: [
+        'Pre-Incident',
+        'Initiating Event',
+        'Alarm / Intervention',
+        'Release / Escalation',
+        'Emergency Response',
+        'Safe State'
+      ],
+      default: 'Initiating Event'
+    },
+    source: {
+      type: String,
+      enum: ['DCS / Historian', 'Field Observation', 'SIS / ESD Log', 'Witness Account', 'CCTV / Manual'],
+      default: 'Field Observation'
+    },
+    title: { type: String, required: true },
+    description: { type: String, default: '' },
+    actorOrSystem: { type: String, default: '' },
+    isCriticalMilestone: { type: Boolean, default: false },
+    addedBy: { type: String, default: '' }
+  }],
+
+  witnessStatements: [{
+    witnessName: { type: String, required: true },
+    role: { type: String, default: 'Operator' },
+    department: { type: String, default: 'Operations' },
+    shift: { type: String, default: 'Day' },
+    locationAtEvent: { type: String, default: '' },
+    interviewedBy: { type: String, default: '' },
+    interviewDate: { type: Date, default: Date.now },
+    keyObservation: { type: String, required: true },
+    actionTakenByWitness: { type: String, default: '' },
+    verificationStatus: {
+      type: String,
+      enum: ['Draft', 'Verified / Signed'],
+      default: 'Draft'
+    },
+    attachmentUrl: { type: String, default: '' },
+    attachmentName: { type: String, default: '' }
+  }],
+
+  phaBowTieLink: {
+    linkedStudyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Study' },
+    linkedStudyName: { type: String, default: '' },
+    linkedBowTieId: { type: mongoose.Schema.Types.ObjectId, ref: 'BowTie' },
+    linkedBowTieEvent: { type: String, default: '' },
+    scenarioIdentifiedInPha: { type: Boolean, default: false },
+    invalidatedSafeguardTags: [{ type: String }],
+    phaRevalidationRequired: { type: Boolean, default: false },
+    revalidationStatus: {
+      type: String,
+      enum: ['Not Required', 'Pending Revalidation', 'In Progress', 'Completed'],
+      default: 'Not Required'
+    },
+    revalidationNotes: { type: String, default: '' },
+    updatedBy: { type: String, default: '' },
+    updatedAt: { type: Date }
+  },
+
   auditTrail: [{
     action: String,
     actor: String,

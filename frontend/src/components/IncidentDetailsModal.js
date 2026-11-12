@@ -3,7 +3,7 @@ import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence }) {
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline }) {
   const [rcaNodes, setRcaNodes] = useState([]);
   const [capas, setCapas] = useState([]);
   const [fullIncident, setFullIncident] = useState(null);
@@ -584,6 +584,59 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Evidence Documents</div>
                     <div style={{ fontWeight: '800', marginTop: '2px', color: '#0284c7' }}>
                       {uploadedEv.length} / {applicableEv.length} uploaded
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Stage 3D: Sequence Timeline, Witnesses & PHA Revalidation Link */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>
+                Stage 3D: Sequence Timeline, Witnesses & PHA Revalidation
+              </h4>
+              {onOpenTimeline && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTimeline(incident)}
+                  style={{
+                    background: '#4338ca',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '7px',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ⏱️ Open Timeline & PHA Link
+                </button>
+              )}
+            </div>
+
+            {(() => {
+              const sourceInc = fullIncident || incident;
+              const timeline = sourceInc.sequenceTimeline || [];
+              const witnesses = sourceInc.witnessStatements || [];
+              const phaLink = sourceInc.phaBowTieLink || {};
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-default)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)', fontSize: '0.82rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>SOE Timeline Events</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px' }}>{timeline.length} chronological logs</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Witness Statements</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px' }}>{witnesses.length} recorded</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>PHA / BowTie Status</div>
+                    <div style={{ fontWeight: '800', marginTop: '2px', color: phaLink.phaRevalidationRequired ? '#dc2626' : '#16a34a' }}>
+                      {phaLink.revalidationStatus || 'Not Required'}
                     </div>
                   </div>
                 </div>

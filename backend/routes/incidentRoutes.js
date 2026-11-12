@@ -9,6 +9,7 @@ const fs = require('fs');
 const whyWhyController = require('../controllers/whyWhyController');
 const capaController = require('../controllers/capaController');
 const evidenceBarrierController = require('../controllers/evidenceBarrierController');
+const timelinePhaController = require('../controllers/timelinePhaController');
 
 const capaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -36,20 +37,6 @@ const capaPhotoUpload = multer({
   }
 });
 
-const evidenceUploadDir = path.join(__dirname, '..', 'uploads', 'evidence');
-if (!fs.existsSync(evidenceUploadDir)) {
-  fs.mkdirSync(evidenceUploadDir, { recursive: true });
-}
-
-const evidenceStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, evidenceUploadDir),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    cb(null, `evidence-${uniqueSuffix}${ext}`);
-  }
-});
-
 const evidenceAllowedMimePrefixes = ['image/'];
 const evidenceAllowedMimes = new Set([
   'application/pdf',
@@ -62,20 +49,46 @@ const evidenceAllowedMimes = new Set([
 ]);
 const evidenceAllowedExts = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt']);
 
-const evidenceUpload = multer({
-  storage: evidenceStorage,
-  limits: { fileSize: 25 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    const mimeOk =
-      (file.mimetype && evidenceAllowedMimePrefixes.some((p) => file.mimetype.startsWith(p))) ||
-      evidenceAllowedMimes.has(file.mimetype);
-    if (mimeOk || evidenceAllowedExts.has(ext)) {
-      return cb(null, true);
-    }
-    cb(new Error('Unsupported file type. Allowed: PDF, Images, Word, Excel, CSV, TXT.'));
+const createDocUploader = (folderName, filePrefix, errorMessage) => {
+  const uploadDir = path.join(__dirname, '..', 'uploads', folderName);
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
   }
-});
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      cb(null, `${filePrefix}-${uniqueSuffix}${ext}`);
+    }
+  });
+  return multer({
+    storage,
+    limits: { fileSize: 25 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const mimeOk =
+        (file.mimetype && evidenceAllowedMimePrefixes.some((p) => file.mimetype.startsWith(p))) ||
+        evidenceAllowedMimes.has(file.mimetype);
+      if (mimeOk || evidenceAllowedExts.has(ext)) {
+        return cb(null, true);
+      }
+      cb(new Error(errorMessage));
+    }
+  });
+};
+
+const evidenceUpload = createDocUploader(
+  'evidence',
+  'evidence',
+  'Unsupported file type. Allowed: PDF, Images, Word, Excel, CSV, TXT.'
+);
+
+const witnessUpload = createDocUploader(
+  'witnesses',
+  'witness',
+  'Unsupported file type for witness statement. Allowed: PDF, Images, Word, Excel, CSV, TXT.'
+);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
 
@@ -145,5 +158,14 @@ router.post('/:id/evidence/upload', evidenceUpload.single('file'), evidenceBarri
 router.post('/:id/evidence', evidenceBarrierController.upsertEvidenceItem);
 router.delete('/:id/evidence/:itemId', evidenceBarrierController.deleteEvidenceItem);
 router.post('/:id/recalculate-classification', evidenceBarrierController.recalculateClassification);
+
+// Stage 3D: Sequence-of-Events Timeline, Witness Statements & PHA / BowTie Revalidation Link
+router.get('/:id/timeline-pha', timelinePhaController.getStage3DWorkspace);
+router.post('/:id/timeline', timelinePhaController.upsertTimelineEvent);
+router.delete('/:id/timeline/:eventId', timelinePhaController.deleteTimelineEvent);
+router.post('/:id/witnesses/upload', witnessUpload.single('file'), timelinePhaController.uploadWitnessAttachment);
+router.post('/:id/witnesses', timelinePhaController.upsertWitnessStatement);
+router.delete('/:id/witnesses/:witnessId', timelinePhaController.deleteWitnessStatement);
+router.put('/:id/pha-link', timelinePhaController.savePhaBowTieLink);
 
 module.exports = router;

@@ -4,6 +4,8 @@ import ManageColumnsModal from '../components/ManageColumnsModal';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import './DynamicRegistry.css';
 
+const API_BASE = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolutions.co.in').replace(/\/$/, '');
+
 const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [scenarios, setScenarios] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -26,7 +28,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       const token = localStorage.getItem('token');
       
       // Fetch Custom Columns
-      const colRes = await fetch(`https://api.perpetualsolutions.co.in/api/columns/${study._id}/safeguards`, {
+      const colRes = await fetch(`${API_BASE}/api/columns/${study._id}/safeguards`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (colRes.ok) {
@@ -35,7 +37,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Scenarios
-      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const scRes = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {
@@ -44,7 +46,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Team Members
-      const teamRes = await fetch(`https://api.perpetualsolutions.co.in/api/teams/${study._id}`, {
+      const teamRes = await fetch(`${API_BASE}/api/teams/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (teamRes.ok) {
@@ -53,7 +55,7 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Nodes
-      const nodeRes = await fetch(`https://api.perpetualsolutions.co.in/api/nodes/${study._id}`, {
+      const nodeRes = await fetch(`${API_BASE}/api/nodes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (nodeRes.ok) {
@@ -62,25 +64,25 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
       }
 
       // Fetch Deviations
-      const devRes = await fetch(`https://api.perpetualsolutions.co.in/api/deviations/${study._id}`, {
+      const devRes = await fetch(`${API_BASE}/api/deviations/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (devRes.ok) setDeviations(await devRes.json());
 
       // Fetch Causes
-      const causeRes = await fetch(`https://api.perpetualsolutions.co.in/api/causes/${study._id}`, {
+      const causeRes = await fetch(`${API_BASE}/api/causes/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (causeRes.ok) setCauses(await causeRes.json());
 
       // Fetch Documents
-      const docRes = await fetch(`https://api.perpetualsolutions.co.in/api/documents/${study._id}`, {
+      const docRes = await fetch(`${API_BASE}/api/documents/${study._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (docRes.ok) setDocuments(await docRes.json());
 
       // Fetch Studies
-      const studyRes = await fetch(`https://api.perpetualsolutions.co.in/api/studies/recent`, {
+      const studyRes = await fetch(`${API_BASE}/api/studies/recent`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (studyRes.ok) setAllStudies(await studyRes.json());
@@ -93,17 +95,23 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
   };
 
   const handleCellChange = (id, field, value, isCustom = false) => {
-    setScenarios(prev => prev.map(sc => {
-      if (sc._id === id) {
-        if (isCustom) {
-          const newData = { ...(sc.safeguardData || {}) };
-          newData[field] = value;
-          return { ...sc, safeguardData: newData };
+    setScenarios(prev => {
+      const targetSc = prev.find(s => s._id === id);
+      const targetSafeGroupId = (!isCustom && ['presentProtection', 'safeguardType'].includes(field) && targetSc?.safeguardGroupId)
+        ? targetSc.safeguardGroupId
+        : null;
+      return prev.map(sc => {
+        if (sc._id === id || (targetSafeGroupId && sc.safeguardGroupId === targetSafeGroupId)) {
+          if (isCustom) {
+            const newData = { ...(sc.safeguardData || {}) };
+            newData[field] = value;
+            return { ...sc, safeguardData: newData };
+          }
+          return { ...sc, [field]: value };
         }
-        return { ...sc, [field]: value };
-      }
-      return sc;
-    }));
+        return sc;
+      });
+    });
   };
 
   const handleBlur = async (id, field, value, isCustom = false) => {
@@ -120,14 +128,20 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         payload[field] = value;
       }
 
-      await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${id}`, {
+      const targetSafeGroupId = (!isCustom && ['presentProtection', 'safeguardType'].includes(field) && sc.safeguardGroupId)
+        ? sc.safeguardGroupId
+        : null;
+      const targets = targetSafeGroupId
+        ? scenarios.filter(s => s.safeguardGroupId === targetSafeGroupId)
+        : [sc];
+      await Promise.all(targets.map(item => fetch(`${API_BASE}/api/scenarios/${item._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
-      });
+      })));
     } catch (error) {
       console.error('Failed to save scenario:', error);
     }
@@ -255,6 +269,9 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                 <th className="col-cause">CAUSE</th>
                 <th className="col-cons">CONSEQUENCE</th>
                 <th className="col-custom">PRESENT PROTECTION (SAFEGUARDS)</th>
+                {scenarios.some(s => !!s.isBowtie || !!s.safeguardType) && (
+                  <th style={{ width: '80px', minWidth: '80px', textAlign: 'center' }}>TYPE (P/M)</th>
+                )}
                 {columns.map(col => (
                   <th key={col.id} className="col-custom">{col.label}</th>
                 ))}
@@ -276,6 +293,44 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                       minHeight={36}
                     />
                   </td>
+                  {scenarios.some(s => !!s.isBowtie || !!s.safeguardType) && (
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'inline-flex', gap: '4px' }}>
+                        {['P', 'M'].map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            disabled={!canEdit}
+                            onClick={() => {
+                              const nextVal = sc.safeguardType === t ? '' : t;
+                              handleCellChange(sc._id, 'safeguardType', nextVal);
+                              handleBlur(sc._id, 'safeguardType', nextVal);
+                            }}
+                            title={t === 'P' ? 'Preventive Safeguard' : 'Mitigative Safeguard'}
+                            style={{
+                              minWidth: '26px',
+                              height: '24px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: canEdit ? 'pointer' : 'default',
+                              border: sc.safeguardType === t
+                                ? (t === 'P' ? '1.5px solid #2563eb' : '1.5px solid #7c3aed')
+                                : '1px solid #cbd5e1',
+                              backgroundColor: sc.safeguardType === t
+                                ? (t === 'P' ? '#dbeafe' : '#ede9fe')
+                                : '#ffffff',
+                              color: sc.safeguardType === t
+                                ? (t === 'P' ? '#1d4ed8' : '#6d28d9')
+                                : '#64748b'
+                            }}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  )}
                   {columns.map(col => (
                     <td key={col.id} className="col-custom">
                       {renderCustomCell(sc, col)}

@@ -777,7 +777,6 @@ function App() {
         <SystemStabilizer currentUser={currentUser} activeStudy={activeStudy} />
       )}
       <GlobalSpellChecker />
-      )}
     </div>
   );
 }

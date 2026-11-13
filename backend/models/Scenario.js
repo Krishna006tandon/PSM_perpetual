@@ -21,6 +21,7 @@ const scenarioSchema = new mongoose.Schema({
   inherentRiskRR: { type: String, default: '' },
   
   presentProtection: { type: String, default: '' },
+  safeguardType: { type: String, enum: ['', 'P', 'M'], default: '' },
   
   mitigatedRiskS: { type: String, default: '' },
   mitigatedRiskL: { type: String, default: '' },
@@ -31,6 +32,7 @@ const scenarioSchema = new mongoose.Schema({
   residualRiskRR: { type: String, default: '' },
   
   additionalProtection: { type: String, default: '' },
+  additionalProtectionType: { type: String, enum: ['', 'P', 'M'], default: '' },
   recommendationNo: { type: String, default: '' },
   recommendationAgainst: { type: String, default: '' },
   recommendationGroupId: { type: String, default: '' },
@@ -38,6 +40,7 @@ const scenarioSchema = new mongoose.Schema({
   remarksColor: { type: String, default: '' },
   status: { type: String, default: '' },
   isLopa: { type: Boolean, default: false },
+  isBowtie: { type: Boolean, default: false },
 
   // Dynamic custom data maps for new tabs
   safeguardData: { type: Map, of: String, default: {} },

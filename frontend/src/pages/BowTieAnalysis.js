@@ -72,6 +72,17 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
       if (res.ok) {
         const data = await res.json();
         setBowties(data);
+        const focusKey = localStorage.getItem('bowtie_focus_consequence_group');
+        if (focusKey) {
+          localStorage.removeItem('bowtie_focus_consequence_group');
+          const matched = data.find(
+            bt => bt.consequenceGroupId === focusKey ||
+                  (bt.scenarioId && (bt.scenarioId._id === focusKey || bt.scenarioId === focusKey))
+          );
+          if (matched) {
+            loadBowtieDetail(matched._id, 'graph');
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching bowties:', err);
@@ -690,9 +701,9 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
       const devName = sc.deviationId?.deviationAuto || 'Deviation Event';
       const causeText = sc.causeId?.description || '';
       setNewBowtieData({
-        eventName: `${devName}${causeText ? ' - ' + causeText : ''}`,
+        eventName: (sc.consequencesImmediate || '').trim() || (sc.consequencesUltimate || '').trim() || `${devName}${causeText ? ' - ' + causeText : ''}`,
         section: sc.nodeId?.nodeNumber ? `Node ${sc.nodeId.nodeNumber}` : '',
-        hazardDescription: sc.consequencesImmediate || sc.consequencesUltimate || '',
+        hazardDescription: [devName ? `Deviation: ${devName}` : '', causeText ? `Cause: ${causeText}` : '', sc.consequencesUltimate ? `Ultimate Consequence: ${sc.consequencesUltimate}` : ''].filter(Boolean).join(' | '),
         riskRating: Number(sc.inherentRiskRR) || 6,
         scenarioId: sc._id
       });
@@ -876,6 +887,21 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
     }
   };
 
+  const handleReturnToPha = (bt = selectedBowtie) => {
+    if (bt) {
+      const nodeIdVal = bt.nodeId?._id || bt.nodeId;
+      const scenarioIdVal = bt.scenarioId?._id || bt.scenarioId;
+      if (nodeIdVal) {
+        localStorage.setItem('targetNodeId', nodeIdVal);
+        if (study?._id) localStorage.setItem(`pha_last_node_${study._id}`, nodeIdVal);
+      }
+      if (scenarioIdVal) {
+        localStorage.setItem('targetScenarioId', scenarioIdVal);
+      }
+    }
+    onNavigate('pha-worksheets');
+  };
+
   // Filtered bowties for Hub
   const filteredBowties = bowties.filter(b => {
     if (!searchQuery.trim()) return true;
@@ -1041,7 +1067,22 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                         <tr key={bt._id}>
                           <td>{index + 1}</td>
                           <td>
-                            <div className="bowtie-event-title">{bt.eventName}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <div className="bowtie-event-title">{bt.eventName}</div>
+                              {bt.isFromPha && (
+                                <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: '#fce7f3', color: '#be185d', border: '1px solid #f9a8d4' }}>
+                                  🔗 PHA
+                                </span>
+                              )}
+                              {bt.unclassifiedSafeguardCount > 0 && (
+                                <span
+                                  style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '999px', background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
+                                  title="Mark safeguards as P (Preventive) or M (Mitigative) in PHA Worksheet"
+                                >
+                                  ⚠️ {bt.unclassifiedSafeguardCount} unclassified
+                                </span>
+                              )}
+                            </div>
                             {bt.hazardDescription && (
                               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                                 {bt.hazardDescription.slice(0, 70)}...
@@ -1170,6 +1211,16 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
                 >
                   📸 Snapshot
                 </button>
+                {(selectedBowtie?.isFromPha || selectedBowtie?.nodeId || selectedBowtie?.scenarioId) && (
+                  <button
+                    type="button"
+                    className="btn-bowtie-secondary"
+                    onClick={() => handleReturnToPha(selectedBowtie)}
+                    title="Return to this scenario row in PHA Worksheet"
+                  >
+                    📋 Open in PHA
+                  </button>
+                )}
                 <button 
                   className="btn-bowtie-primary" 
                   onClick={() => handleExportExcel(selectedBowtie)}
@@ -1181,6 +1232,33 @@ const BowTieAnalysis = ({ study, onBack, onNavigate, theme, toggleTheme, canEdit
             </div>
 
             {/* Cytoscape Canvas Container */}
+            {selectedBowtie.unclassifiedSafeguardCount > 0 && (
+              <div style={{
+                margin: '0 0 12px 0',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                color: '#92400e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                fontSize: '13px'
+              }}>
+                <span>
+                  ⚠️ <strong>{selectedBowtie.unclassifiedSafeguardCount}</strong> safeguard(s) from PHA are not yet classified as <strong>P (Preventive)</strong> or <strong>M (Mitigative)</strong> and are not placed on the diagram yet.
+                </span>
+                <button
+                  type="button"
+                  className="btn-bowtie-secondary"
+                  style={{ padding: '5px 10px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                  onClick={() => handleReturnToPha(selectedBowtie)}
+                >
+                  Open PHA Worksheet
+                </button>
+              </div>
+            )}
             <div id="cy-container" ref={cyRef}></div>
 
             {/* Graph Legend */}

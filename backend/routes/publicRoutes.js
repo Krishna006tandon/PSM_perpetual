@@ -20,7 +20,9 @@ router.get('/trial-settings', async (req, res) => {
     res.json({
       freeTrialEnabled: settings.freeTrialEnabled !== false,
       defaultTrialDays: settings.defaultTrialDays || 14,
-      trialFeatures: settings.trialFeatures || ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+      trialFeatures: Array.isArray(settings.trialFeatures) && settings.trialFeatures.length > 0
+        ? settings.trialFeatures
+        : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

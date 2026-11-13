@@ -53,6 +53,16 @@ const DEFAULT_FALLBACK_PACKAGES = [
 ];
 
 const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
+  const getFeatureLabel = (f) => {
+    switch (f) {
+      case 'PHA': return 'HAZOP / PHA';
+      case 'LOPA': return 'LOPA';
+      case 'MOC': return 'MOC';
+      case 'BOWTIE': return 'BOW Tie';
+      case 'INCIDENT': return 'Incident Investigation';
+      default: return f;
+    }
+  };
   const [packages, setPackages] = useState(DEFAULT_FALLBACK_PACKAGES);
   const [loadingRazorpay, setLoadingRazorpay] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
@@ -105,7 +115,9 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
         setTrialSettings({
           freeTrialEnabled: data.freeTrialEnabled !== false,
           defaultTrialDays: data.defaultTrialDays || 14,
-          trialFeatures: data.trialFeatures || ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
+          trialFeatures: Array.isArray(data.trialFeatures) && data.trialFeatures.length > 0
+            ? data.trialFeatures
+            : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT']
         });
       }
     } catch (e) {
@@ -1799,11 +1811,36 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
             </div>
           </div>
 
-          <div className="psm-pricing-grid">
+          <div className="psm-pricing-grid" style={{ paddingTop: '16px' }}>
             {/* Dedicated Free Trial Card in Packages Grid */}
             {trialSettings.freeTrialEnabled && (
-              <div className="psm-pricing-card" style={{ border: '2px solid #00a896', background: 'linear-gradient(180deg, rgba(0,168,150,0.04) 0%, rgba(255,255,255,1) 100%)', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #00a896, #028090)', color: 'white', padding: '4px 16px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,168,150,0.3)' }}>
+              <div 
+                className="psm-pricing-card" 
+                style={{ 
+                  border: '2px solid #00a896', 
+                  background: 'linear-gradient(180deg, rgba(0,168,150,0.04) 0%, rgba(255,255,255,1) 100%)', 
+                  position: 'relative',
+                  overflow: 'visible',
+                  marginTop: '10px'
+                }}
+              >
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '-14px', 
+                  left: '50%', 
+                  transform: 'translateX(-50%)', 
+                  background: 'linear-gradient(135deg, #00a896, #028090)', 
+                  color: 'white', 
+                  padding: '5px 18px', 
+                  borderRadius: '20px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: '800', 
+                  letterSpacing: '0.5px', 
+                  textTransform: 'uppercase', 
+                  boxShadow: '0 4px 12px rgba(0,168,150,0.35)',
+                  whiteSpace: 'nowrap',
+                  zIndex: 2
+                }}>
                   ✨ Zero Risk Evaluation
                 </div>
                 <div style={{ padding: '36px 30px', borderBottom: '1px solid var(--divider)', textAlign: 'center' }}>
@@ -1850,7 +1887,10 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       Unlocked Modules
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {['HAZOP / PHA', 'LOPA', 'MOC', 'BOW Tie'].map(feat => (
+                      {(Array.isArray(trialSettings.trialFeatures) && trialSettings.trialFeatures.length > 0
+                        ? trialSettings.trialFeatures
+                        : ['PHA']
+                      ).map(feat => (
                         <span 
                           key={feat}
                           style={{
@@ -1863,7 +1903,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                             fontWeight: '700'
                           }}
                         >
-                          ✓ {feat}
+                          ✓ {getFeatureLabel(feat)}
                         </span>
                       ))}
                     </div>
@@ -1900,14 +1940,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
               const allFeatures = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
               const isPopular = pkg.name.toLowerCase().includes('enterprise') || pkg.name.toLowerCase().includes('lopa') || idx === 1;
 
-              const getFeatureLabel = (f) => {
-                if (f === 'PHA') return 'HAZOP / PHA';
-                if (f === 'BOWTIE') return 'BowTie Analysis';
-                if (f === 'INCIDENT') return 'Incident Investigation';
-                if (f === 'LOPA') return 'LOPA & SIL';
-                if (f === 'MOC') return '7-Stage MOC';
-                return f;
-              };
+
 
               return (
                 <div key={pkg._id} className={`psm-pricing-card ${isPopular ? 'featured' : ''}`}>

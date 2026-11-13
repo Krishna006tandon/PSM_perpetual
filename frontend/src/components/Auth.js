@@ -33,7 +33,37 @@ const Auth = ({
   const [authStep, setAuthStep] = useState('LOGIN'); // 'LOGIN', 'FORGOT_EMAIL'
   const [successMsg, setSuccessMsg] = useState('');
 
-  const trialDays = trialSettings?.defaultTrialDays || 14;
+  const [internalTrialSettings, setInternalTrialSettings] = useState(trialSettings);
+
+  useEffect(() => {
+    if (trialSettings) {
+      setInternalTrialSettings(trialSettings);
+    } else if (isTrialRegistration) {
+      fetch(`${API_URL}/api/public/trial-settings`)
+        .then(res => res.json())
+        .then(data => {
+          if (data) setInternalTrialSettings(data);
+        })
+        .catch(err => console.warn('Could not fetch trial settings in Auth:', err));
+    }
+  }, [trialSettings, isTrialRegistration]);
+
+  const activeTrialSettings = internalTrialSettings || trialSettings;
+  const trialDays = activeTrialSettings?.defaultTrialDays || 14;
+  const trialFeatures = Array.isArray(activeTrialSettings?.trialFeatures) && activeTrialSettings.trialFeatures.length > 0
+    ? activeTrialSettings.trialFeatures
+    : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+
+  const getFeatureLabel = (f) => {
+    switch (f) {
+      case 'PHA': return 'HAZOP / PHA';
+      case 'LOPA': return 'LOPA';
+      case 'MOC': return 'MOC';
+      case 'BOWTIE': return 'BOW Tie';
+      case 'INCIDENT': return 'Incident Investigation';
+      default: return f;
+    }
+  };
 
   useEffect(() => {
     if (isTrialRegistration) {
@@ -269,9 +299,9 @@ const Auth = ({
                 <span style={{ color: '#15803d', fontWeight: '800', fontSize: '0.9rem' }}>{trialDays} Days Free</span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {['HAZOP / PHA', 'LOPA', 'MOC Workspaces', 'BOW Tie', 'Recommendations Hub'].map(m => (
+                {trialFeatures.map(m => (
                   <span key={m} style={{ background: '#ffffff', color: '#166534', border: '1px solid #86efac', padding: '3px 8px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: '600' }}>
-                    ✓ {m}
+                    ✓ {getFeatureLabel(m)}
                   </span>
                 ))}
               </div>

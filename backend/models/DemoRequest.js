@@ -42,6 +42,20 @@ const DemoRequestSchema = new mongoose.Schema({
     enum: ['Pending', 'Contacted', 'Scheduled', 'Completed', 'Cancelled'],
     default: 'Pending'
   },
+  meetingLink: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  scheduledAt: {
+    type: Date,
+    default: null
+  },
+  scheduledMessage: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   adminNotes: {
     type: String,
     default: ''

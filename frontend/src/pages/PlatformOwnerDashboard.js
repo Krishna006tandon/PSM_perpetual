@@ -56,6 +56,14 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoFilter, setDemoFilter] = useState('ALL');
   const [demoMsg, setDemoMsg] = useState('');
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedDemoForSchedule, setSelectedDemoForSchedule] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    scheduledAt: '',
+    meetingLink: '',
+    scheduledMessage: ''
+  });
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   const availableFeatures = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
 
@@ -96,6 +104,68 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     }
   };
 
+  const openScheduleModal = (demo) => {
+    setSelectedDemoForSchedule(demo);
+    let dtVal = '';
+    if (demo.scheduledAt) {
+      try {
+        const d = new Date(demo.scheduledAt);
+        const pad = (n) => String(n).padStart(2, '0');
+        dtVal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch (e) {
+        dtVal = '';
+      }
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(11, 0, 0, 0);
+      const pad = (n) => String(n).padStart(2, '0');
+      dtVal = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+    }
+    setScheduleForm({
+      scheduledAt: dtVal,
+      meetingLink: demo.meetingLink || '',
+      scheduledMessage: demo.scheduledMessage || `Hi ${demo.name || 'there'}, we look forward to meeting with your engineering team to demonstrate the PS-MagnaShield suite.`
+    });
+    setScheduleModalOpen(true);
+  };
+
+  const handleSaveSchedule = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedDemoForSchedule) return;
+    setIsSavingSchedule(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/demo-requests/${selectedDemoForSchedule._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          status: 'Scheduled',
+          scheduledAt: scheduleForm.scheduledAt,
+          meetingLink: scheduleForm.meetingLink,
+          scheduledMessage: scheduleForm.scheduledMessage,
+          sendEmail: true
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDemoRequests(prev => prev.map(d => d._id === selectedDemoForSchedule._id ? data : d));
+        setDemoMsg(`✅ Demo scheduled & invite email sent to ${selectedDemoForSchedule.email}!`);
+        setScheduleModalOpen(false);
+        setTimeout(() => setDemoMsg(''), 4000);
+      } else {
+        alert(data.error || 'Failed to schedule demo');
+      }
+    } catch (err) {
+      console.error('Error saving schedule:', err);
+      alert(err.message || 'Failed to schedule demo');
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  };
+
   const handleUpdateDemoStatus = async (id, newStatus) => {
     try {
       const res = await fetch(`${API_URL}/api/admin/demo-requests/${id}`, {
@@ -104,15 +174,24 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, sendEmail: true })
       });
+      const data = await res.json();
       if (res.ok) {
-        setDemoRequests(prev => prev.map(d => d._id === id ? { ...d, status: newStatus } : d));
-        setDemoMsg('✅ Lead status updated successfully!');
-        setTimeout(() => setDemoMsg(''), 3000);
+        setDemoRequests(prev => prev.map(d => d._id === id ? data : d));
+        setDemoMsg(`✅ Status set to "${newStatus}" & email sent to lead!`);
+        setTimeout(() => setDemoMsg(''), 3500);
       }
     } catch (e) {
       console.error('Error updating demo status:', e);
+    }
+  };
+
+  const handleStatusChange = (demo, newStatus) => {
+    if (newStatus === 'Scheduled') {
+      openScheduleModal(demo);
+    } else {
+      handleUpdateDemoStatus(demo._id, newStatus);
     }
   };
 
@@ -931,14 +1010,14 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                           <td style={{ padding: '14px 16px' }}>
                             <select
                               value={d.status}
-                              onChange={e => handleUpdateDemoStatus(d._id, e.target.value)}
+                              onChange={e => handleStatusChange(d, e.target.value)}
                               style={{
-                                padding: '5px 10px',
+                                padding: '6px 12px',
                                 borderRadius: '16px',
                                 border: `1px solid ${sCol.border}`,
                                 background: sCol.bg,
                                 color: sCol.color,
-                                fontWeight: '700',
+                                fontWeight: '800',
                                 fontSize: '0.82rem',
                                 cursor: 'pointer'
                               }}
@@ -949,9 +1028,60 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                               <option value="Completed">Completed</option>
                               <option value="Cancelled">Cancelled</option>
                             </select>
+
+                            {/* If Scheduled, render meeting details & edit button */}
+                            {d.status === 'Scheduled' && (
+                              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: '700' }}>
+                                  📅 {d.scheduledAt ? new Date(d.scheduledAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Date not set'}
+                                </div>
+                                {d.meetingLink ? (
+                                  <a 
+                                    href={d.meetingLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ fontSize: '0.78rem', color: '#00a896', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                    title={d.meetingLink}
+                                  >
+                                    🔗 Join Meet Link &rarr;
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: '0.74rem', color: '#dc2626', fontWeight: '600' }}>
+                                    ⚠️ No Meet Link Added
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openScheduleModal(d)}
+                                  style={{ 
+                                    marginTop: '2px', 
+                                    padding: '3px 8px', 
+                                    borderRadius: '6px', 
+                                    border: '1px solid #cbd5e1', 
+                                    background: '#fefce8', 
+                                    color: '#854d0e', 
+                                    fontSize: '0.74rem', 
+                                    fontWeight: '700', 
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    width: 'fit-content'
+                                  }}
+                                >
+                                  ✏️ Edit Meet Link / Time
+                                </button>
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => openScheduleModal(d)}
+                                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #00a896', background: 'rgba(0,168,150,0.08)', color: '#00a896', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700' }}
+                                title="Schedule or Edit Meeting Details"
+                              >
+                                🗓️ {d.status === 'Scheduled' ? 'Edit Meet' : 'Schedule'}
+                              </button>
                               <a
                                 href={`mailto:${d.email}?subject=PS-MagnaShield%20Demo%20Walkthrough%20for%20${encodeURIComponent(d.company)}`}
                                 style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f766e', textDecoration: 'none', fontSize: '0.82rem', fontWeight: '700' }}
@@ -1277,6 +1407,101 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                 🔒 Expire Trial Now
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Live Demo Modal */}
+      {scheduleModalOpen && selectedDemoForSchedule && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, backdropFilter: 'blur(4px)', padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '30px', maxWidth: '540px', width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+              <div>
+                <span style={{ background: '#fefce8', color: '#ca8a04', border: '1px solid #fef08a', padding: '4px 12px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: '800' }}>
+                  🗓️ Schedule Live Demo & Send Invite
+                </span>
+                <h3 style={{ margin: '8px 0 2px 0', fontSize: '1.35rem', color: '#1e293b', fontWeight: '800' }}>
+                  {selectedDemoForSchedule.name}
+                </h3>
+                <div style={{ fontSize: '0.86rem', color: '#64748b' }}>
+                  {selectedDemoForSchedule.company} &bull; <span style={{ color: '#00a896', fontWeight: '600' }}>{selectedDemoForSchedule.email}</span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setScheduleModalOpen(false)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', fontSize: '1.25rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSchedule}>
+              {/* Meeting Date & Time */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '0.86rem', color: '#334155', marginBottom: '6px' }}>
+                  Meeting Date & Time (IST) *
+                </label>
+                <input 
+                  type="datetime-local" 
+                  required
+                  value={scheduleForm.scheduledAt}
+                  onChange={e => setScheduleForm({ ...scheduleForm, scheduledAt: e.target.value })}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                />
+              </div>
+
+              {/* Meeting Link */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '0.86rem', color: '#334155', marginBottom: '6px' }}>
+                  Google Meet / Video Link *
+                </label>
+                <input 
+                  type="url" 
+                  required
+                  placeholder="https://meet.google.com/xyz-abcd-efg"
+                  value={scheduleForm.meetingLink}
+                  onChange={e => setScheduleForm({ ...scheduleForm, meetingLink: e.target.value })}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                />
+              </div>
+
+              {/* Message Box */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '0.86rem', color: '#334155', marginBottom: '6px' }}>
+                  Custom Message / Agenda for Lead
+                </label>
+                <textarea 
+                  rows="3"
+                  placeholder="e.g. Hi Krishna, we have reserved this slot to walk through the HAZOP & Incident Investigation modules for your plant units..."
+                  value={scheduleForm.scheduledMessage}
+                  onChange={e => setScheduleForm({ ...scheduleForm, scheduledMessage: e.target.value })}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 14px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.82rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>✉️</span>
+                <span>Saving will update status to <strong>Scheduled</strong> and instantly dispatch an official invite email with the Google Meet link to <strong>{selectedDemoForSchedule.email}</strong>.</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button 
+                  type="button"
+                  onClick={() => setScheduleModalOpen(false)}
+                  style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: '600', color: '#475569' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingSchedule}
+                  style={{ padding: '10px 22px', borderRadius: '8px', border: 'none', background: '#00a896', color: '#ffffff', cursor: isSavingSchedule ? 'not-allowed' : 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(0,168,150,0.3)' }}
+                >
+                  {isSavingSchedule ? 'Saving & Sending Invite...' : '🚀 Confirm & Send Meet Invite'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

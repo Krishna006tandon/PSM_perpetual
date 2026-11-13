@@ -272,14 +272,154 @@ router.get('/demo-requests', async (req, res) => {
 
 router.put('/demo-requests/:id', async (req, res) => {
   try {
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, meetingLink, scheduledAt, scheduledMessage, sendEmail = true } = req.body;
     const updateData = {};
     if (status) updateData.status = status;
     if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+    if (meetingLink !== undefined) updateData.meetingLink = meetingLink;
+    if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+    if (scheduledMessage !== undefined) updateData.scheduledMessage = scheduledMessage;
     updateData.updatedAt = new Date();
 
     const updated = await DemoRequest.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updated) return res.status(404).json({ error: 'Demo request not found' });
+
+    // Send automated status-update email if sendEmail is true and SMTP credentials configured
+    if (sendEmail && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        let emailSubject = '';
+        let emailHtml = '';
+        const targetEmail = updated.email;
+        const targetName = updated.name || 'Valued Client';
+        const targetCompany = updated.company || 'Organization';
+
+        if (updated.status === 'Scheduled') {
+          const dateStr = updated.scheduledAt 
+            ? new Date(updated.scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full', timeStyle: 'short' }) + ' IST'
+            : 'To be confirmed / As coordinated';
+          
+          emailSubject = `🗓️ PS-MagnaShield Live Demo Scheduled: ${targetCompany}`;
+          emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #00a896; margin: 0 0 6px 0;">PS-MagnaShield</h2>
+                <p style="color: #64748b; margin: 0; font-size: 0.9rem;">Next-Generation Process Safety & Risk Management Suite</p>
+              </div>
+              <p>Dear <strong>${targetName}</strong>,</p>
+              <p>Your live 1-on-1 demonstration of <strong>PS-MagnaShield</strong> for <strong>${targetCompany}</strong> has been officially scheduled!</p>
+              
+              <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 18px; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 6px 0;"><strong>📅 Date & Time:</strong> <span style="color: #15803d; font-size: 1.05rem; font-weight: bold;">${dateStr}</span></p>
+                ${updated.meetingLink ? `
+                  <p style="margin: 12px 0 6px 0;"><strong>🔗 Meeting Join Link:</strong></p>
+                  <div style="margin: 10px 0;">
+                    <a href="${updated.meetingLink}" target="_blank" rel="noopener noreferrer" style="background-color: #00a896; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+                      👉 Join Video Meeting
+                    </a>
+                  </div>
+                  <p style="margin: 4px 0; font-size: 0.85rem; color: #64748b; word-break: break-all;">${updated.meetingLink}</p>
+                ` : '<p style="margin: 6px 0; color: #64748b;">(Meeting link will be shared via calendar invitation)</p>'}
+                <p style="margin: 8px 0 4px 0;"><strong>🎯 Modules to Review:</strong> ${updated.interest}</p>
+              </div>
+
+              ${updated.scheduledMessage ? `
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px; margin-bottom: 20px;">
+                  <p style="margin: 0 0 4px 0; font-weight: bold; color: #475569; font-size: 0.85rem; text-transform: uppercase;">Message from Senior Safety Consultant:</p>
+                  <p style="margin: 0; color: #1e293b; font-size: 0.92rem; white-space: pre-line;">${updated.scheduledMessage}</p>
+                </div>
+              ` : ''}
+
+              <p style="font-size: 0.92rem; color: #334155; line-height: 1.5;">
+                During the session, our consultant will walk through your unit scenarios, HAZOP/LOPA worksheets, 7-stage MOC governance, BowTie risk diagrams, and 5-stage Incident Investigation workflows.
+              </p>
+              <p style="font-size: 0.88rem; color: #64748b;">
+                Need to reschedule or invite colleagues? Simply reply directly to this email.
+              </p>
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+              <p style="font-size: 0.85rem; color: #94a3b8; text-align: center; margin: 0;">
+                Perpetual Solutions &bull; Empowering Engineering Teams
+              </p>
+            </div>
+          `;
+        } else if (updated.status === 'Contacted') {
+          emailSubject = `Reviewing Your PS-MagnaShield Demo Request - ${targetCompany}`;
+          emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color: #00a896; margin-top: 0;">PS-MagnaShield Demonstration</h2>
+              <p>Dear <strong>${targetName}</strong>,</p>
+              <p>Our Senior Process Safety Engineering team has reviewed your demo request for <strong>${targetCompany}</strong>.</p>
+              <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 4px 0;"><strong>Company:</strong> ${targetCompany}</p>
+                <p style="margin: 4px 0;"><strong>Focus Area:</strong> ${updated.interest}</p>
+                <p style="margin: 4px 0;"><strong>Status:</strong> Under Consultant Review & Scheduling</p>
+              </div>
+              <p>A specialist will reach out shortly to coordinate a convenient meeting window for you and your safety committee.</p>
+              <p style="color: #64748b; font-size: 0.9em;">If you have immediate questions or want to provide sample P&IDs/units in advance, feel free to reply directly to this email.</p>
+              <p>Best Regards,<br/><strong>The Perpetual Solutions Team</strong></p>
+            </div>
+          `;
+        } else if (updated.status === 'Completed') {
+          emailSubject = `Thank You for Attending the PS-MagnaShield Demonstration - ${targetCompany}`;
+          emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color: #00a896; margin-top: 0;">Thank You for Joining Us!</h2>
+              <p>Dear <strong>${targetName}</strong>,</p>
+              <p>Thank you for taking the time to participate in our live demonstration of <strong>PS-MagnaShield</strong> today for <strong>${targetCompany}</strong>.</p>
+              <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 4px 0;"><strong>Demonstration Status:</strong> Completed</p>
+                <p style="margin: 4px 0;"><strong>Focus Modules Covered:</strong> ${updated.interest}</p>
+              </div>
+              <p>We hope the session provided valuable insights into how your team can streamline HAZOP, LOPA, MOC, BowTie, and Incident Investigation workflows while ensuring strict compliance.</p>
+              <p><strong>Next Steps:</strong> You can evaluate the platform with your team via our no-risk Free Trial or request a customized multi-user proposal.</p>
+              <p style="color: #64748b; font-size: 0.9em;">If you need any follow-up documentation or trial credentials, reply directly to this thread.</p>
+              <p>Best Regards,<br/><strong>The Perpetual Solutions Team</strong></p>
+            </div>
+          `;
+        } else if (updated.status === 'Cancelled') {
+          emailSubject = `Update on Your PS-MagnaShield Demo Request - ${targetCompany}`;
+          emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color: #dc2626; margin-top: 0;">Demo Request Update</h2>
+              <p>Dear <strong>${targetName}</strong>,</p>
+              <p>This is to confirm that your demo request for <strong>${targetCompany}</strong> has been marked as cancelled.</p>
+              <p>If this was in error, or if you would like to reschedule at any point in the future, please feel free to submit a new request on our website or reply directly to this email.</p>
+              <p>Best Regards,<br/><strong>The Perpetual Solutions Team</strong></p>
+            </div>
+          `;
+        } else if (updated.status === 'Pending') {
+          emailSubject = `PS-MagnaShield Demo Request Status: Pending Review`;
+          emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color: #00a896; margin-top: 0;">PS-MagnaShield Demonstration</h2>
+              <p>Dear <strong>${targetName}</strong>,</p>
+              <p>Your demo request for <strong>${targetCompany}</strong> has been received and is currently in queue for review by our engineering team.</p>
+              <p>Best Regards,<br/><strong>The Perpetual Solutions Team</strong></p>
+            </div>
+          `;
+        }
+
+        if (emailSubject && emailHtml) {
+          transporter.sendMail({
+            from: `"PS-MagnaShield Team" <${process.env.EMAIL_USER}>`,
+            to: targetEmail,
+            subject: emailSubject,
+            html: emailHtml
+          }).catch(err => console.error('Error sending demo status email:', err.message));
+        }
+      } catch (mailErr) {
+        console.error('Mail transporter error in demo status update:', mailErr);
+      }
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });

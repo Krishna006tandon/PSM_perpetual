@@ -648,10 +648,10 @@ router.get('/me', auth, async (req, res) => {
           } else if (userObj.packageId && userObj.packageId.features && userObj.packageId.features.length > 0) {
             userObj.features = userObj.packageId.features;
           } else {
-            userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+            userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
           }
         } else {
-          userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+          userObj.features = ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
         }
       }
     }

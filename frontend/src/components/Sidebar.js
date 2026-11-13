@@ -92,7 +92,7 @@ function Sidebar({ activeView, onNavigate, userFeatures, onLogout }) {
       const stored = JSON.parse(localStorage.getItem('userFeatures'));
       if (Array.isArray(stored)) return stored;
     } catch (e) {}
-    return ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+    return ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
   };
 
   const effectiveFeatures = getEffectiveFeatures();
@@ -105,6 +105,9 @@ function Sidebar({ activeView, onNavigate, userFeatures, onLogout }) {
     }
     if (item.id === 'moc') {
       return hasFeature('MOC') ? item : null;
+    }
+    if (item.id === 'incidents') {
+      return hasFeature('INCIDENT') ? item : null;
     }
     if (item.id === 'recommendations') {
       const sub = item.subItems.filter(s => {

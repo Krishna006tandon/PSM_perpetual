@@ -74,20 +74,19 @@ function App() {
     }
   }, [isAuthenticated]);
   
-  // Feature access check (PHA, MOC, LOPA, BOWTIE)
+  // Feature access check (PHA, MOC, LOPA, BOWTIE, INCIDENT)
   const hasFeature = (feat) => {
     if (!currentUser) {
       try {
         const stored = JSON.parse(localStorage.getItem('userFeatures'));
         if (Array.isArray(stored)) return stored.includes(feat);
       } catch(e) {}
-      return true; // Default before user data loads
+      return false; // Default before user data loads
     }
     if (currentUser.role === 'SuperAdmin') return true;
-    if (feat === 'INCIDENT' || feat === 'INCIDENTS') return true; // Enable Incident Investigation platform
     const feats = Array.isArray(currentUser.features) && currentUser.features.length > 0
       ? currentUser.features
-      : ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
+      : ['PHA', 'MOC', 'LOPA', 'BOWTIE'];
     return feats.includes(feat);
   };
 
@@ -549,6 +548,23 @@ function App() {
     }
 
     if (currentView === 'incidents' || currentView === 'incident') {
+      if (!hasFeature('INCIDENT')) {
+        return (
+          <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-paper)', borderRadius: '12px', margin: '40px auto', maxWidth: '600px', border: '1px solid var(--divider)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>Incident Investigation Module Locked</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Incident Investigation & API RP 754 Tracking is not included in your current subscription package. Please upgrade your package to unlock this feature.
+            </p>
+            <button 
+              onClick={() => setCurrentView('dashboard')} 
+              style={{ padding: '10px 20px', background: 'var(--primary-main)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              &larr; Back to Dashboard
+            </button>
+          </div>
+        );
+      }
       return (
         <IncidentDashboard 
           currentUser={currentUser} 
@@ -668,6 +684,7 @@ function App() {
           </div>
 
           {/* Incident Investigation Card */}
+          {hasFeature('INCIDENT') && (
           <div 
             className="card" 
             onClick={() => setCurrentView('incidents')}
@@ -724,6 +741,7 @@ function App() {
               Open Workspace →
             </span>
           </div>
+          )}
         </div>
       </main>
     );

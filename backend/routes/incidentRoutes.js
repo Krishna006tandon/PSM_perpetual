@@ -94,7 +94,7 @@ const witnessUpload = createDocUploader(
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
 
-// Optional auth middleware: parses user & companyCode if Authorization header is present
+// Auth & Subscription Feature Gate Middleware
 const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
@@ -102,15 +102,25 @@ const optionalAuth = async (req, res, next) => {
       const parts = authHeader.split(' ');
       if (parts.length === 2 && parts[0] === 'Bearer') {
         const decoded = jwt.verify(parts[1], JWT_SECRET);
-        const user = await User.findById(decoded.userId || decoded);
+        const user = await User.findById(decoded.userId || decoded).populate('packageId');
         if (user) {
+          let userFeatures = Array.isArray(user.features) ? [...user.features] : [];
+          if (userFeatures.length === 0 && user.companyCode) {
+            const adminUser = await User.findOne({ companyCode: user.companyCode, role: 'Admin' }).populate('packageId');
+            if (adminUser && Array.isArray(adminUser.features) && adminUser.features.length > 0) {
+              userFeatures = adminUser.features;
+            } else if (user.packageId && Array.isArray(user.packageId.features)) {
+              userFeatures = user.packageId.features;
+            }
+          }
           req.user = {
             _id: user._id,
             userId: user._id.toString(),
             name: user.name,
             email: user.email,
             role: user.role,
-            companyCode: user.companyCode
+            companyCode: user.companyCode,
+            features: userFeatures
           };
         }
       }
@@ -121,7 +131,24 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
+const requireIncidentFeature = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required to access Incident Investigation module.' });
+  }
+  if (req.user.role === 'SuperAdmin') {
+    return next();
+  }
+  const feats = Array.isArray(req.user.features) ? req.user.features : [];
+  if (!feats.includes('INCIDENT')) {
+    return res.status(403).json({
+      error: 'Incident Investigation module is not included in your current subscription package. Please upgrade your package to gain access.'
+    });
+  }
+  next();
+};
+
 router.use(optionalAuth);
+router.use(requireIncidentFeature);
 
 // Routes
 router.post('/', incidentController.createIncident);

@@ -102,6 +102,8 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
     interest: 'Full Suite'
   });
   const [demoSubmitted, setDemoSubmitted] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState('');
 
   useEffect(() => {
     fetchPackages();
@@ -189,13 +191,27 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
     setActiveFaq(activeFaq === index ? null : index);
   };
 
-  const handleDemoSubmit = (e) => {
+  const handleDemoSubmit = async (e) => {
     e.preventDefault();
-    setDemoSubmitted(true);
-    setTimeout(() => {
-      setDemoSubmitted(false);
-      setShowDemoModal(false);
-    }, 2800);
+    setDemoLoading(true);
+    setDemoError('');
+    try {
+      const res = await fetch(`${API_URL}/api/public/book-demo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demoForm)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit demo request.');
+      }
+      setDemoSubmitted(true);
+    } catch (err) {
+      console.error('Demo request error:', err);
+      setDemoError(err.message || 'Network error. Please try again.');
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   // ==========================================================================
@@ -2628,13 +2644,35 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
 
             {demoSubmitted ? (
               <div style={{ textAlign: 'center', padding: '30px 10px' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '14px' }}>🎉</div>
+                <div style={{ fontSize: '3.2rem', marginBottom: '12px' }}>🎉</div>
                 <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '10px' }}>
                   Demo Request Confirmed!
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
-                  Thank you, <strong>{demoForm.name || 'Engineer'}</strong>! Our Senior Process Safety Consultant will contact you at <strong>{demoForm.email}</strong> within 2 business hours with calendar invites and access credentials.
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
+                  Thank you, <strong>{demoForm.name || 'Engineer'}</strong>! A confirmation email has been dispatched to <strong>{demoForm.email}</strong>. Our Senior Process Safety Consultant will contact you within 2 business hours with calendar invites and access credentials for <strong>{demoForm.company}</strong>.
                 </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setDemoSubmitted(false);
+                      setShowDemoModal(false);
+                      setDemoForm({
+                        name: '',
+                        email: '',
+                        company: '',
+                        phone: '',
+                        industry: 'Chemicals / Petrochemicals',
+                        interest: 'Full Suite',
+                        notes: ''
+                      });
+                    }}
+                    className="psm-btn-primary"
+                    style={{ padding: '12px 28px', fontSize: '0.92rem' }}
+                  >
+                    Done & Explore Platform &rarr;
+                  </button>
+                </div>
               </div>
             ) : (
               <div>
@@ -2644,9 +2682,16 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 <h3 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
                   Schedule a PS-MagnaShield Walkthrough
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '22px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '18px' }}>
                   Experience a customized demonstration tailored to your plant units, P&IDs, and regulatory requirements.
                 </p>
+
+                {demoError && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>⚠️</span>
+                    <span>{demoError}</span>
+                  </div>
+                )}
 
                 <form onSubmit={handleDemoSubmit}>
                   <div className="psm-form-group">
@@ -2658,6 +2703,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       className="psm-form-input"
                       value={demoForm.name}
                       onChange={(e) => setDemoForm({ ...demoForm, name: e.target.value })}
+                      disabled={demoLoading}
                     />
                   </div>
 
@@ -2670,6 +2716,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       className="psm-form-input"
                       value={demoForm.email}
                       onChange={(e) => setDemoForm({ ...demoForm, email: e.target.value })}
+                      disabled={demoLoading}
                     />
                   </div>
 
@@ -2683,6 +2730,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                         className="psm-form-input"
                         value={demoForm.company}
                         onChange={(e) => setDemoForm({ ...demoForm, company: e.target.value })}
+                        disabled={demoLoading}
                       />
                     </div>
                     <div className="psm-form-group">
@@ -2693,6 +2741,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                         className="psm-form-input"
                         value={demoForm.phone}
                         onChange={(e) => setDemoForm({ ...demoForm, phone: e.target.value })}
+                        disabled={demoLoading}
                       />
                     </div>
                   </div>
@@ -2703,6 +2752,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       className="psm-form-select"
                       value={demoForm.industry}
                       onChange={(e) => setDemoForm({ ...demoForm, industry: e.target.value })}
+                      disabled={demoLoading}
                     >
                       <option value="Chemicals / Petrochemicals">Chemicals & Petrochemicals</option>
                       <option value="Oil & Gas Upstream / Downstream">Oil & Gas (Upstream / Downstream)</option>
@@ -2718,20 +2768,36 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       className="psm-form-select"
                       value={demoForm.interest}
                       onChange={(e) => setDemoForm({ ...demoForm, interest: e.target.value })}
+                      disabled={demoLoading}
                     >
-                      <option value="Full Suite">Full Enterprise PSM Suite (HAZOP + LOPA + MOC + BowTie)</option>
+                      <option value="Full Suite">Full Enterprise PSM Suite (HAZOP + LOPA + MOC + BowTie + Incident)</option>
                       <option value="HAZOP + LOPA">HAZOP & LOPA SIL Verification</option>
                       <option value="7-Stage MOC">7-Stage Management of Change (MOC)</option>
                       <option value="BowTie">BowTie Risk Visualization</option>
+                      <option value="Incident Investigation">Incident Investigation & RCA (5-Why & Fishbone)</option>
                     </select>
+                  </div>
+
+                  <div className="psm-form-group">
+                    <label className="psm-form-label">Specific Requirements / Notes (Optional)</label>
+                    <textarea 
+                      rows="2"
+                      placeholder="e.g. Need to review high-pressure hydrotreater unit and API RP 754 reporting..."
+                      className="psm-form-input"
+                      style={{ resize: 'vertical' }}
+                      value={demoForm.notes || ''}
+                      onChange={(e) => setDemoForm({ ...demoForm, notes: e.target.value })}
+                      disabled={demoLoading}
+                    />
                   </div>
 
                   <button 
                     type="submit" 
+                    disabled={demoLoading}
                     className="psm-btn-primary" 
-                    style={{ width: '100%', padding: '13px', justifyContent: 'center', marginTop: '10px' }}
+                    style={{ width: '100%', padding: '14px', justifyContent: 'center', marginTop: '10px', cursor: demoLoading ? 'not-allowed' : 'pointer', opacity: demoLoading ? 0.7 : 1 }}
                   >
-                    Confirm Live Demo Booking &rarr;
+                    {demoLoading ? '⏳ Confirming Demo Request...' : 'Confirm Live Demo Booking →'}
                   </button>
                 </form>
               </div>

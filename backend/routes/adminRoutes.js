@@ -258,5 +258,42 @@ router.post('/trigger-backup', async (req, res) => {
   }
 });
 
+// ================= DEMO REQUESTS / LEADS =================
+const DemoRequest = require('../models/DemoRequest');
+
+router.get('/demo-requests', async (req, res) => {
+  try {
+    const requests = await DemoRequest.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/demo-requests/:id', async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+    updateData.updatedAt = new Date();
+
+    const updated = await DemoRequest.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Demo request not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/demo-requests/:id', async (req, res) => {
+  try {
+    await DemoRequest.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Demo request deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 

@@ -51,6 +51,12 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
   const [backupMsg, setBackupMsg] = useState('');
   const [userMsg, setUserMsg] = useState('');
 
+  // Demo Requests / Inbound Leads State
+  const [demoRequests, setDemoRequests] = useState([]);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoFilter, setDemoFilter] = useState('ALL');
+  const [demoMsg, setDemoMsg] = useState('');
+
   const availableFeatures = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
 
   const getFeatureLabel = (f) => {
@@ -70,8 +76,62 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     fetchBackupStatus();
     fetchUsers();
     fetchTrialSettings();
+    fetchDemoRequests();
   }, []);
 
+  const fetchDemoRequests = async () => {
+    try {
+      setDemoLoading(true);
+      const res = await fetch(`${API_URL}/api/admin/demo-requests`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDemoRequests(data);
+      }
+    } catch (e) {
+      console.error('Error fetching demo requests:', e);
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
+  const handleUpdateDemoStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/demo-requests/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        setDemoRequests(prev => prev.map(d => d._id === id ? { ...d, status: newStatus } : d));
+        setDemoMsg('✅ Lead status updated successfully!');
+        setTimeout(() => setDemoMsg(''), 3000);
+      }
+    } catch (e) {
+      console.error('Error updating demo status:', e);
+    }
+  };
+
+  const handleDeleteDemo = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this demo request?')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/demo-requests/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        setDemoRequests(prev => prev.filter(d => d._id !== id));
+        setDemoMsg('✅ Demo request deleted');
+        setTimeout(() => setDemoMsg(''), 3000);
+      }
+    } catch (e) {
+      console.error('Error deleting demo request:', e);
+    }
+  };
   const fetchTrialSettings = async () => {
     try {
       const res = await fetch(`${API_URL}/api/admin/settings/trial`, {
@@ -759,6 +819,164 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           })}
         </div>
 
+        {/* Inbound Demo Requests & Enterprise Leads Section */}
+        <div style={{ background: 'white', borderRadius: '16px', padding: '30px', border: '1px solid #e1e4e8', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1a1a2e', fontWeight: '800' }}>
+                  📅 Inbound Demo Requests & Enterprise Leads
+                </h3>
+                {demoRequests.filter(d => d.status === 'Pending').length > 0 && (
+                  <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '4px 10px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: '800' }}>
+                    {demoRequests.filter(d => d.status === 'Pending').length} Pending
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '0.9rem' }}>
+                Review live demo bookings submitted from the landing page, manage lead outreach, and update consultation status.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {demoMsg && (
+                <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '6px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  {demoMsg}
+                </span>
+              )}
+              <select 
+                value={demoFilter} 
+                onChange={e => setDemoFilter(e.target.value)}
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: '600' }}
+              >
+                <option value="ALL">All Statuses ({demoRequests.length})</option>
+                <option value="Pending">Pending ({demoRequests.filter(d => d.status === 'Pending').length})</option>
+                <option value="Contacted">Contacted ({demoRequests.filter(d => d.status === 'Contacted').length})</option>
+                <option value="Scheduled">Scheduled ({demoRequests.filter(d => d.status === 'Scheduled').length})</option>
+                <option value="Completed">Completed ({demoRequests.filter(d => d.status === 'Completed').length})</option>
+              </select>
+              <button 
+                type="button"
+                onClick={fetchDemoRequests}
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600' }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+
+          {demoLoading ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>Loading demo requests...</div>
+          ) : demoRequests.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📭</div>
+              <div style={{ fontWeight: '700', fontSize: '1.05rem', color: '#334155' }}>No Demo Requests Yet</div>
+              <div style={{ fontSize: '0.88rem', marginTop: '4px' }}>Demo bookings submitted via the landing page will appear here instantly.</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e1e4e8', background: '#f8f9fa', color: '#475569' }}>
+                    <th style={{ padding: '14px 16px' }}>Date</th>
+                    <th style={{ padding: '14px 16px' }}>Lead Contact</th>
+                    <th style={{ padding: '14px 16px' }}>Company & Industry</th>
+                    <th style={{ padding: '14px 16px' }}>Modules of Interest</th>
+                    <th style={{ padding: '14px 16px' }}>Status</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {demoRequests
+                    .filter(d => demoFilter === 'ALL' || d.status === demoFilter)
+                    .map(d => {
+                      const statusColors = {
+                        Pending: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+                        Contacted: { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
+                        Scheduled: { bg: '#fefce8', color: '#ca8a04', border: '#fef08a' },
+                        Completed: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+                        Cancelled: { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' }
+                      };
+                      const sCol = statusColors[d.status] || statusColors.Pending;
+                      return (
+                        <tr key={d._id} style={{ borderBottom: '1px solid #eee', transition: 'background-color 0.15s' }}>
+                          <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+                            {new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            <div style={{ fontSize: '0.78rem' }}>{new Date(d.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{d.name}</div>
+                            <a href={`mailto:${d.email}`} style={{ fontSize: '0.85rem', color: '#00a896', textDecoration: 'none' }}>
+                              ✉️ {d.email}
+                            </a>
+                            {d.phone && (
+                              <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                                📞 <a href={`tel:${d.phone}`} style={{ color: '#475569', textDecoration: 'none' }}>{d.phone}</a>
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{d.company}</div>
+                            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{d.industry}</div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ background: '#f1f5f9', color: '#0f766e', padding: '4px 10px', borderRadius: '12px', fontSize: '0.82rem', fontWeight: '700', border: '1px solid #cbd5e1', display: 'inline-block' }}>
+                              {d.interest}
+                            </span>
+                            {d.notes && (
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', fontStyle: 'italic', maxWidth: '240px' }}>
+                                &quot;{d.notes}&quot;
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <select
+                              value={d.status}
+                              onChange={e => handleUpdateDemoStatus(d._id, e.target.value)}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '16px',
+                                border: `1px solid ${sCol.border}`,
+                                background: sCol.bg,
+                                color: sCol.color,
+                                fontWeight: '700',
+                                fontSize: '0.82rem',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Contacted">Contacted</option>
+                              <option value="Scheduled">Scheduled</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <a
+                                href={`mailto:${d.email}?subject=PS-MagnaShield%20Demo%20Walkthrough%20for%20${encodeURIComponent(d.company)}`}
+                                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f766e', textDecoration: 'none', fontSize: '0.82rem', fontWeight: '700' }}
+                                title="Send Email"
+                              >
+                                Email
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDemo(d._id)}
+                                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #ef4444', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700' }}
+                                title="Delete Record"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
         {/* User Account Feature Permissions Section */}
         <div style={{ background: 'white', borderRadius: '16px', padding: '30px', border: '1px solid #e1e4e8', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

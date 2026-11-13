@@ -80,6 +80,8 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
   const [activeSimTab, setActiveSimTab] = useState('hazop');
   const [activeHazopIndex, setActiveHazopIndex] = useState(0);
   const [activeMocStage, setActiveMocStage] = useState(6); // Default on PSSR stage
+  const [activeIncidentStage, setActiveIncidentStage] = useState(3); // Default on RCA stage
+  const [activeWhyNode, setActiveWhyNode] = useState(5); // Default to Root Cause level
   const [actionSearch, setActionSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
 
@@ -302,6 +304,126 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
     }
   ];
 
+  const incidentStages = [
+    {
+      num: 1,
+      title: "FIR & Triage",
+      subtitle: "24h Notification & Severity Triage",
+      status: "completed",
+      author: "R. Sharma (Shift In-Charge)",
+      date: "08-Nov-2026, 02:45 hrs",
+      category: "API RP 754: Tier 1 Process Safety Event (PSE)"
+    },
+    {
+      num: 2,
+      title: "Team & Charter",
+      subtitle: "Investigation Lead & Scope Mandate",
+      status: "completed",
+      author: "Dr. S. R. Pillai (Lead Investigator, CCPS)",
+      date: "09-Nov-2026",
+      category: "Chartered per OSHA 29 CFR 1910.119(m)"
+    },
+    {
+      num: 3,
+      title: "Root Cause (RCA)",
+      subtitle: "Interactive 5-Why & Fishbone (6M)",
+      status: "current",
+      author: "Investigation Panel",
+      date: "Active Review",
+      category: "Primary Root Cause: Flange Box-Up QC Gap"
+    },
+    {
+      num: 4,
+      title: "CAPA Workspace",
+      subtitle: "Hierarchy of Controls & Barriers",
+      status: "current",
+      author: "HSE & Reliability Committee",
+      date: "In Implementation",
+      category: "4 Actions Active • 1 Verified Closed"
+    },
+    {
+      num: 5,
+      title: "PHA Loopback",
+      subtitle: "Timeline, Lessons Learned & HAZOP Link",
+      status: "pending",
+      author: "Plant Manager & PSM Lead",
+      date: "Closure Target: 20-Nov-2026",
+      category: "Closed-Loop HAZOP Node Update"
+    }
+  ];
+
+  const whyTreeData = [
+    { level: 1, label: "Why 1 (Direct Effect)", q: "Why did flammable hydrocarbon release and ignite at Reboiler E-204 shell flange?", a: "Spiral-wound gasket ruptured under thermal gradient and pressure fluctuation (18.2 barg transient)." },
+    { level: 2, label: "Why 2 (Physical Cause)", q: "Why did the spiral-wound gasket blow out below design test pressure?", a: "Uneven and insufficient bolting torque applied across the 24-bolt flange circumference during turnaround box-up." },
+    { level: 3, label: "Why 3 (Human Action)", q: "Why was improper torque applied during maintenance box-up?", a: "Contract mechanic used an uncalibrated manual clicker torque wrench and skipped the standard criss-cross star pattern pass." },
+    { level: 4, label: "Why 4 (Tool & Procedure)", q: "Why was an uncalibrated wrench used and procedure skipped?", a: "Torque wrench calibration had expired 45 days prior and pre-task toolbox talk did not audit tool certification tags." },
+    { level: 5, label: "Why 5 (Root Cause / Systemic)", q: "Why did the management system allow equipment startup without torque audit?", a: "Turnaround CMMS lacked mandatory digital QC flange joint sign-off and torque audit check before line de-isolation." }
+  ];
+
+  const fishboneCategories = [
+    { cat: "Machine", icon: "⚙️", items: ["B7 stud bolt differential thermal expansion at 210°C", "Flange face micro-scratches from wire brush cleaning"] },
+    { cat: "Method", icon: "📐", items: ["Flange bolting SOP lacked digital dual-signoff requirement", "Criss-cross torque sequence bypassed during night rush"] },
+    { cat: "Material", icon: "🧪", items: ["Standard spiral wound gasket sensitive to thermal cycling", "Kammprofile gaskets recommended but not stocked in spares"] },
+    { cat: "Measurement", icon: "📏", items: ["Torque wrench calibration expired 45 days prior", "No ultrasonic bolt elongation verification on critical joints"] },
+    { cat: "Man", icon: "👷", items: ["Contract technicians not certified on ASME PCC-1 bolting", "Fatigue during extended 12-hour turnaround shift"] },
+    { cat: "Milieu", icon: "🌧️", items: ["Poor night-shift task lighting in piperack lower bay", "Intermittent rain during flange alignment and box-up"] }
+  ];
+
+  const incidentCapas = [
+    {
+      id: "CAPA-INC-01",
+      hierarchy: "Engineering Control",
+      hierarchyColor: "#1d4ed8",
+      title: "Upgrade to High-Integrity Kammprofile Gaskets",
+      desc: "Replace standard spiral wound gaskets with grooved Kammprofile gaskets with expanded graphite facing on all cyclic reboilers (>180°C).",
+      owner: "P. R. Kulkarni (Reliability Lead)",
+      target: "15-Nov-2026",
+      status: "Procurement In Progress",
+      tag: "Permanent Fix"
+    },
+    {
+      id: "CAPA-INC-02",
+      hierarchy: "Administrative Control",
+      hierarchyColor: "#059669",
+      title: "Digital QR Flange Joint Integrity System",
+      desc: "Implement mandatory mobile QR scanning for critical flanges requiring torque value entry and dual QA/QC supervisor sign-off before de-isolation.",
+      owner: "M. S. Joshi (Maintenance Head)",
+      target: "10-Nov-2026",
+      status: "SOP Released & Active",
+      tag: "Process Enforced"
+    },
+    {
+      id: "CAPA-INC-03",
+      hierarchy: "Administrative Control",
+      hierarchyColor: "#059669",
+      title: "100% Torque Tool Calibration Audit & Lockout",
+      desc: "Audit all mechanical torque wrenches across tool cribs and implement automated CMMS lockout for expired calibration certificates.",
+      owner: "V. Nair (QC / Metrology Lead)",
+      target: "05-Nov-2026",
+      status: "Completed & Verified",
+      tag: "Verified Closed"
+    },
+    {
+      id: "CAPA-INC-04",
+      hierarchy: "Training & Competency",
+      hierarchyColor: "#d97706",
+      title: "ASME PCC-1 Certified Bolting Training",
+      desc: "Conduct hands-on ASME PCC-1 Appendix A certified bolted flange joint assembly training for 45 maintenance technicians and contractors.",
+      owner: "K. Sundaram (Training Manager)",
+      target: "25-Nov-2026",
+      status: "In Progress (85%)",
+      tag: "Competency"
+    }
+  ];
+
+  const incidentTimeline = [
+    { time: "02:40:12", tag: "DCS Historian", event: "Pressure transient recorded (14.2 → 18.2 barg) due to sudden reflux pump discharge check valve flutter.", badge: "⚡ Transient" },
+    { time: "02:42:05", tag: "Gas Detection", event: "Optical IR hydrocarbon detector GD-204 triggers pre-alarm (20% LEL) at piperack level 2.", badge: "⚠️ Pre-Alarm" },
+    { time: "02:45:00", tag: "Incident Trigger", event: "Spiral-wound gasket ruptures; pressurized C3/C4 flash vapor release (~650 kg) and auto-ignition on hot line tracing.", badge: "🔥 Flash Fire" },
+    { time: "02:45:15", tag: "Automated Safety", event: "Field operator hits ESD-02 push-button; emergency shutdown valves close fail-safe in 1.4 seconds.", badge: "🛡️ ESD Trip" },
+    { time: "02:48:00", tag: "Emergency Response", event: "Automated high-velocity fire water deluge deployed; plant emergency sirens sounded; mutual aid on standby.", badge: "🚒 Deluge Active" },
+    { time: "02:51:30", tag: "Safe Isolation", event: "Flames fully extinguished, pipe isolated and nitrogen blanketed; zero personnel injuries or hospitalizations.", badge: "✓ Safe & Secure" }
+  ];
   const mocStages = [
     {
       num: 1,
@@ -631,7 +753,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
           </h1>
 
           <p className="psm-hero-desc">
-            The next-generation cloud suite for <strong>HAZOP</strong>, <strong>LOPA</strong>, <strong>MOC</strong>, and <strong>BowTie</strong> risk analysis. Conduct rigorous risk assessments 5x faster, track corrective actions effortlessly, and ensure 100% regulatory compliance.
+            The next-generation cloud suite for <strong>HAZOP</strong>, <strong>LOPA</strong>, <strong>MOC</strong>, <strong>BowTie</strong>, and <strong>Incident Investigation</strong>. Conduct rigorous risk assessments 5x faster, track corrective actions effortlessly, and ensure 100% regulatory compliance.
           </p>
 
           <div className="psm-hero-actions">
@@ -777,6 +899,12 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 onClick={() => setActiveSimTab('bowtie')}
               >
                 <span>🎀</span> BowTie Risk Visualizer
+              </button>
+              <button 
+                className={`psm-sim-tab-btn ${activeSimTab === 'incident' ? 'active' : ''}`}
+                onClick={() => setActiveSimTab('incident')}
+              >
+                <span>🚨</span> Incident Investigation
               </button>
               <button 
                 className={`psm-sim-tab-btn ${activeSimTab === 'actions' ? 'active' : ''}`}
@@ -1170,6 +1298,305 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 </div>
               )}
 
+              {/* TAB: INCIDENT INVESTIGATION */}
+              {activeSimTab === 'incident' && (
+                <div className="psm-incident-pipeline">
+                  <div className="psm-sim-meta-strip">
+                    <div className="psm-sim-meta-title">
+                      <span>🚨 Major Accident Investigation:</span>
+                      <span style={{ color: 'var(--primary-main)' }}>
+                        INC-2026-042: Hydrocarbon Flash Fire & Flange Release at Column Reboiler E-204
+                      </span>
+                    </div>
+                    <div className="psm-sim-meta-pills">
+                      <span className="psm-pill" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', fontWeight: '800' }}>
+                        API RP 754: Tier 1 PSE
+                      </span>
+                      <span className="psm-pill psm-pill-orange">Release: ~650 kg C3/C4</span>
+                      <span className="psm-pill psm-pill-green">Injuries: 0 (Zero LTI)</span>
+                      <span className="psm-pill psm-pill-blue">Active Stage: {activeIncidentStage} of 5</span>
+                    </div>
+                  </div>
+
+                  {/* 5-Stage Interactive Investigation Stepper */}
+                  <div className="psm-moc-stepper" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                    {incidentStages.map(st => (
+                      <div 
+                        key={st.num}
+                        className={`psm-moc-step ${st.status} ${activeIncidentStage === st.num ? 'active' : ''}`}
+                        onClick={() => setActiveIncidentStage(st.num)}
+                      >
+                        <div 
+                          className="psm-moc-circle" 
+                          style={activeIncidentStage === st.num ? { background: '#dc2626', borderColor: '#dc2626', color: '#fff' } : (st.status === 'completed' ? { background: '#10b981', borderColor: '#10b981', color: '#fff' } : {})}
+                        >
+                          {st.status === 'completed' ? '✓' : st.num}
+                        </div>
+                        <div className="psm-moc-title">Stage {st.num}: {st.title}</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {st.status === 'completed' ? 'Completed' : st.status === 'current' ? 'In Review' : 'Pending'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Active Incident Stage Details Card */}
+                  {(() => {
+                    const st = incidentStages.find(s => s.num === activeIncidentStage) || incidentStages[2];
+                    return (
+                      <div className="psm-moc-stage-card" style={{ marginTop: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                          <div>
+                            <span className="psm-pill" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626', marginRight: '8px', fontWeight: '800' }}>
+                              Stage {st.num} of 5
+                            </span>
+                            <h3 style={{ display: 'inline', fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                              {st.title} &mdash; {st.subtitle}
+                            </h3>
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.85rem' }}>
+                            <span>Lead / Author: <strong>{st.author}</strong></span>
+                            <span>Date: <strong>{st.date}</strong></span>
+                          </div>
+                        </div>
+
+                        {/* STAGE 1: FIR & TRIAGE */}
+                        {activeIncidentStage === 1 && (
+                          <div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                              <div style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Event Classification</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>Tier 1 PSE (LOPC)</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Per API Recommended Practice 754</div>
+                              </div>
+                              <div style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Chemical & Quantity</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>~650 kg C3/C4 Vapor</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Exceeds 500 kg 1-hr threshold</div>
+                              </div>
+                              <div style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Plant Area / Equipment</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>Reboiler E-204 Shell Flange</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Atmospheric Distillation Unit</div>
+                              </div>
+                              <div style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Impact & Injuries</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>Zero Casualties / 0 LTI</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>ESD tripped within 1.4 seconds</div>
+                              </div>
+                            </div>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '12px 16px', fontSize: '0.88rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>✓</span>
+                              <span><strong>Statutory 24-Hour FIR Dispatched:</strong> Automated notification delivered to Corporate Safety Board and Factory Inspectorate within 2.5 hours of event.</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* STAGE 2: TEAM & CHARTER */}
+                        {activeIncidentStage === 2 && (
+                          <div>
+                            <div style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+                              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-primary)' }}>Investigation Mandate & Lead Investigator</h4>
+                              <p style={{ margin: '0 0 12px 0', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                Chartered under OSHA 29 CFR 1910.119(m) and CCPS guidelines for Loss of Primary Containment root-cause determination. Investigation team authorized to preserve evidence, interview shift personnel, and access DCS telemetry.
+                              </p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                <div style={{ padding: '10px', background: 'var(--bg-paper)', borderRadius: '6px', border: '1px solid var(--divider)' }}>
+                                  <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: '700' }}>Lead Investigator</div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>Dr. S. R. Pillai</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Certified CCPS Process Safety Auditor</div>
+                                </div>
+                                <div style={{ padding: '10px', background: 'var(--bg-paper)', borderRadius: '6px', border: '1px solid var(--divider)' }}>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-main)', fontWeight: '700' }}>Process Engineer</div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>M. Ramanathan</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Distillation Section Specialist</div>
+                                </div>
+                                <div style={{ padding: '10px', background: 'var(--bg-paper)', borderRadius: '6px', border: '1px solid var(--divider)' }}>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-main)', fontWeight: '700' }}>Mechanical Integrity Lead</div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>A. Deshmukh</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Static Equipment & Flange Integrity</div>
+                                </div>
+                                <div style={{ padding: '10px', background: 'var(--bg-paper)', borderRadius: '6px', border: '1px solid var(--divider)' }}>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-main)', fontWeight: '700' }}>Operations Witness</div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>K. Patel</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Shift Board Operator on Duty</div>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              🔒 <strong>Evidence Sealed:</strong> 24 Flange B7 stud bolts impounded, ruptured gasket remnants cataloged, 1-sec resolution DCS historian CSV frozen.
+                            </div>
+                          </div>
+                        )}
+
+                        {/* STAGE 3: ROOT CAUSE ANALYSIS (5-WHY & FISHBONE) */}
+                        {activeIncidentStage === 3 && (
+                          <div>
+                            <div style={{ marginBottom: '18px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                                  Visual 5-Why Root Cause Chain
+                                </h4>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Click any step to inspect technical details</span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {whyTreeData.map((node) => (
+                                  <div 
+                                    key={node.level}
+                                    onClick={() => setActiveWhyNode(node.level)}
+                                    style={{
+                                      padding: '12px 16px',
+                                      borderRadius: '8px',
+                                      border: activeWhyNode === node.level ? '2px solid #dc2626' : '1px solid var(--divider)',
+                                      background: activeWhyNode === node.level ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-default)',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                                      <span style={{ fontWeight: '800', fontSize: '0.88rem', color: node.level === 5 ? '#dc2626' : 'var(--primary-main)' }}>
+                                        {node.label}
+                                      </span>
+                                      {node.level === 5 && (
+                                        <span className="psm-pill" style={{ background: '#dc2626', color: '#fff', fontSize: '0.7rem', fontWeight: '800' }}>
+                                          PRIMARY ROOT CAUSE
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{node.q}</div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>&rarr; {node.a}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Fishbone 6M Quick Overview */}
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                              Ishikawa Fishbone (6M Contributing Factor Matrix)
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                              {fishboneCategories.map(fb => (
+                                <div key={fb.cat} style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '12px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '0.85rem', color: 'var(--primary-main)', marginBottom: '6px' }}>
+                                    <span>{fb.icon}</span>
+                                    <span>{fb.cat}</span>
+                                  </div>
+                                  <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                    {fb.items.map((it, idx) => <li key={idx} style={{ marginBottom: '4px' }}>{it}</li>)}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* STAGE 4: CAPA WORKSPACE */}
+                        {activeIncidentStage === 4 && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                              <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                                Corrective & Preventive Actions (Hierarchy of Controls)
+                              </h4>
+                              <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '700' }}>100% Actions Assigned with S.M.A.R.T. Criteria</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              {incidentCapas.map(capa => (
+                                <div key={capa.id} style={{ background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '14px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ fontWeight: '800', color: 'var(--primary-main)', fontSize: '0.88rem' }}>{capa.id}</span>
+                                      <span className="psm-pill" style={{ background: `${capa.hierarchyColor}15`, color: capa.hierarchyColor, fontWeight: '700', fontSize: '0.75rem' }}>
+                                        {capa.hierarchy}
+                                      </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: capa.status.includes('Completed') ? '#10b981' : '#d97706' }}>
+                                      ● {capa.status}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{capa.title}</div>
+                                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: '1.4' }}>{capa.desc}</div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                    <span>Owner: <strong>{capa.owner}</strong></span>
+                                    <span>Due Date: <strong>{capa.target}</strong></span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* STAGE 5: TIMELINE & PHA LOOPBACK */}
+                        {activeIncidentStage === 5 && (
+                          <div>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                              Chronological Sequence of Events
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+                              {incidentTimeline.map((item, idx) => (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 14px', background: 'var(--bg-default)', border: '1px solid var(--divider)', borderRadius: '8px' }}>
+                                  <span style={{ fontFamily: 'monospace', fontWeight: '700', color: 'var(--primary-main)', fontSize: '0.85rem', minWidth: '65px' }}>{item.time}</span>
+                                  <span className="psm-pill" style={{ fontSize: '0.72rem', fontWeight: '700', padding: '2px 8px' }}>{item.badge}</span>
+                                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', flex: 1 }}>{item.event}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Closed-Loop PHA Feedback Card */}
+                            <div style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(14,165,233,0.06) 100%)', border: '1.5px solid rgba(37,99,235,0.3)', borderRadius: '10px', padding: '16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '1.1rem' }}>🔄</span>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--primary-main)', fontWeight: '800' }}>
+                                  Closed-Loop PSM: PHA / HAZOP Loopback Synchronization
+                                </h4>
+                              </div>
+                              <p style={{ margin: '0 0 10px 0', fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                                This investigation automatically updated <strong>HAZOP Node 4: Distillation Column Reboiler Feed Line (P&ID-ADU-024)</strong> by injecting Safeguard <code>SG-404</code> (High-integrity Kammprofile gasket with ASME PCC-1 bolt torque audit) and registering recommendation <code>REC-HAZ-089</code> into the active plant risk registry.
+                              </p>
+                              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <button 
+                                  onClick={() => setActiveSimTab('hazop')}
+                                  style={{ padding: '6px 14px', borderRadius: '6px', background: 'var(--primary-main)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700' }}
+                                >
+                                  View Updated HAZOP Worksheet &rarr;
+                                </button>
+                                <button 
+                                  onClick={() => setShowDemoModal(true)}
+                                  style={{ padding: '6px 14px', borderRadius: '6px', background: 'var(--bg-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
+                                >
+                                  Download Audit-Proof PDF Report
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stepper Footer Controls */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--divider)' }}>
+                          <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                            Stage Governance: <strong style={{ color: 'var(--primary-main)' }}>{st.category}</strong>
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => setActiveIncidentStage(Math.max(1, activeIncidentStage - 1))}
+                              disabled={activeIncidentStage === 1}
+                              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--divider)', background: 'var(--bg-paper)', cursor: activeIncidentStage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
+                            >
+                              &larr; Previous Stage
+                            </button>
+                            <button 
+                              onClick={() => setActiveIncidentStage(Math.min(5, activeIncidentStage + 1))}
+                              disabled={activeIncidentStage === 5}
+                              style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: '#dc2626', color: '#fff', cursor: activeIncidentStage === 5 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '700' }}
+                            >
+                              Next Stage &rarr;
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               {/* TAB 5: ACTION TRACKING HUB */}
               {activeSimTab === 'actions' && (
                 <div>
@@ -1495,6 +1922,20 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 <li><span className="psm-module-bullet-check">✓</span> Prevention & mitigation barrier health tracking</li>
                 <li><span className="psm-module-bullet-check">✓</span> Direct linkage to HAZOP safeguards & LOPA credits</li>
                 <li><span className="psm-module-bullet-check">✓</span> Degradation factor & critical safety device management</li>
+              </ul>
+            </article>
+
+            {/* Module 5: Incident Investigation */}
+            <article className="psm-module-card">
+              <span className="psm-module-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>INCIDENT & RCA</span>
+              <h3 className="psm-module-title">Incident Investigation & RCA</h3>
+              <p className="psm-module-desc">
+                Execute rigorous OSHA 29 CFR 1910.119(m) and API RP 754 investigations with instant 24-hr FIR notifications, Tier 1-4 classification, interactive 5-Why & Fishbone RCA, barrier tracking, and closed-loop PHA feedback.
+              </p>
+              <ul className="psm-module-bullets">
+                <li><span className="psm-module-bullet-check">✓</span> 24-Hour FIR initial reporting & API RP 754 Tier 1 to 4 severity triage</li>
+                <li><span className="psm-module-bullet-check">✓</span> Interactive 5-Why visual root-cause tree & Ishikawa 6M contributing factors</li>
+                <li><span className="psm-module-bullet-check">✓</span> Hierarchy of controls CAPA tracker with closed-loop HAZOP loopback</li>
               </ul>
             </article>
 
@@ -2332,6 +2773,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 <li><a href="#simulator">LOPA & SIL Allocation</a></li>
                 <li><a href="#simulator">7-Stage MOC Pipeline</a></li>
                 <li><a href="#simulator">BowTie Risk Diagrams</a></li>
+                <li><a href="#simulator">Incident Investigation & RCA</a></li>
                 <li><a href="#simulator">Recommendations Hub</a></li>
               </ul>
             </div>

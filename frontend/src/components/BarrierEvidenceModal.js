@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Api754HelpModal from './Api754HelpModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './BarrierEvidenceModal.css';
 
@@ -46,6 +47,7 @@ const getBarrierCardClass = (status = '') => {
 
 export default function BarrierEvidenceModal({ isOpen, onClose, incident, onUpdated }) {
   const [activeTab, setActiveTab] = useState('barriers');
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingBarriers, setSavingBarriers] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
@@ -466,13 +468,23 @@ export default function BarrierEvidenceModal({ isOpen, onClose, incident, onUpda
             <span>
               ⚠️ <strong>Pending Classification Alert:</strong> Initial FIR marked quantity, injury, or damage cost as pending. Once lab/mass-balance/medical/cost evidence is attached, finalize the API RP 754 Tier.
             </span>
-            <button
-              type="button"
-              className="be-btn-primary"
-              onClick={() => setActiveTab('classification')}
-            >
-              ⚖️ Resolve Classification Now →
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="be-btn-secondary"
+                onClick={() => setShowHelpModal(true)}
+                style={{ background: '#ffffff', color: '#92400e', borderColor: '#d97706', fontWeight: 800 }}
+              >
+                📘 Why Pending? (Help)
+              </button>
+              <button
+                type="button"
+                className="be-btn-primary"
+                onClick={() => setActiveTab('classification')}
+              >
+                ⚖️ Resolve Classification Now →
+              </button>
+            </div>
           </div>
         )}
 
@@ -867,8 +879,16 @@ export default function BarrierEvidenceModal({ isOpen, onClose, incident, onUpda
           {!loading && activeTab === 'classification' && classContext && (
             <div className="be-class-grid">
               <div className="be-section-card">
-                <div className="be-section-header">
+                <div className="be-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3>Current API RP 754 Classification</h3>
+                  <button
+                    type="button"
+                    className="be-btn-secondary"
+                    onClick={() => setShowHelpModal(true)}
+                    style={{ background: '#f0f9ff', color: '#0369a1', borderColor: '#7dd3fc', fontWeight: 700 }}
+                  >
+                    📘 View API RP 754 Criteria Guide
+                  </button>
                 </div>
                 <div
                   style={{
@@ -1036,6 +1056,13 @@ export default function BarrierEvidenceModal({ isOpen, onClose, incident, onUpda
           )}
         </div>
       </div>
+
+      <Api754HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        incident={incident}
+        initialTab={isPendingClassification ? 'pending' : 'tiers'}
+      />
     </div>
   );
 }

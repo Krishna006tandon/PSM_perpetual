@@ -1,0 +1,324 @@
+/* API RP 754 Classification Reference & Help Modal */
+
+.api754-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11000;
+  padding: 16px;
+}
+
+.api754-modal-card {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  animation: api754ModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes api754ModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.api754-modal-header {
+  padding: 16px 24px;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.api754-header-title {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.api754-header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.api754-close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.api754-close-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+/* Tabs */
+.api754-tabs-strip {
+  display: flex;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 8px 24px;
+  border-bottom: 1px solid #cbd5e1;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.api754-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.api754-tab-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.api754-tab-btn.active {
+  background: #1e3a8a;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);
+}
+
+.api754-tab-btn.active-pending {
+  background: #d97706;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(217, 119, 6, 0.25);
+}
+
+/* Modal Body */
+.api754-modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Diagnostic Box for specific incident */
+.api754-diagnostic-card {
+  background: #fffbeb;
+  border: 1.5px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.api754-diagnostic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.api754-diagnostic-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api754-reason-pill {
+  background: #ffffff;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  color: #78350f;
+  line-height: 1.45;
+}
+
+.api754-reason-guidance {
+  margin-top: 5px;
+  font-size: 0.78rem;
+  color: #451a03;
+  background: #fef3c7;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tier Cards Grid */
+.api754-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.api754-tier-card {
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.api754-tier-card-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.api754-tier-card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api754-tier-card-body {
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #334155;
+  flex: 1;
+}
+
+.api754-tier-card-body ul {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+}
+
+.api754-tier-card-body li {
+  margin-bottom: 6px;
+}
+
+/* Table styling for Chemical TRC */
+.api754-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.api754-table th {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.api754-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.api754-table tr:hover {
+  background: #f8fafc;
+}
+
+/* Trigger boxes */
+.api754-trigger-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.api754-trigger-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.api754-trigger-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.api754-trigger-desc {
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.api754-trigger-resolve {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 0.76rem;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+/* Footer */
+.api754-modal-footer {
+  padding: 14px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}

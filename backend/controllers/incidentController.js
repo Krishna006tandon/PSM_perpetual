@@ -611,6 +611,7 @@ exports.evaluateApi754Live = (req, res) => {
       title: calc.title,
       badgeColor: calc.badgeColor,
       reasons: calc.reasons,
+      pendingDetails: calc.pendingDetails || [],
       tier1SeverityPoints: severityScore
     });
   } catch (error) {

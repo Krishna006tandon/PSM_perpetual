@@ -250,6 +250,12 @@ const incidentSchema = new mongoose.Schema({
     tier: { type: String, default: 'Near Miss' },
     title: { type: String, default: 'Near Miss – Credible Potential Event' },
     reasons: [String],
+    pendingDetails: [{
+      item: String,
+      parameter: String,
+      status: String,
+      guidance: String
+    }],
     tier1SeverityPoints: { type: Number, default: 0 },
     badgeColor: { type: String, default: 'primary' },
     manuallyOverridden: { type: Boolean, default: false },

@@ -8,6 +8,7 @@ import BarrierEvidenceModal from '../components/BarrierEvidenceModal';
 import TimelinePhaModal from '../components/TimelinePhaModal';
 import ClosureReportModal from '../components/ClosureReportModal';
 import PsmAnalyticsModal from '../components/PsmAnalyticsModal';
+import Api754HelpModal from '../components/Api754HelpModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentDashboard.css';
 
@@ -71,6 +72,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
   const [selectedIncidentForTimeline, setSelectedIncidentForTimeline] = useState(null);
   const [selectedIncidentForClosure, setSelectedIncidentForClosure] = useState(null);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+  const [helpModalState, setHelpModalState] = useState({ isOpen: false, incident: null, initialTab: 'tiers' });
   const [capaInitialWhyNodeId, setCapaInitialWhyNodeId] = useState(null);
 
   const fetchIncidentsAndStats = useCallback(async () => {
@@ -180,6 +182,15 @@ export default function IncidentDashboard({ currentUser, onBack }) {
             title="Open Stage 5 Plant-Wide API RP 754 KPI Analytics, PSER Calculator & Excel Export"
           >
             📊 PSM Analytics & Export
+          </button>
+          <button
+            type="button"
+            className="btn-action-view"
+            style={{ padding: '10px 16px', fontSize: '0.88rem', fontWeight: 700, borderRadius: '8px', background: '#f0f9ff', borderColor: '#7dd3fc', color: '#0369a1' }}
+            onClick={() => setHelpModalState({ isOpen: true, incident: null, initialTab: 'tiers' })}
+            title="ANSI/API RP 754 Tier 1–4, Near Miss & Chemical Threshold Quantities Reference Guide"
+          >
+            📘 PSE Classification Guide
           </button>
           <button
             className="btn-primary-gradient"
@@ -372,6 +383,31 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                     <span className={`tier-badge ${getTierBadgeClass(inc.api754Classification?.category || inc.api754Classification?.tier)}`}>
                       {inc.api754Classification?.category || inc.api754Classification?.tier || 'Near Miss'}
                     </span>
+
+                    {(inc.api754Classification?.category === 'Pending Classification' || inc.api754Classification?.tier === 'Pending Classification') && (
+                      <button
+                        type="button"
+                        onClick={() => setHelpModalState({ isOpen: true, incident: inc, initialTab: 'pending' })}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginTop: '4px',
+                          background: '#fffbeb',
+                          border: '1px solid #f59e0b',
+                          color: '#b45309',
+                          fontSize: '0.71rem',
+                          fontWeight: '800',
+                          padding: '2px 7px',
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                        }}
+                        title="Click to see why this incident classification is pending and how to resolve it"
+                      >
+                        <span>❓</span> Why Pending? ({inc.api754Classification?.reasons?.length || 1})
+                      </button>
+                    )}
+
                     {inc.reviewerDeclaration?.isConfirmed && (
                       <div style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: '700', marginTop: '3px' }}>
                         ✓ Sec K Declared
@@ -624,6 +660,18 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           setSelectedIncidentForDetails(null);
           setCapaInitialWhyNodeId(null);
           setSelectedIncidentForCapa(inc);
+        }}
+      />
+
+      <Api754HelpModal
+        isOpen={helpModalState.isOpen}
+        onClose={() => setHelpModalState({ isOpen: false, incident: null, initialTab: 'tiers' })}
+        incident={helpModalState.incident}
+        initialTab={helpModalState.initialTab}
+        onOpenEdit={(inc) => handleOpenEditFIR(inc)}
+        onOpenResolver={(inc) => {
+          setHelpModalState({ isOpen: false, incident: null, initialTab: 'tiers' });
+          setSelectedIncidentForEvidence(inc);
         }}
       />
     </div>

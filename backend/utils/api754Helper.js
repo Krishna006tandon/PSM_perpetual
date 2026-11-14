@@ -221,27 +221,66 @@ function evaluateApi754Tier(data) {
   // RULE A: Check for Pending Classification – Additional Information Required
   // "If any mandatory information is missing, the software should display
   // Pending Classification – Additional Information Required, rather than automatically declaring the event as Near Miss or Non-PSE."
-  if (isActualRelease === 'Not sure' || hasInjuriesPending || directCostPending) {
-    if (isActualRelease === 'Not sure') reasons.push('Actual material release status is unconfirmed');
-    if (hasInjuriesPending) reasons.push('Medical treatment / injury recordability assessment pending');
-    if (directCostPending) reasons.push('Fire / explosion direct cost damage assessment is still in progress');
-    return {
-      category: 'Pending Classification',
-      tier: 'Pending Classification',
-      title: 'Pending Classification – Additional Information Required',
-      reasons,
-      badgeColor: 'warning'
-    };
+  const pendingReasons = [];
+  const pendingDetails = [];
+
+  if (isActualRelease === 'Not sure') {
+    pendingReasons.push('Actual material release status is unconfirmed (loss of containment vs internal upset)');
+    pendingDetails.push({
+      item: 'Material Release Status',
+      parameter: 'isActualRelease',
+      status: 'Unconfirmed (Not sure)',
+      guidance: 'Verify whether a physical breach of containment occurred to atmosphere/ground or if the event was safely contained.'
+    });
   }
 
-  // If there was an actual chemical release but quantity is marked unknown / zero with chemical present
+  if (hasInjuriesPending) {
+    pendingReasons.push('Medical treatment / injury recordability assessment pending occupational health evaluation');
+    pendingDetails.push({
+      item: 'Medical / Injury Severity',
+      parameter: 'hasInjuriesPending',
+      status: 'Medical Evaluation Pending',
+      guidance: 'Awaiting doctor diagnosis: check whether any worker sustained Days Away From Work / LTI (Tier 1) or Medical Treatment (Tier 2).'
+    });
+  }
+
+  if (directCostPending) {
+    pendingReasons.push('Fire / explosion direct cost damage assessment is still in progress');
+    pendingDetails.push({
+      item: 'Direct Damage Cost',
+      parameter: 'directCostPending',
+      status: 'Estimation In Progress',
+      guidance: 'Awaiting engineering cost estimate: check whether total direct equipment repair/replacement cost exceeds $100,000 (Tier 2) or $2,500,000 (Tier 1).'
+    });
+  }
+
   if ((isActualRelease === 'Yes' || isLOPC) && chemicalTRC && chemicalTRC !== 'N/A' && (quantityUnknown || releaseQuantityKg <= 0)) {
-    reasons.push('Chemical release confirmed, but 1-hour release quantity is not yet estimated/measured');
+    pendingReasons.push(`Chemical release (${chemicalTRC}) confirmed, but 1-hour release quantity is not yet estimated/measured`);
+    pendingDetails.push({
+      item: '1-Hour Release Quantity (LOPC)',
+      parameter: 'releaseQuantityKg / quantityUnknown',
+      status: quantityUnknown ? 'Marked Unknown by Reporter' : '0 kg Recorded',
+      guidance: `Perform mass balance or plant calculation to estimate 1-hour release quantity (kg) against API RP 754 ${chemicalTRC} Threshold Quantity.`
+    });
+  }
+
+  if ((isActualRelease === 'Yes' || isLOPC) && (!chemicalTRC || chemicalTRC === 'N/A' || chemicalTRC === 'None')) {
+    pendingReasons.push('Loss of Primary Containment (LOPC) indicated, but chemical Threshold Release Category (TRC 1..8) has not been assigned');
+    pendingDetails.push({
+      item: 'Chemical TRC Category',
+      parameter: 'chemicalTRC',
+      status: 'Unassigned',
+      guidance: 'Select chemical / material toxicity and flammability category (TRC 1 to TRC 8) in Section C to determine applicable threshold quantity.'
+    });
+  }
+
+  if (pendingReasons.length > 0) {
     return {
       category: 'Pending Classification',
       tier: 'Pending Classification',
       title: 'Pending Classification – Additional Information Required',
-      reasons,
+      reasons: pendingReasons,
+      pendingDetails,
       badgeColor: 'warning'
     };
   }

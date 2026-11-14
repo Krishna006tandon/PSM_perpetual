@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Api754HelpModal from './Api754HelpModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
 export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline, onOpenClosure, onEdit }) {
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [rcaNodes, setRcaNodes] = useState([]);
   const [capas, setCapas] = useState([]);
   const [fullIncident, setFullIncident] = useState(null);
@@ -191,6 +193,26 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
               )
             )}
             <button
+              type="button"
+              onClick={() => setShowHelpModal(true)}
+              style={{
+                background: '#f0f9ff',
+                border: '1px solid #7dd3fc',
+                color: '#0369a1',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Open ANSI/API RP 754 Classification Guide, Tiers & Pending Guidance"
+            >
+              <span>📘</span> PSE Classification Help
+            </button>
+            <button
               onClick={onClose}
               style={{
                 background: 'none',
@@ -359,6 +381,96 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
               <div><strong>Direct Cost:</strong> ${Number(fire.directCostUSD || incident.directCostUSD || 0).toLocaleString()}</div>
               <div><strong>Evac / Shelter:</strong> {emergency.communityEvacuation || emergency.onSiteEvacuation ? (emergency.officiallyDeclared ? 'Declared (Official)' : 'Yes') : 'None'}</div>
             </div>
+
+            {/* Pending Classification Specific Diagnostics Box */}
+            {(currentCategory === 'Pending Classification' || currentCategory.includes('Pending')) && (
+              <div style={{
+                background: '#fffbeb',
+                border: '1.5px solid #f59e0b',
+                borderRadius: '8px',
+                padding: '14px',
+                marginTop: '14px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                  <strong style={{ fontSize: '0.86rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⏳</span> Why is this incident marked "Pending Classification"?
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={() => setShowHelpModal(true)}
+                    style={{
+                      background: '#d97706',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📘 View Full PSE Help & Guidance →
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '0.8rem', color: '#78350f', lineHeight: 1.5 }}>
+                  Under API RP 754, process safety performance indicators prohibit defaulting an incident to Near Miss or Tier 1/2 while consequence evidence is missing or uncertain. The following factual data is required:
+                </div>
+
+                <ul style={{ margin: '8px 0 10px 18px', padding: 0, fontSize: '0.8rem', color: '#92400e' }}>
+                  {(classification.reasons && classification.reasons.length > 0 ? classification.reasons : [
+                    'Chemical release 1-hour quantity unconfirmed, medical treatment severity pending, or fire damage cost estimation in progress'
+                  ]).map((r, i) => (
+                    <li key={i} style={{ marginBottom: '4px', fontWeight: '700' }}>{r}</li>
+                  ))}
+                </ul>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '8px', borderTop: '1px dashed #fde68a' }}>
+                  <span style={{ fontSize: '0.76rem', color: '#78350f', fontWeight: '700' }}>Next Action:</span>
+                  {!isCftFormed ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onEdit(incident);
+                      }}
+                      style={{
+                        background: '#16a34a',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.76rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✏️ Edit FIR to Enter Factual Data
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenEvidence) onOpenEvidence(incident);
+                      }}
+                      style={{
+                        background: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.76rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🛡️ Resolve in Stage 5: Barriers & Evidence
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section G - Barrier Performance (If recorded) */}
@@ -813,6 +925,23 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
           </button>
         </div>
       </div>
+
+      <Api754HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        incident={incident}
+        initialTab={(currentCategory === 'Pending Classification' || currentCategory.includes('Pending')) ? 'pending' : 'tiers'}
+        onOpenEdit={(inc) => {
+          setShowHelpModal(false);
+          onClose();
+          onEdit(inc);
+        }}
+        onOpenResolver={(inc) => {
+          setShowHelpModal(false);
+          onClose();
+          if (onOpenEvidence) onOpenEvidence(inc);
+        }}
+      />
     </div>
   );
 }

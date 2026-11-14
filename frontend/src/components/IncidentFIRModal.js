@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Api754HelpModal from './Api754HelpModal';
 import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 import './IncidentFIRModal.css';
 
@@ -196,6 +197,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
   const [credibleWorstCaseConsequence, setCredibleWorstCaseConsequence] = useState('');
 
   // Stage 2 - Real-Time Classification Preview
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [liveEvaluation, setLiveEvaluation] = useState({
     category: 'Pending Classification',
     tier: 'Pending Classification',
@@ -364,10 +366,27 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
     }
   };
 
-  // Toggle selection for Section B checkboxes with Near Miss synchronization
+  const hasLossOfContainmentSelected = NATURE_GROUPS[0].options.some(opt =>
+    selectedNature.includes(opt)
+  );
+
+  // Toggle selection for Section B checkboxes with Near Miss synchronization & Group Locking
   const handleToggleNature = (opt) => {
+    const isContainmentOpt = NATURE_GROUPS[0].options.includes(opt);
+    const hasContainment = selectedNature.some((item) => NATURE_GROUPS[0].options.includes(item));
+
+    // If attempting to toggle a non-containment option while no containment option is selected, prevent it
+    if (!isContainmentOpt && !hasContainment) {
+      return;
+    }
+
     if (selectedNature.includes(opt)) {
-      const updated = selectedNature.filter(item => item !== opt);
+      let updated = selectedNature.filter(item => item !== opt);
+      // If user unchecks the last containment option, also auto-clear selections from the other 3 locked groups
+      const stillHasContainment = updated.some(item => NATURE_GROUPS[0].options.includes(item));
+      if (!stillHasContainment) {
+        updated = [];
+      }
       setSelectedNature(updated);
       if (opt === 'Near miss / Potential incident' && isNearMiss) {
         setIsNearMiss(false);
@@ -493,6 +512,12 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
       setError('Please fill in all mandatory fields: Incident Title, Plant / Unit / Department, and What Happened.');
       if (!title.trim() || !plantZone.trim()) setActiveTab('secA');
       else setActiveTab('secB');
+      return;
+    }
+
+    if (!selectedNature.some(opt => NATURE_GROUPS[0].options.includes(opt))) {
+      setError("Please select at least one applicable characteristic under 'Loss of Containment & Leaks' in Section B.");
+      setActiveTab('secB');
       return;
     }
 
@@ -683,7 +708,8 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
   };
 
   return (
-    <div className="fir-modal-overlay">
+    <>
+      <div className="fir-modal-overlay">
       <div className="fir-modal-card">
         {/* Header */}
         <div className="fir-modal-header">
@@ -734,6 +760,26 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
                 Annex D Severity: {liveEvaluation.tier1SeverityPoints} pts
               </span>
             )}
+            {(liveEvaluation.category === 'Pending Classification' || liveEvaluation.tier === 'Pending Classification') && (
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(true)}
+                className="fir-rating-btn"
+                style={{ background: '#d97706', color: '#ffffff', marginRight: '6px', fontWeight: 800 }}
+                title="Click to understand why classification is pending and how to resolve"
+              >
+                ❓ Why Pending? (Help)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowHelpModal(true)}
+              className="fir-rating-btn"
+              style={{ background: '#0284c7', color: '#ffffff', marginRight: '6px' }}
+              title="ANSI/API RP 754 Classification Standard & Reference Guide"
+            >
+              📘 PSE Guide
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('secPreview')}
@@ -1072,24 +1118,77 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
                 <h3 className="fir-section-title">Section B – Nature of Event</h3>
                 <p className="fir-section-desc">1. What happened? Select all applicable observable event characteristics:</p>
 
-                {/* 4 Clean Category Cards for the 17 Checkboxes */}
+                {/* 4 Clean Category Cards for the 17 Checkboxes with Group Locking */}
                 <div className="fir-grid-2" style={{ marginBottom: '16px' }}>
-                  {NATURE_GROUPS.map((grp, gIdx) => (
-                    <div key={gIdx} className="fir-nature-group">
-                      <div className="fir-nature-group-title">{grp.category}</div>
-                      {grp.options.map(opt => (
-                        <label key={opt} className="fir-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={selectedNature.includes(opt)}
-                            onChange={() => handleToggleNature(opt)}
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ))}
+                  {NATURE_GROUPS.map((grp, gIdx) => {
+                    const isLocked = gIdx > 0 && !hasLossOfContainmentSelected;
+
+                    return (
+                      <div
+                        key={gIdx}
+                        className={`fir-nature-group ${isLocked ? 'locked' : ''}`}
+                        title={isLocked ? "Select at least 1 option in 'Loss of Containment & Leaks' to unlock this section" : ''}
+                      >
+                        <div className="fir-nature-group-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{grp.category}</span>
+                          {gIdx === 0 ? (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              padding: '1px 7px',
+                              borderRadius: '999px',
+                              background: hasLossOfContainmentSelected ? '#dcfce7' : '#fef3c7',
+                              color: hasLossOfContainmentSelected ? '#166534' : '#92400e',
+                              border: `1px solid ${hasLossOfContainmentSelected ? '#86efac' : '#fcd34d'}`
+                            }}>
+                              {hasLossOfContainmentSelected ? '✓ Active' : '⚠️ At least 1 required'}
+                            </span>
+                          ) : isLocked ? (
+                            <span className="fir-locked-badge">
+                              🔒 Locked
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {grp.options.map(opt => (
+                          <label
+                            key={opt}
+                            className="fir-checkbox-label"
+                            style={isLocked ? { cursor: 'not-allowed', color: '#94a3b8' } : {}}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedNature.includes(opt)}
+                              disabled={isLocked}
+                              onChange={() => handleToggleNature(opt)}
+                            />
+                            <span>{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
+
+                {!hasLossOfContainmentSelected && (
+                  <div style={{
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    marginBottom: '14px',
+                    fontSize: '0.78rem',
+                    color: '#92400e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span>🔒</span>
+                    <span>
+                      <strong>Fire & Explosion</strong>, <strong>Process Deviations & Relief</strong>, and <strong>Equipment & Potential Events</strong> categories are locked. Please select at least one applicable characteristic under <strong>Loss of Containment & Leaks</strong> above to unlock them.
+                    </span>
+                  </div>
+                )}
 
                 {selectedNature.includes('Other') && (
                   <div className="fir-field-group" style={{ marginBottom: '14px' }}>
@@ -2022,6 +2121,68 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
                       ))}
                     </ul>
                   </div>
+
+                  {/* Why Is Classification Pending Checklist Card */}
+                  {(liveEvaluation.category === 'Pending Classification' || liveEvaluation.tier === 'Pending Classification') && (
+                    <div style={{
+                      marginTop: '14px',
+                      background: '#fffbeb',
+                      border: '1.5px solid #f59e0b',
+                      borderRadius: '10px',
+                      padding: '16px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                        <strong style={{ fontSize: '0.9rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>⏳</span> Why is this marked "Pending Classification"?
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => setShowHelpModal(true)}
+                          style={{
+                            background: '#d97706',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📘 Open Classification Guide →
+                        </button>
+                      </div>
+
+                      <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: '#78350f', lineHeight: 1.5 }}>
+                        API RP 754 states: <em>"If any mandatory information is missing, the software should display Pending Classification – Additional Information Required, rather than automatically declaring the event as Near Miss or Non-PSE."</em>
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {(liveEvaluation.reasons && liveEvaluation.reasons.length > 0 ? liveEvaluation.reasons : [
+                          'Initial report intake: Release quantity, medical injury assessment, or direct cost is pending.'
+                        ]).map((reason, i) => (
+                          <div key={i} style={{
+                            background: '#ffffff',
+                            border: '1px solid #fde68a',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '0.82rem',
+                            color: '#92400e',
+                            fontWeight: '700',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <span>⚠️</span> {reason}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '10px', fontSize: '0.78rem', color: '#92400e', background: '#fef3c7', padding: '8px 12px', borderRadius: '6px' }}>
+                        💡 <strong>Reporter Guidance:</strong> You can submit this report now as <strong>Pending Classification</strong>. During the 7-day manager review and Stage 5 investigation, the Cross-Functional Team (CFT) will attach verified engineering mass-balance calculations, lab reports, or doctor's certifications to resolve the Tier.
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Pre-submission Summary */}
@@ -2093,5 +2254,13 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, o
         </div>
       </div>
     </div>
+
+    <Api754HelpModal
+      isOpen={showHelpModal}
+      onClose={() => setShowHelpModal(false)}
+      incident={incidentToEdit ? { ...incidentToEdit, api754Classification: liveEvaluation } : { title, api754Classification: liveEvaluation }}
+      initialTab={(liveEvaluation.category === 'Pending Classification' || liveEvaluation.tier === 'Pending Classification') ? 'pending' : 'tiers'}
+    />
+    </>
   );
 }

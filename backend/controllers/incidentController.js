@@ -35,7 +35,15 @@ const normalizeApi754Input = (data) => {
   const natureOfEvents = Array.isArray(data.natureOfEvents) ? data.natureOfEvents : [];
   const isActualRelease = data.isActualRelease || 'No';
 
-  const isLOPC = Boolean(
+  const isNearMiss = Boolean(
+    data.isNearMiss === true ||
+    data.isNearMiss === 'Yes' ||
+    data.incidentCategory === 'Near Miss' ||
+    natureOfEvents.includes('Near miss / Potential incident') ||
+    (isActualRelease === 'No' && data.nearMissAssessment?.isCrediblePotential)
+  );
+
+  const isLOPC = !isNearMiss && Boolean(
     data.isLOPC ||
     (data.materialDetails && data.materialDetails.chemicalTRC && data.materialDetails.chemicalTRC !== 'N/A') ||
     natureOfEvents.includes('Loss of Primary Containment (LOPC)') ||
@@ -155,12 +163,7 @@ const normalizeApi754Input = (data) => {
     natureOfEvents.includes('Equipment failure / malfunction')
   );
 
-  const isNearMiss = Boolean(
-    data.isNearMiss ||
-    natureOfEvents.includes('Near miss / Potential incident') ||
-    (isActualRelease === 'No' && data.nearMissAssessment?.isCrediblePotential)
-  );
-
+  
   return {
     isLOPC,
     chemicalTRC,
@@ -403,6 +406,20 @@ exports.getIncidentById = async (req, res) => {
     const incident = await Incident.findById(req.params.id);
     if (!incident) {
       return res.status(404).json({ error: 'Incident not found' });
+    }
+
+    // Check if CFT is already formed. Once CFT team is established, incident FIR details are locked from editing
+    const isCftFormed = Boolean(
+      incident.cft?.leader?.name ||
+      (Array.isArray(incident.cft?.members) && incident.cft.members.some(m => m.name && m.name.trim() !== '')) ||
+      (incident.triage && incident.triage.status === 'Formal Investigation Mandated') ||
+      (incident.status && ['Investigation Active', 'CAPA Pending', 'CAPA Verification', 'Closed', 'Administratively Closed'].includes(incident.status))
+    );
+
+    if (isCftFormed && req.user?.role !== 'SuperAdmin') {
+      return res.status(403).json({
+        error: 'Incident report is locked from editing because the Cross-Functional Team (CFT) has already been appointed.'
+      });
     }
 
     // Also fetch associated Why-Why Nodes and CAPAs

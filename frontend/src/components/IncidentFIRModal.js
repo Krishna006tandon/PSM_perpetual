@@ -79,7 +79,7 @@ const OPERATING_STATUS_OPTIONS = [
   'Other'
 ];
 
-export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, currentUser }) {
+export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, onIncidentUpdated, currentUser, incidentToEdit }) {
   const [activeTab, setActiveTab] = useState('secA');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -95,6 +95,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
   const [shift, setShift] = useState('Shift A');
   const [unitOperatingStatus, setUnitOperatingStatus] = useState('Normal - Steady State');
   const [facilityType, setFacilityType] = useState('Refining');
+  const [isNearMiss, setIsNearMiss] = useState(false);
 
   // Reporter Credentials
   const [reporterName, setReporterName] = useState(currentUser?.name || '');
@@ -204,29 +205,199 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
     tier1SeverityPoints: 0
   });
 
-  // Toggle selection for Section B checkboxes
+  // Populate form states if editing an existing incident
+  useEffect(() => {
+    if (incidentToEdit && isOpen) {
+      setTitle(incidentToEdit.title || '');
+      setFacilityName(incidentToEdit.facilityName || currentUser?.companyName || 'Main Refinery Complex');
+      setPlantZone(incidentToEdit.plantZone || '');
+      setExactLocation(incidentToEdit.exactLocation || '');
+      setEquipmentTag(incidentToEdit.equipmentTag || '');
+      setEquipmentDescription(incidentToEdit.equipmentDescription || '');
+      setDateTime(incidentToEdit.dateTime ? new Date(incidentToEdit.dateTime).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
+      setShift(incidentToEdit.shift || 'Shift A');
+      setUnitOperatingStatus(incidentToEdit.unitOperatingStatus || 'Normal - Steady State');
+      setFacilityType(incidentToEdit.facilityType || 'Refining');
+      setIsNearMiss(Boolean(incidentToEdit.isNearMiss || incidentToEdit.incidentCategory === 'Near Miss'));
+
+      // Reporter
+      setReporterName(incidentToEdit.reporter?.name || currentUser?.name || '');
+      setDepartment(incidentToEdit.reporter?.department || 'Operations');
+      setDesignation(incidentToEdit.reporter?.designation || currentUser?.role || 'Shift Engineer');
+      setContactPhone(incidentToEdit.reporter?.contactPhone || currentUser?.contact || '');
+      setReporterEmail(incidentToEdit.reporter?.email || currentUser?.email || '');
+
+      // Section B
+      setSelectedNature(Array.isArray(incidentToEdit.natureOfEvents) && incidentToEdit.natureOfEvents.length > 0 ? incidentToEdit.natureOfEvents : ['Loss of Primary Containment (LOPC)']);
+      setIsActualRelease(incidentToEdit.isActualRelease || 'Yes');
+      setSourceOfRelease(incidentToEdit.sourceOfRelease || 'Primary containment – Process equipment / piping');
+      setReleaseAuthorization(incidentToEdit.releaseAuthorization || 'Unplanned');
+      setWhatHappened(incidentToEdit.descriptionMatrix?.whatHappened || '');
+      setWhatWasObserved(incidentToEdit.descriptionMatrix?.whatWasObserved || '');
+      setWhatCouldHaveHappened(incidentToEdit.descriptionMatrix?.whatCouldHaveHappened || '');
+      setImmediateActionsTaken(incidentToEdit.immediateActionsTaken || '');
+
+      // Section C - Material
+      const mat = incidentToEdit.materialDetails || {};
+      setMaterialName(mat.materialName || '');
+      setChemicalName(mat.chemicalName || '');
+      setCasNumber(mat.casNumber || '');
+      setChemicalTRC(mat.chemicalTRC || 'TRC 5');
+      setPhysicalState(mat.physicalState || 'Liquid');
+      setIsFlammable(mat.isFlammable ?? true);
+      setIsToxic(mat.isToxic ?? false);
+      setIsCorrosive(mat.isCorrosive ?? false);
+      setTemperatureC(mat.temperatureC ?? 30);
+      setOperatingPressureBar(mat.operatingPressureBar ?? 3.5);
+      setReleasePressureBar(mat.releasePressureBar ?? 1.0);
+      setReleaseLocation(mat.releaseLocation || 'Outdoor');
+      setEstimatedQuantity(mat.estimatedQuantity ?? 0);
+      setQuantityUnit(mat.quantityUnit || 'kg');
+      setQuantityInOneHourKg(mat.quantityInOneHourKg ?? 0);
+      setQuantityUnknown(mat.quantityUnknown ?? false);
+      setReleaseDurationHours(mat.releaseDurationHours ?? 1);
+      setReleaseRateKgHr(mat.releaseRateKgHr ?? 0);
+      setWasRecovered(mat.wasRecovered || 'No');
+      setStoppedBy(mat.stoppedBy || 'Manual intervention');
+      setSdsAvailable(mat.sdsAvailable ?? true);
+      setIsMixture(mat.isMixture ?? false);
+      setMixtureDetails(mat.mixtureDetails || '');
+
+      // Section D - Human
+      setInjuredPersons(Array.isArray(incidentToEdit.injuredPersons) ? incidentToEdit.injuredPersons : []);
+      setHasInjuriesPending(incidentToEdit.hasInjuriesPending ?? false);
+
+      // Section E - Fire
+      const fe = incidentToEdit.fireExplosionDetails || {};
+      setFireOccurred(fe.didFireOccur ?? false);
+      setExplosionOccurred(fe.didExplosionOccur ?? false);
+      setIsFlashFire(fe.isFlashFire ?? false);
+      setIsVCE(fe.isVCE ?? false);
+      setEquipmentDamage(fe.equipmentDamage ?? false);
+      setStructuralDamage(fe.structuralDamage ?? false);
+      setDirectCostUSD(fe.directCostUSD ?? 0);
+      setDirectCostPending(fe.directCostPending ?? false);
+      setFirefightingRequired(fe.firefightingRequired ?? false);
+      setUnitShutdown(fe.unitShutdown ?? false);
+
+      // Section F - Emergency
+      const em = incidentToEdit.emergencyMeasures || {};
+      setOnSiteEvac(em.onSiteEvacuation ?? false);
+      setOnSiteShelter(em.onSiteShelter ?? false);
+      setCommunityEvac(em.communityEvacuation ?? false);
+      setCommunityShelter(em.communityShelter ?? false);
+      setOfficiallyDeclared(em.officiallyDeclared ?? false);
+      setPublicProtective(em.publicProtectiveMeasures ?? false);
+      setPrecautionaryOnly(em.precautionaryOnly ?? false);
+      setDischargeToUnsafeLocation(em.dischargeToUnsafeLocation ?? false);
+      setLiquidRainout(em.liquidRainout ?? false);
+      setOffSiteImpact(em.offSiteImpact ?? false);
+
+      // Section G - Barriers
+      const bp = incidentToEdit.barrierPerformance || {};
+      setPrdOperated(bp.prdOperated ?? false);
+      setSisActivated(bp.sisActivated ?? false);
+      setSolExceeded(bp.solExceeded ?? false);
+      setEmergencyDepressureOperated(bp.emergencyDepressureOperated ?? false);
+      setInterlockTripDemand(bp.interlockTripDemand ?? false);
+      setSafetyCriticalEquipmentFailed(bp.safetyCriticalEquipmentFailed ?? false);
+      setBarrierTag(bp.equipmentTag || '');
+      setBarrierSetpoint(bp.setPoint || '');
+      setBarrierActualValue(bp.actualValue || '');
+      setPerformedAsIntended(bp.performedAsIntended ?? true);
+
+      // Section H - Near Miss
+      const nm = incidentToEdit.nearMissAssessment || {};
+      setIsCrediblePotential(nm.isCrediblePotential ?? true);
+      setBarrierPreventedEscalation(nm.barrierPreventedEscalation ?? true);
+      setSafeguardThatPrevented(nm.safeguardThatPrevented || 'SIS High-Pressure Interlock Trip');
+      setCredibleWorstCaseConsequence(nm.credibleWorstCaseConsequence || '');
+
+      // Classification
+      if (incidentToEdit.api754Classification) {
+        setLiveEvaluation(incidentToEdit.api754Classification);
+      }
+    } else if (!incidentToEdit && isOpen) {
+      setTitle('');
+      setPlantZone('');
+      setExactLocation('');
+      setEquipmentTag('');
+      setEquipmentDescription('');
+      setDateTime(new Date().toISOString().slice(0, 16));
+      setShift('Shift A');
+      setUnitOperatingStatus('Normal - Steady State');
+      setFacilityType('Refining');
+      setIsNearMiss(false);
+      setSelectedNature(['Loss of Primary Containment (LOPC)']);
+      setIsActualRelease('Yes');
+      setWhatHappened('');
+      setWhatWasObserved('');
+      setWhatCouldHaveHappened('');
+      setImmediateActionsTaken('');
+      setInjuredPersons([]);
+      setFireOccurred(false);
+      setExplosionOccurred(false);
+    }
+  }, [incidentToEdit, isOpen, currentUser]);
+
+  // Handle Near Miss toggle
+  const handleNearMissChange = (isNM) => {
+    setIsNearMiss(isNM);
+    if (isNM) {
+      setIsActualRelease('No');
+      setSelectedNature(prev => {
+        const withoutLopc = prev.filter(n => n !== 'Loss of Primary Containment (LOPC)');
+        if (!withoutLopc.includes('Near miss / Potential incident')) {
+          return [...withoutLopc, 'Near miss / Potential incident'];
+        }
+        return withoutLopc.length > 0 ? withoutLopc : ['Near miss / Potential incident'];
+      });
+    } else {
+      setIsActualRelease('Yes');
+      setSelectedNature(prev => {
+        const withoutNM = prev.filter(n => n !== 'Near miss / Potential incident');
+        if (withoutNM.length === 0) {
+          return ['Loss of Primary Containment (LOPC)'];
+        }
+        return withoutNM;
+      });
+    }
+  };
+
+  // Toggle selection for Section B checkboxes with Near Miss synchronization
   const handleToggleNature = (opt) => {
     if (selectedNature.includes(opt)) {
-      setSelectedNature(selectedNature.filter(item => item !== opt));
+      const updated = selectedNature.filter(item => item !== opt);
+      setSelectedNature(updated);
+      if (opt === 'Near miss / Potential incident' && isNearMiss) {
+        setIsNearMiss(false);
+      }
     } else {
-      setSelectedNature([...selectedNature, opt]);
+      const updated = [...selectedNature, opt];
+      setSelectedNature(updated);
+      if (opt === 'Near miss / Potential incident') {
+        setIsNearMiss(true);
+        setIsActualRelease('No');
+      }
     }
   };
 
   // Determine if conditional sections are required
-  const isReleaseSectionApplicable = isActualRelease === 'Yes' || isActualRelease === 'Not sure' ||
+  const isNearMissApplicable = isNearMiss || isActualRelease === 'No' || selectedNature.includes('Near miss / Potential incident');
+
+  const isReleaseSectionApplicable = !isNearMiss && (
+    isActualRelease === 'Yes' || isActualRelease === 'Not sure' ||
     selectedNature.some(n => [
       'Loss of Primary Containment (LOPC)',
       'Leakage from equipment, piping, flange, valve or instrument',
       'Toxic gas release',
       'Flammable gas / vapour release',
       'Chemical / liquid spill'
-    ].includes(n));
+    ].includes(n))
+  );
 
   const isFireSectionApplicable = fireOccurred || explosionOccurred || isFlashFire || isVCE ||
     selectedNature.some(n => ['Fire', 'Explosion', 'Flash fire'].includes(n));
-
-  const isNearMissApplicable = isActualRelease === 'No' || selectedNature.includes('Near miss / Potential incident');
 
   // Trigger live API 754 evaluation whenever inputs change
   useEffect(() => {
@@ -244,11 +415,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
 
     const payload = {
       isActualRelease,
-      isLOPC: isReleaseSectionApplicable,
-      chemicalTRC,
       releaseLocation,
-      releaseQuantityKg: Number(quantityInOneHourKg) || Number(estimatedQuantity) || 0,
-      quantityUnknown,
       fatalitiesCount,
       daysAwayInjuriesCount,
       recordableInjuriesCount,
@@ -269,7 +436,11 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
       isSOLChallenge: solExceeded,
       isSafetySystemDemand: sisActivated || interlockTripDemand,
       isManagementSystemIssue: safetyCriticalEquipmentFailed,
-      isNearMiss: isNearMissApplicable
+      isNearMiss: isNearMissApplicable,
+      isLOPC: isReleaseSectionApplicable,
+      chemicalTRC: isNearMiss ? 'N/A' : chemicalTRC,
+      releaseQuantityKg: isNearMiss ? 0 : (Number(quantityInOneHourKg) || Number(estimatedQuantity) || 0),
+      quantityUnknown: isNearMiss ? false : quantityUnknown
     };
 
     const token = localStorage.getItem('token');
@@ -294,7 +465,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
     directCostUSD, directCostPending, communityEvac, communityShelter, onSiteEvac,
     officiallyDeclared, prdOperated, liquidRainout, dischargeToUnsafeLocation,
     publicProtective, solExceeded, sisActivated, interlockTripDemand,
-    safetyCriticalEquipmentFailed, isNearMissApplicable
+    safetyCriticalEquipmentFailed, isNearMissApplicable, isNearMiss
   ]);
 
   if (!isOpen) return null;
@@ -339,6 +510,8 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
       shift,
       unitOperatingStatus,
       facilityType,
+      isNearMiss,
+      incidentCategory: isNearMiss ? 'Near Miss' : 'Actual Incident',
       companyCode: currentUser?.companyCode || 'DEFAULT',
       reporter: {
         userId: currentUser?._id,
@@ -435,8 +608,12 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
 
     try {
       const token = localStorage.getItem('token');
-      const created = await safeFetchJson(`${API_URL}/api/incidents`, {
-        method: 'POST',
+      const isEditing = Boolean(incidentToEdit && incidentToEdit._id);
+      const url = isEditing ? `${API_URL}/api/incidents/${incidentToEdit._id}` : `${API_URL}/api/incidents`;
+      const method = isEditing ? 'PATCH' : 'POST';
+
+      const result = await safeFetchJson(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -445,7 +622,11 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
       });
 
       setLoading(false);
-      onIncidentCreated(created);
+      if (isEditing && onIncidentUpdated) {
+        onIncidentUpdated(result);
+      } else if (onIncidentCreated) {
+        onIncidentCreated(result);
+      }
       onClose();
     } catch (err) {
       console.error(err);
@@ -508,12 +689,18 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
         <div className="fir-modal-header">
           <div>
             <div className="fir-header-title-row">
-              <span style={{ fontSize: '1.35rem' }}>🚨</span>
-              <h2 className="fir-header-title">Stage 1 – First Incident Report (FIR)</h2>
-              <span className="fir-header-badge">API RP 754 4th Ed. Compliant</span>
+              <span style={{ fontSize: '1.35rem' }}>{incidentToEdit ? '✏️' : '🚨'}</span>
+              <h2 className="fir-header-title">
+                {incidentToEdit ? `Edit Incident Report – ${incidentToEdit.incidentNumber}` : 'Stage 1 – First Incident Report (FIR)'}
+              </h2>
+              <span className="fir-header-badge">
+                {incidentToEdit ? 'Editing Mode (Pre-CFT)' : 'API RP 754 4th Ed. Compliant'}
+              </span>
             </div>
             <p className="fir-header-subtitle">
-              Reporter records observable facts; classification engine determines Tier 1–4, Near Miss, or Pending Classification.
+              {incidentToEdit
+                ? 'Update observable incident details, consequences, or initial narrative before the Cross-Functional Team (CFT) begins investigation.'
+                : 'Reporter records observable facts; classification engine determines Tier 1–4, Near Miss, or Pending Classification.'}
             </p>
           </div>
           <button onClick={onClose} className="fir-close-btn" title="Close">×</button>
@@ -600,6 +787,82 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
               <div>
                 <h3 className="fir-section-title">Section A – Basic Incident Information</h3>
                 <p className="fir-section-desc">Record the operational context, asset tag, and reporting personnel.</p>
+
+                {/* Event Classification / Near Miss Toggle Banner */}
+                <div style={{
+                  background: isNearMiss ? 'rgba(2, 132, 199, 0.08)' : 'rgba(241, 245, 249, 0.7)',
+                  border: `1.5px solid ${isNearMiss ? '#0284c7' : '#cbd5e1'}`,
+                  borderRadius: '10px',
+                  padding: '12px 18px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{isNearMiss ? '🛡️' : '🚨'}</span>
+                      <strong style={{ fontSize: '0.92rem', color: isNearMiss ? '#0284c7' : 'var(--text-primary)' }}>
+                        Is this event a Near Miss?
+                      </strong>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontWeight: '800',
+                        letterSpacing: '0.3px',
+                        background: isNearMiss ? '#0284c7' : '#fee2e2',
+                        color: isNearMiss ? '#ffffff' : '#991b1b'
+                      }}>
+                        {isNearMiss ? '✓ NEAR MISS SELECTED' : 'ACTUAL INCIDENT'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.79rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                      {isNearMiss
+                        ? 'No actual loss or release occurred. A barrier or timely intervention prevented escalation. Step 6 (Near Miss Assessment) is activated.'
+                        : 'Actual event involving material release, fire, explosion, equipment damage, or personal injury.'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleNearMissChange(false)}
+                      style={{
+                        padding: '7px 16px',
+                        borderRadius: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: !isNearMiss ? '800' : '600',
+                        cursor: 'pointer',
+                        border: !isNearMiss ? '2px solid #ef4444' : '1px solid var(--divider)',
+                        background: !isNearMiss ? '#fee2e2' : 'var(--bg-paper, #ffffff)',
+                        color: !isNearMiss ? '#991b1b' : 'var(--text-secondary)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>🚨</span> No – Actual Incident
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNearMissChange(true)}
+                      style={{
+                        padding: '7px 16px',
+                        borderRadius: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: isNearMiss ? '800' : '600',
+                        cursor: 'pointer',
+                        border: isNearMiss ? '2px solid #0284c7' : '1px solid var(--divider)',
+                        background: isNearMiss ? '#0284c7' : 'var(--bg-paper, #ffffff)',
+                        color: isNearMiss ? '#ffffff' : 'var(--text-secondary)',
+                        boxShadow: isNearMiss ? '0 2px 8px rgba(2, 132, 199, 0.35)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>🛡️</span> Yes – Near Miss
+                    </button>
+                  </div>
+                </div>
                 
                 <div className="fir-grid-1" style={{ marginBottom: '14px' }}>
                   <div className="fir-field-group">
@@ -685,7 +948,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                   </div>
                 </div>
 
-                <div className="fir-grid-3">
+                <div className="fir-grid-4">
                   <div className="fir-field-group">
                     <label className="fir-label">Operational Shift</label>
                     <select
@@ -716,6 +979,24 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                       className="fir-select"
                     >
                       {FACILITY_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="fir-field-group">
+                    <label className="fir-label fir-label-required">Is this a Near Miss?</label>
+                    <select
+                      value={isNearMiss ? 'Yes' : 'No'}
+                      onChange={(e) => handleNearMissChange(e.target.value === 'Yes')}
+                      className="fir-select"
+                      style={{
+                        fontWeight: '700',
+                        borderColor: isNearMiss ? '#0284c7' : undefined,
+                        background: isNearMiss ? '#f0f9ff' : undefined,
+                        color: isNearMiss ? '#0369a1' : undefined
+                      }}
+                    >
+                      <option value="No">No – Actual Incident</option>
+                      <option value="Yes">Yes – Near Miss</option>
                     </select>
                   </div>
                 </div>
@@ -829,7 +1110,15 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                     <label className="fir-label fir-label-required">2. Was there an actual release of material?</label>
                     <select
                       value={isActualRelease}
-                      onChange={(e) => setIsActualRelease(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setIsActualRelease(val);
+                        if (val === 'No') {
+                          handleNearMissChange(true);
+                        } else if (val === 'Yes' && isNearMiss) {
+                          handleNearMissChange(false);
+                        }
+                      }}
                       className="fir-select"
                       style={{
                         borderColor: isActualRelease === 'Not sure' ? '#ca8a04' : undefined,
@@ -1600,6 +1889,27 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                   A near miss should not automatically be classified as a PSE. This section assesses the barrier that prevented escalation and the credible worst-case consequence.
                 </p>
 
+                {isNearMiss && (
+                  <div style={{
+                    background: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    color: '#0369a1',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    marginBottom: '14px',
+                    fontSize: '0.82rem',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                    <span>
+                      This event is flagged as a <strong>Near Miss</strong>. Please record the safeguard that successfully intervened to prevent escalation.
+                    </span>
+                  </div>
+                )}
+
                 <div className="fir-grid-3" style={{ marginBottom: '14px' }}>
                   <div className="fir-card">
                     <label className="fir-label">Credible Potential for Harm?</label>
@@ -1717,9 +2027,13 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                 {/* Pre-submission Summary */}
                 <div className="fir-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <strong style={{ fontSize: '0.9rem' }}>Ready to submit First Incident Report?</strong>
+                    <strong style={{ fontSize: '0.9rem' }}>
+                      {incidentToEdit ? 'Ready to save updated incident details?' : 'Ready to submit First Incident Report?'}
+                    </strong>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Submission saves Section A–H records, initiates the immutable audit trail, and starts the 7-Day Manager Review clock.
+                      {incidentToEdit
+                        ? 'Saving will update the initial incident record and re-evaluate the API RP 754 tier rating.'
+                        : 'Submission saves Section A–H records, initiates the immutable audit trail, and starts the 7-Day Manager Review clock.'}
                     </div>
                   </div>
 
@@ -1729,7 +2043,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                     disabled={loading}
                     className="fir-btn-submit"
                   >
-                    {loading ? 'Submitting FIR...' : 'Submit Incident Report (FIR) →'}
+                    {loading ? 'Saving...' : (incidentToEdit ? '💾 Save Changes →' : 'Submit Incident Report (FIR) →')}
                   </button>
                 </div>
               </div>
@@ -1772,7 +2086,7 @@ export default function IncidentFIRModal({ isOpen, onClose, onIncidentCreated, c
                 disabled={loading}
                 className="fir-btn-submit"
               >
-                {loading ? 'Submitting...' : 'Submit FIR →'}
+                {loading ? 'Saving...' : (incidentToEdit ? '💾 Save Changes' : 'Submit FIR →')}
               </button>
             )}
           </div>

@@ -3,7 +3,7 @@ import { getApiUrl, safeFetchJson } from '../utils/apiConfig';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline, onOpenClosure }) {
+export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpenTriage, onOpenInvestigation, onOpenCapa, onOpenEvidence, onOpenTimeline, onOpenClosure, onEdit }) {
   const [rcaNodes, setRcaNodes] = useState([]);
   const [capas, setCapas] = useState([]);
   const [fullIncident, setFullIncident] = useState(null);
@@ -71,6 +71,13 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
     }
   };
 
+  const isCftFormed = Boolean(
+    incident?.cft?.leader?.name ||
+    (Array.isArray(incident?.cft?.members) && incident.cft.members.some(m => m.name && m.name.trim() !== '')) ||
+    (incident?.triage && incident.triage.status !== 'Pending') ||
+    (incident?.status && incident.status !== 'Submitted')
+  );
+
   const tierColors = getTierColor(currentCategory);
   const material = incident.materialDetails || {};
   const fire = incident.fireExplosionDetails || {};
@@ -137,18 +144,65 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
               Logged on {new Date(incident.dateTime).toLocaleString()} | Unit/Zone: <strong>{incident.plantZone}</strong> ({incident.shift})
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.6rem',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {onEdit && (
+              isCftFormed ? (
+                <span
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    color: '#64748b',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Incident editing is locked because Cross-Functional Team (CFT) has already been appointed."
+                >
+                  🔒 Locked (CFT Formed)
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEdit(incident);
+                  }}
+                  style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #16a34a',
+                    color: '#15803d',
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Edit incident details before CFT investigation begins"
+                >
+                  <span>✏️</span> Edit FIR
+                </button>
+              )
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.6rem',
+                cursor: 'pointer',
+                color: 'var(--text-secondary)'
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
@@ -157,7 +211,7 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
           {/* Status, SLA & Asset Summary */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(5, 1fr)',
             gap: '12px',
             background: 'var(--bg-default)',
             padding: '14px',
@@ -201,6 +255,15 @@ export default function IncidentDetailsModal({ isOpen, onClose, incident, onOpen
               </span>
               <div style={{ fontWeight: '600', fontSize: '0.82rem', marginTop: '2px' }}>
                 {incident.facilityName || incident.facilityType} / {incident.reporter?.name}
+              </div>
+            </div>
+
+            <div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>
+                Event Classification
+              </span>
+              <div style={{ fontWeight: '800', fontSize: '0.85rem', marginTop: '2px', color: (incident.isNearMiss || incident.incidentCategory === 'Near Miss') ? '#0284c7' : '#ef4444' }}>
+                {(incident.isNearMiss || incident.incidentCategory === 'Near Miss') ? '🛡️ Near Miss' : '🚨 Actual Incident'}
               </div>
             </div>
           </div>

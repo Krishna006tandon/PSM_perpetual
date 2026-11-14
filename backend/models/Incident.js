@@ -63,6 +63,16 @@ const incidentSchema = new mongoose.Schema({
     enum: ['Refining', 'Petrochemical', 'Chemical Processing', 'Storage / Terminal', 'Utilities', 'Other'],
     default: 'Refining'
   },
+  isNearMiss: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  incidentCategory: {
+    type: String,
+    enum: ['Actual Incident', 'Near Miss'],
+    default: 'Actual Incident'
+  },
   status: {
     type: String,
     enum: [

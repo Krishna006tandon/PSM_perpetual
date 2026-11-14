@@ -606,6 +606,41 @@
   background: var(--divider);
 }
 
+.btn-action-edit {
+  background: #f0fdf4;
+  border: 1px solid #16a34a;
+  color: #15803d;
+  padding: 6px 11px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-action-edit:hover {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.btn-action-locked {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #94a3b8;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  opacity: 0.75;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .btn-action-delete {
   background: none;
   border: none;

@@ -526,3 +526,18 @@
   cursor: not-allowed;
   transform: none;
 }
+
+
+@media (max-width: 1024px) {
+  .fir-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .fir-grid-4,
+  .fir-grid-3,
+  .fir-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

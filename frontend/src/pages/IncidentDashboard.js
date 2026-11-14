@@ -43,6 +43,26 @@ export default function IncidentDashboard({ currentUser, onBack }) {
 
   // Modals
   const [isFIRModalOpen, setIsFIRModalOpen] = useState(false);
+  const [incidentToEdit, setIncidentToEdit] = useState(null);
+
+  const isCftFormed = (inc) => {
+    if (!inc) return false;
+    if (inc.cft?.leader?.name && inc.cft.leader.name.trim() !== '') return true;
+    if (Array.isArray(inc.cft?.members) && inc.cft.members.some(m => m.name && m.name.trim() !== '')) return true;
+    if (inc.triage?.status && inc.triage.status !== 'Pending') return true;
+    if (inc.status && inc.status !== 'Submitted') return true;
+    return false;
+  };
+
+  const handleOpenCreateFIR = () => {
+    setIncidentToEdit(null);
+    setIsFIRModalOpen(true);
+  };
+
+  const handleOpenEditFIR = (inc) => {
+    setIncidentToEdit(inc);
+    setIsFIRModalOpen(true);
+  };
   const [selectedIncidentForTriage, setSelectedIncidentForTriage] = useState(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState(null);
   const [selectedIncidentForInvestigation, setSelectedIncidentForInvestigation] = useState(null);
@@ -163,7 +183,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           </button>
           <button
             className="btn-primary-gradient"
-            onClick={() => setIsFIRModalOpen(true)}
+            onClick={handleOpenCreateFIR}
           >
             <span style={{ fontSize: '1.1rem' }}>+</span> Log New Incident (FIR)
           </button>
@@ -303,7 +323,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
           <p>There are no incidents matching your active filters. Log a new FIR to begin.</p>
             <button 
             className="btn-primary-gradient"
-            onClick={() => setIsFIRModalOpen(true)}
+            onClick={handleOpenCreateFIR}
             style={{ marginTop: '14px' }}
           >
             + Log First Incident Report (FIR)
@@ -399,6 +419,34 @@ export default function IncidentDashboard({ currentUser, onBack }) {
 
                   <td style={{ textAlign: 'right' }}>
                     <div className="row-actions">
+                      {/* 1. Dossier */}
+                      <button
+                        className="btn-action-view"
+                        onClick={() => setSelectedIncidentForDetails(inc)}
+                        title="View Incident Dossier"
+                      >
+                        📄 Dossier
+                      </button>
+
+                      {/* 2. CFT wala tab */}
+                      <button
+                        className="btn-action-triage"
+                        onClick={() => setSelectedIncidentForTriage(inc)}
+                        title="Conduct Manager Review & CFT Setup"
+                      >
+                        ⚖️ Triage / CFT
+                      </button>
+
+                      {/* 3. timeline wala tab */}
+                      <button
+                        className="btn-action-timeline"
+                        onClick={() => setSelectedIncidentForTimeline(inc)}
+                        title="Open Stage 3D Sequence Timeline, Witness Statements & PHA/BowTie Revalidation Link"
+                      >
+                        ⏱️ Timeline & PHA
+                      </button>
+
+                      {/* 4. why why wala tab */}
                       <button
                         className="btn-action-rca"
                         onClick={() => setSelectedIncidentForInvestigation(inc)}
@@ -406,6 +454,17 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                       >
                         🔬 Why-Why RCA
                       </button>
+
+                      {/* 5. barrier wala tab */}
+                      <button
+                        className="btn-action-evidence"
+                        onClick={() => setSelectedIncidentForEvidence(inc)}
+                        title="Open Stage 3C Barrier Analysis, Supporting Evidence Vault & Classification Validator"
+                      >
+                        🛡️ Barriers & Docs
+                      </button>
+
+                      {/* 6. capa wala tab */}
                       <button
                         className="btn-action-capa"
                         onClick={() => {
@@ -416,20 +475,8 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                       >
                         📋 CAPAs
                       </button>
-                      <button
-                        className="btn-action-evidence"
-                        onClick={() => setSelectedIncidentForEvidence(inc)}
-                        title="Open Stage 3C Barrier Analysis, Supporting Evidence Vault & Classification Validator"
-                      >
-                        🛡️ Barriers & Docs
-                      </button>
-                      <button
-                        className="btn-action-timeline"
-                        onClick={() => setSelectedIncidentForTimeline(inc)}
-                        title="Open Stage 3D Sequence Timeline, Witness Statements & PHA/BowTie Revalidation Link"
-                      >
-                        ⏱️ Timeline & PHA
-                      </button>
+
+                      {/* 7. report wala tab */}
                       <button
                         className="btn-action-closure"
                         onClick={() => setSelectedIncidentForClosure(inc)}
@@ -437,20 +484,27 @@ export default function IncidentDashboard({ currentUser, onBack }) {
                       >
                         📑 Report & Close
                       </button>
-                      <button
-                        className="btn-action-triage"
-                        onClick={() => setSelectedIncidentForTriage(inc)}
-                        title="Conduct Manager Review & CFT Setup"
-                      >
-                        ⚖️ Triage / CFT
-                      </button>
-                      <button
-                        className="btn-action-view"
-                        onClick={() => setSelectedIncidentForDetails(inc)}
-                        title="View Incident Dossier"
-                      >
-                        📄 Dossier
-                      </button>
+
+                      {/* Edit option: Allowed before CFT is formed, locked afterwards */}
+                      {isCftFormed(inc) ? (
+                        <button
+                          className="btn-action-locked"
+                          disabled
+                          title="Incident editing is locked because the Cross-Functional Team (CFT) has already been appointed."
+                        >
+                          🔒 Locked
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-action-edit"
+                          onClick={() => handleOpenEditFIR(inc)}
+                          title="Edit Initial Incident Report (FIR) - Allowed before CFT team is formed"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
+
+                      {/* Delete */}
                       <button
                         className="btn-action-delete"
                         onClick={() => handleDeleteIncident(inc._id, inc.incidentNumber)}
@@ -470,8 +524,17 @@ export default function IncidentDashboard({ currentUser, onBack }) {
       {/* Modals */}
       <IncidentFIRModal
         isOpen={isFIRModalOpen}
-        onClose={() => setIsFIRModalOpen(false)}
+        onClose={() => {
+          setIsFIRModalOpen(false);
+          setIncidentToEdit(null);
+        }}
         onIncidentCreated={handleIncidentCreated}
+        onIncidentUpdated={(updated) => {
+          fetchIncidentsAndStats();
+          setIncidentToEdit(null);
+          setSelectedIncidentForDetails(updated);
+        }}
+        incidentToEdit={incidentToEdit}
         currentUser={currentUser}
       />
 
@@ -539,6 +602,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         isOpen={!!selectedIncidentForDetails}
         onClose={() => setSelectedIncidentForDetails(null)}
         incident={selectedIncidentForDetails}
+        onEdit={(inc) => handleOpenEditFIR(inc)}
         onOpenTriage={(inc) => setSelectedIncidentForTriage(inc)}
         onOpenEvidence={(inc) => {
           setSelectedIncidentForDetails(null);

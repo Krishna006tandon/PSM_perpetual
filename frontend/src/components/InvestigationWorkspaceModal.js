@@ -556,6 +556,94 @@ export default function InvestigationWorkspaceModal({
     }
   };
 
+  // Direct Visual Diagram Tree-Builder Handlers
+  const handleAddChildFromDiagram = async (parentId, payload) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await safeFetchJson(`${API_URL}/api/incidents/${incident._id}/why-nodes`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          parentId,
+          statement: payload.statement,
+          status: payload.status || 'Exploring',
+          isRootCause: Boolean(payload.isRootCause),
+          rootCauseType: payload.rootCauseType || 'None',
+          api754Category: payload.api754Category || '',
+          api754Subcategory: payload.api754Subcategory || '',
+          notes: payload.notes || '',
+          createdBy: currentUser?.name || incident.cft?.leader?.name || 'CFT Investigator'
+        })
+      });
+
+      setNodes((prev) => [...prev, created]);
+      setSelectedNodeId(created._id);
+      flashSuccess(`Why ${created.whyLevel} added directly from diagram.`);
+      if (onInvestigationUpdated) onInvestigationUpdated();
+      return created;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateNodeFromDiagram = async (nodeId, patchData) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await safeFetchJson(
+        `${API_URL}/api/incidents/${incident._id}/why-nodes/${nodeId}`,
+        {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            ...patchData,
+            updatedBy: currentUser?.name || incident.cft?.leader?.name || 'CFT Investigator'
+          })
+        }
+      );
+
+      setNodes((prev) => prev.map((n) => (n._id === updated._id ? updated : n)));
+      flashSuccess('Node updated directly from diagram.');
+      if (onInvestigationUpdated) onInvestigationUpdated();
+      return updated;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteNodeFromDiagram = async (nodeId) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await safeFetchJson(
+        `${API_URL}/api/incidents/${incident._id}/why-nodes/${nodeId}`,
+        {
+          method: 'DELETE',
+          headers: authHeaders()
+        }
+      );
+
+      const deletedSet = new Set(res.deletedIds || [nodeId]);
+      setNodes((prev) => prev.filter((n) => !deletedSet.has(String(n._id))));
+      setSelectedNodeId((prev) => (deletedSet.has(String(prev)) ? null : prev));
+      flashSuccess('Node and branch removed from diagram.');
+      if (onInvestigationUpdated) onInvestigationUpdated();
+      return res;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const matchesFilter = (node) => {
     if (treeFilter === 'all') return true;
     if (treeFilter === 'root') return node.isRootCause || (node.rootCauseType && node.rootCauseType !== 'None');
@@ -1165,10 +1253,16 @@ export default function InvestigationWorkspaceModal({
           <WhyWhyTreeDiagram
             incident={incident}
             nodes={nodes}
+            currentUser={currentUser}
+            causalFactors={causalFactors}
+            onAddChildNode={handleAddChildFromDiagram}
+            onUpdateNode={handleUpdateNodeFromDiagram}
+            onDeleteNode={handleDeleteNodeFromDiagram}
             onSelectNodeAndEdit={(nodeId) => {
               setSelectedNodeId(nodeId);
               setActiveView('tree');
             }}
+            onCreateCapaFromNode={onCreateCapaFromNode}
           />
         ) : (
           /* View 2: Root Causes Matrix */

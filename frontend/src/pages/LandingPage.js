@@ -2830,9 +2830,17 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 <span className="psm-pill psm-pill-green">ISO 27001 Certified Cloud</span>
                 <span className="psm-pill psm-pill-blue">SOC 2 Type II</span>
               </div>
-              <p style={{ margin: '14px 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                Strategic Partner: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Pragna Consultants</span>
-              </p>
+              <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                <span>Strategic Partner:</span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <img 
+                    src="/pragna-logo.png" 
+                    alt="Pragna Consultants Logo" 
+                    style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'contain' }} 
+                  />
+                  <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Pragna Consultants</span>
+                </div>
+              </div>
             </div>
 
             <div className="psm-footer-col">

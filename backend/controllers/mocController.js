@@ -62,17 +62,14 @@ exports.createMOC = async (req, res) => {
 exports.getAllMOCs = async (req, res) => {
   try {
     const query = { ...req.query };
-    
-    // Map 'orgNumber' from query params to the nested DB field
-    if (query.orgNumber) {
-      query['requestor.orgNumber'] = query.orgNumber;
-      delete query.orgNumber;
-    }
+    const userCompany = req.user?.companyCode || query.orgNumber;
+    delete query.orgNumber;
 
     // Tenant isolation: allow tenant's MOCs plus legacy/shared 'DEFAULT' MOCs
-    if (req.user?.companyCode && req.user.role !== 'SuperAdmin') {
+    if (userCompany && req.user?.role !== 'SuperAdmin') {
       query.$or = [
-        { companyCode: req.user.companyCode },
+        { companyCode: userCompany },
+        { 'requestor.orgNumber': userCompany },
         { companyCode: 'DEFAULT' },
         { companyCode: { $exists: false } },
         { companyCode: null }

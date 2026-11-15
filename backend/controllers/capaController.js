@@ -54,6 +54,7 @@ const createLinkedMocTicket = async (incident, capa, actorName) => {
     requestor: {
       name: actorName || capa.assignee?.name || 'HSE Lead',
       designation: 'Incident Investigation / CAPA Action Owner',
+      orgNumber: incident.companyCode || '',
       contact: capa.assignee?.email || ''
     },
     status: 'Active',

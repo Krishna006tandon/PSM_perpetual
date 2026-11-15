@@ -73,7 +73,7 @@ const tasks = [
 
 const ProjectManagerStage = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser?.designation === 'Engineering Head';
+  const hasPermission = currentUser?.designation === 'Engineering Head' || currentUser?.designation === 'Project Manager' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
 
   const [pmDetails, setPmDetails] = useState({ name: '', department: '', timeline: '', comments: '' });

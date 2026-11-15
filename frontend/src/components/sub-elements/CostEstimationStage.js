@@ -68,7 +68,7 @@ const departments = ['Mechanical Department', 'Electrical Department', 'Instrume
 
 const CostEstimationStage = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser?.designation === 'Cost Estimator';
+  const hasPermission = currentUser?.designation === 'Cost Estimator' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
 
   const [costs, setCosts] = useState({});

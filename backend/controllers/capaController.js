@@ -42,6 +42,7 @@ const createLinkedMocTicket = async (incident, capa, actorName) => {
   const titleBase = `[CAPA ${capa.actionNumber}] ${String(capa.description || '').slice(0, 75)}`;
 
   const ticket = new MOCTicket({
+    companyCode: incident.companyCode || 'DEFAULT',
     mocId,
     title: titleBase,
     description: `Triggered from Incident ${incident.incidentNumber} (${incident.title}). Root-cause CAPA: ${capa.description}`,

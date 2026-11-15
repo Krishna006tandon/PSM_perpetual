@@ -89,7 +89,7 @@ const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser,
   const activeRole = activeIndex !== -1 ? approvalChain[activeIndex].role : null;
   const isFullyApproved = approvalChain.every(app => statuses[app.id] === 'Approved');
 
-  const hasPermission = currentUser?.designation === activeRole;
+  const hasPermission = currentUser?.designation === activeRole || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
 
   const handleAction = async (appId, actionType, roleIndex) => {
     if ((actionType === 'Query' || actionType === 'Rejected') && comments[appId].trim() === '') {
@@ -224,7 +224,7 @@ const SecondaryApprovalStage = ({ theme, ticketData, setTicketData, currentUser,
           {approvalChain.map((app, index) => {
             const currentStatus = statuses[app.id];
             const isPending = currentStatus === 'Pending';
-            const canAct = isPending && currentUser?.designation === app.role && isWorkflowActive;
+            const canAct = isPending && (currentUser?.designation === app.role || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin') && isWorkflowActive;
 
             return (
               <div key={app.id} style={styles.approverCard(currentStatus)}>

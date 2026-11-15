@@ -11,6 +11,7 @@ import ProjectManagerStage from '../components/sub-elements/ProjectManagerStage'
 import DocumentationStage from '../components/sub-elements/DocumentationStage';
 import ClosureStage from '../components/sub-elements/ClosureStage';
 import { mocService } from '../api/mocService';
+import { getApiUrl } from '../utils/apiConfig';
 const WORKFLOW_STAGES = [
   "MOC Creation",           // 0
   "Area Head Approval",     // 1
@@ -41,8 +42,35 @@ const STAGE_ROLES = {
   "Stage 10 & 11: Revalidation & Closure": ["Project Manager", "Area Owner", "Process Engineer"]
 };
 
-export default function MocDashboard() {
-  const [theme, setTheme] = useState('dark');
+const ALL_ROLES = [
+  "Process Engineer",
+  "Area Head",
+  "CTS Reviewer",
+  "CTS Head",
+  "General Hazid Reviewer",
+  "Operations Reviewer",
+  "SOL Reviewer",
+  "Process Tech Reviewer",
+  "C&I Reviewer",
+  "Electrical Reviewer",
+  "Inspection Reviewer",
+  "Warehouse Reviewer",
+  "HSE Reviewer",
+  "Cost Estimator",
+  "Engineering Head",
+  "HSE Head",
+  "Site Head",
+  "Project Manager",
+  "Area Owner"
+];
+
+export default function MocDashboard({ currentUser: propUser, theme: propTheme, toggleTheme: propToggleTheme, onBackToDashboard }) {
+  const [theme, setTheme] = useState(propTheme || 'dark');
+  useEffect(() => {
+    if (propTheme) setTheme(propTheme);
+  }, [propTheme]);
+
+  const toggleTheme = propToggleTheme || (() => setTheme(prev => prev === 'dark' ? 'light' : 'dark'));
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -56,7 +84,11 @@ export default function MocDashboard() {
 
   // --- MOC LIST STATE ---
   const [mocList, setMocList] = useState([]);
-  const [dashboardView, setDashboardView] = useState('modules'); // 'modules' | 'mocList'
+  const [dashboardView, setDashboardView] = useState('mocList'); // default directly to mocList!
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileDescription, setFileDescription] = useState('');
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(''); // 'modules' | 'mocList'
   const [mocFilter, setMocFilter] = useState('All'); // 'All' | 'Active' | 'Closed' | 'Rejected'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGuideStage, setSelectedGuideStage] = useState(null);
@@ -244,18 +276,74 @@ export default function MocDashboard() {
     setResolutionText("");
   };
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const resolveInitialRole = (user) => {
+    if (!user) return 'Process Engineer';
+    if (user.role === 'SuperAdmin' || user.role === 'Admin') return 'Process Engineer';
+    if (ALL_ROLES.includes(user.designation)) return user.designation;
+    if (ALL_ROLES.includes(user.role)) return user.role;
+    return 'Process Engineer';
+  };
+
+  const [authData, setAuthData] = useState(() => {
+    const user = propUser || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null);
+    return {
+      name: user?.name || 'Authorized Engineer',
+      designation: resolveInitialRole(user),
+      role: user?.role || 'Engineer',
+      orgNumber: user?.companyCode || user?.companyName || 'DEFAULT',
+      contact: user?.email || 'user@company.com'
+    };
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return Boolean(propUser || (typeof window !== 'undefined' && localStorage.getItem('token')));
+  });
   const [isSignup, setIsSignup] = useState(false);
   const [loginStage, setLoginStage] = useState("Stage 1: Creation");
 
-  const [authData, setAuthData] = useState({
-    name: 'Amit Patel', designation: 'Process Engineer', orgNumber: 'ORG-7742', contact: 'amit.patel@company.com'
-  });
+  const handleUploadAttachment = async (e) => {
+    e.preventDefault();
+    if (!selectedFile || !ticketData) return;
+    setIsUploadingFile(true);
+    setAttachmentError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('description', fileDescription.trim() || selectedFile.name);
+      formData.append('stage', viewingStageIndex);
+      formData.append('uploadedByName', authData.name);
+      formData.append('uploadedByDesignation', authData.designation);
+
+      const updated = await mocService.uploadAttachment(ticketData.mocId || ticketData._id, formData);
+      setTicketData(updated);
+      setSelectedFile(null);
+      setFileDescription('');
+      const fileInput = document.getElementById('moc-file-input');
+      if (fileInput) fileInput.value = '';
+    } catch (err) {
+      console.error('Failed to upload attachment:', err);
+      setAttachmentError(err.response?.data?.error || err.message || 'File upload failed');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!window.confirm('Are you sure you want to delete this attachment?')) return;
+    try {
+      const updated = await mocService.deleteAttachment(ticketData.mocId || ticketData._id, attachmentId);
+      setTicketData(updated);
+    } catch (err) {
+      console.error('Failed to delete attachment:', err);
+      alert(err.response?.data?.error || 'Failed to delete attachment');
+    }
+  };
 
   useEffect(() => {
     const fetchMOCs = async () => {
       try {
-        const result = await mocService.getAllMOCs(authData.orgNumber);
+        const orgParam = (authData.orgNumber && authData.orgNumber !== 'DEFAULT') ? authData.orgNumber : undefined;
+        const result = await mocService.getAllMOCs(orgParam);
         setMocList(result || []);
       } catch (err) {
         console.error("Failed to fetch MOCs:", err);
@@ -267,7 +355,7 @@ export default function MocDashboard() {
   }, [isAuthenticated, authData.orgNumber]);
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
 
   // Profile Click Outside
   useEffect(() => {
@@ -490,12 +578,128 @@ export default function MocDashboard() {
   return (
     <>
       <main className="main-content" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-        <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 40px', borderBottom: '1px solid var(--divider)', backgroundColor: 'var(--bg-paper)' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '24px', color: 'var(--text-primary)' }}>{activeTab === 'Dashboard' ? 'Enterprise Dashboard' : activeTab === 'Analytics' ? 'Analytics Overview' : activeTab === 'Settings' ? 'Application Settings' : `MOC Workflow: ${ticketData ? ticketData.title : 'New Ticket'}`}</h1>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Logged in as: <strong>{authData.name}</strong> ({authData.designation})</div>
+        <header className="header" style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px',
+          padding: '16px 36px', borderBottom: '1px solid var(--divider)', backgroundColor: 'var(--bg-paper)'
+        }}>
+          {/* Left: Back button & Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {onBackToDashboard && (
+              <button
+                onClick={onBackToDashboard}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--divider)',
+                  backgroundColor: theme === 'dark' ? '#252538' : '#f0f2f5',
+                  color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '600', fontSize: '13px'
+                }}
+                title="Return to PSM Suite Dashboard"
+              >
+                ← Back to PSM Suite
+              </button>
+            )}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h1 style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)', fontWeight: '800' }}>
+                  Management of Change (MOC)
+                </h1>
+                <span style={{
+                  fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '12px',
+                  backgroundColor: '#137333', color: 'white'
+                }}>
+                  Live Enterprise
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Organization: <strong>{authData.orgNumber}</strong> · User: <strong>{authData.name}</strong> ({authData.designation})
+              </div>
+            </div>
           </div>
+
+          {/* Center: Navigation Tabs */}
+          <div style={{ display: 'flex', gap: '6px', backgroundColor: theme === 'dark' ? '#121224' : '#f1f3f9', padding: '4px', borderRadius: '10px' }}>
+            <button
+              onClick={() => setActiveTab('Dashboard')}
+              style={{
+                padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                backgroundColor: activeTab === 'Dashboard' ? '#1a73e8' : 'transparent',
+                color: activeTab === 'Dashboard' ? 'white' : (theme === 'dark' ? '#aaa' : '#555'),
+                fontWeight: '600', fontSize: '13px'
+              }}
+            >
+              📊 Dashboard
+            </button>
+            {ticketData && (
+              <button
+                onClick={() => setActiveTab('Projects')}
+                style={{
+                  padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                  backgroundColor: activeTab === 'Projects' ? '#1a73e8' : 'transparent',
+                  color: activeTab === 'Projects' ? 'white' : (theme === 'dark' ? '#aaa' : '#555'),
+                  fontWeight: '600', fontSize: '13px'
+                }}
+              >
+                🔄 Workflow: {ticketData.mocId || 'Ticket'}
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab('Analytics')}
+              style={{
+                padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                backgroundColor: activeTab === 'Analytics' ? '#1a73e8' : 'transparent',
+                color: activeTab === 'Analytics' ? 'white' : (theme === 'dark' ? '#aaa' : '#555'),
+                fontWeight: '600', fontSize: '13px'
+              }}
+            >
+              📈 Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('User Guide')}
+              style={{
+                padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                backgroundColor: activeTab === 'User Guide' ? '#1a73e8' : 'transparent',
+                color: activeTab === 'User Guide' ? 'white' : (theme === 'dark' ? '#aaa' : '#555'),
+                fontWeight: '600', fontSize: '13px'
+              }}
+            >
+              📖 User Guide
+            </button>
+          </div>
+
+          {/* Right: Acting Role selector & Profile */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#aaa' : '#666' }}>
+                Acting Role:
+              </label>
+              <select
+                value={authData.designation}
+                onChange={(e) => setAuthData(prev => ({ ...prev, designation: e.target.value }))}
+                style={{
+                  padding: '6px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
+                  border: theme === 'dark' ? '1px solid #3a3a5a' : '1px solid #ccc',
+                  backgroundColor: theme === 'dark' ? '#222238' : '#fff',
+                  color: '#1a73e8', outline: 'none', cursor: 'pointer'
+                }}
+                title="Select active role for performing stage approvals or reviews"
+              >
+                {ALL_ROLES.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '18px',
+                padding: '8px', borderRadius: '50%', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+              }}
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+
             {/* Profile Icon Button */}
             <div id="profile-menu" style={{ position: 'relative' }}>
               <button
@@ -522,7 +726,6 @@ export default function MocDashboard() {
                     boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                   }}
                 >
-                  {/* Avatar + Name */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                     <div style={{
                       width: '44px', height: '44px', borderRadius: '50%',
@@ -542,7 +745,6 @@ export default function MocDashboard() {
                     </div>
                   </div>
 
-                  {/* Details */}
                   <div style={{
                     backgroundColor: theme === 'dark' ? '#12122a' : '#f5f6fe',
                     borderRadius: '8px', padding: '12px',
@@ -550,7 +752,7 @@ export default function MocDashboard() {
                     marginBottom: '12px', fontSize: '13px',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: theme === 'dark' ? '#7070a0' : '#999' }}>Employee ID</span>
+                      <span style={{ color: theme === 'dark' ? '#7070a0' : '#999' }}>Organization</span>
                       <span style={{ fontWeight: '600', color: theme === 'dark' ? '#e8e8ff' : '#1a1a3e' }}>{authData.orgNumber}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -558,12 +760,11 @@ export default function MocDashboard() {
                       <span style={{ fontWeight: '600', color: theme === 'dark' ? '#e8e8ff' : '#1a1a3e', fontSize: '11px' }}>{authData.contact}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: theme === 'dark' ? '#7070a0' : '#999' }}>Role</span>
+                      <span style={{ color: theme === 'dark' ? '#7070a0' : '#999' }}>Acting Role</span>
                       <span style={{ fontWeight: '600', color: '#1a73e8' }}>{authData.designation}</span>
                     </div>
                   </div>
 
-                  {/* Logout */}
                   <button
                     onClick={() => { setIsAuthenticated(false); setIsSignup(false); setActiveTab('Dashboard'); setProfileOpen(false); }}
                     style={{
@@ -572,7 +773,7 @@ export default function MocDashboard() {
                       cursor: 'pointer', fontWeight: '600', fontSize: '14px',
                     }}
                   >
-                    ⎋ Sign Out
+                    ⎋ Sign Out of MOC
                   </button>
                 </div>
               )}
@@ -603,7 +804,7 @@ export default function MocDashboard() {
                     <button onClick={() => setDashboardView('modules')} style={{ background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: 0 }}>← Back to Modules</button>
                     <h2 style={{ color: theme === 'dark' ? '#ffffff' : '#333333', margin: '8px 0 0' }}>Management of Change — Workflows</h2>
                   </div>
-                  {authData.designation === 'Process Engineer' ? (
+                  {(authData.designation === 'Process Engineer' || authData.designation === 'Initiator' || authData.role === 'Admin' || authData.role === 'SuperAdmin') ? (
                     <button
                       onClick={() => {
                         setTicketData(null);
@@ -1198,6 +1399,154 @@ export default function MocDashboard() {
                   <p style={{ color: theme === 'dark' ? '#aaaaaa' : '#666666' }}>This Management of Change process has been successfully finalized and closed.</p>
                 </div>
               )}
+            
+            {/* TECHNICAL DRAWINGS & ATTACHMENTS REPOSITORY */}
+            <div style={{
+              backgroundColor: theme === 'dark' ? '#1a1a2e' : '#ffffff',
+              borderRadius: '12px', padding: '24px',
+              border: theme === 'dark' ? '1px solid #2a2a4a' : '1px solid #e8eaf6',
+              borderTop: '3px solid #1a73e8', marginTop: '24px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: theme === 'dark' ? '#e8e8ff' : '#1a1a3e' }}>
+                    📁 Technical Drawings & MOC Document Attachments
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: theme === 'dark' ? '#8a8ab0' : '#666' }}>
+                    Upload and track revised P&IDs, HAZOP reviews, equipment datasheets, and compliance documentation.
+                  </p>
+                </div>
+                <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '12px', backgroundColor: theme === 'dark' ? '#252540' : '#eef2ff', color: '#1a73e8', fontWeight: '700' }}>
+                  {(ticketData?.attachments || []).length} Attached File(s)
+                </span>
+              </div>
+
+              {/* Upload Form */}
+              <form onSubmit={handleUploadAttachment} style={{
+                display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '12px', alignItems: 'center',
+                padding: '16px', borderRadius: '8px', backgroundColor: theme === 'dark' ? '#121224' : '#f8f9fe',
+                border: theme === 'dark' ? '1px dashed #3a3a60' : '1px dashed #ccd3e8', marginBottom: '20px'
+              }}>
+                <input
+                  id="moc-file-input"
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  required
+                  style={{ fontSize: '13px', color: theme === 'dark' ? '#ddd' : '#333' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Document Title / Drawing No. (e.g., P&ID-042 Rev-3, Datasheet, PSSR Check)"
+                  value={fileDescription}
+                  onChange={(e) => setFileDescription(e.target.value)}
+                  style={{
+                    padding: '8px 12px', borderRadius: '6px', fontSize: '13px',
+                    border: theme === 'dark' ? '1px solid #333' : '1px solid #ddd',
+                    backgroundColor: theme === 'dark' ? '#1e1e30' : '#fff',
+                    color: theme === 'dark' ? '#fff' : '#000', outline: 'none'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!selectedFile || isUploadingFile}
+                  style={{
+                    padding: '8px 18px', borderRadius: '6px', border: 'none',
+                    backgroundColor: isUploadingFile ? '#888' : '#1a73e8', color: 'white',
+                    fontWeight: '700', fontSize: '13px', cursor: isUploadingFile ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  {isUploadingFile ? 'Uploading...' : '⬆ Upload File'}
+                </button>
+              </form>
+
+              {attachmentError && (
+                <div style={{ padding: '10px 14px', borderRadius: '6px', backgroundColor: '#f8d7da', color: '#721c24', fontSize: '13px', marginBottom: '16px' }}>
+                  <strong>Upload Error:</strong> {attachmentError}
+                </div>
+              )}
+
+              {/* Attachments List */}
+              {(!ticketData?.attachments || ticketData.attachments.length === 0) ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: theme === 'dark' ? '#777' : '#999', fontSize: '13px' }}>
+                  No files attached yet. Upload updated P&ID drawings or change verification files above.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', borderBottom: theme === 'dark' ? '1px solid #333' : '1px solid #eee' }}>
+                        <th style={{ padding: '10px 12px', color: theme === 'dark' ? '#aaa' : '#666' }}>Document / Drawing</th>
+                        <th style={{ padding: '10px 12px', color: theme === 'dark' ? '#aaa' : '#666' }}>Stage</th>
+                        <th style={{ padding: '10px 12px', color: theme === 'dark' ? '#aaa' : '#666' }}>Uploaded By</th>
+                        <th style={{ padding: '10px 12px', color: theme === 'dark' ? '#aaa' : '#666' }}>Date</th>
+                        <th style={{ padding: '10px 12px', color: theme === 'dark' ? '#aaa' : '#666' }}>Size</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right', color: theme === 'dark' ? '#aaa' : '#666' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ticketData.attachments.map((att) => {
+                        const fileUrl = att.path?.startsWith('http') ? att.path : `${getApiUrl()}${att.path}`;
+                        const sizeKb = att.size ? Math.round(att.size / 1024) : 0;
+                        return (
+                          <tr key={att._id || att.filename} style={{ borderBottom: theme === 'dark' ? '1px solid #222' : '1px solid #f2f2f2' }}>
+                            <td style={{ padding: '10px 12px' }}>
+                              <div style={{ fontWeight: '600', color: theme === 'dark' ? '#e8e8ff' : '#1a1a3e' }}>
+                                📄 {att.description || att.originalName}
+                              </div>
+                              <div style={{ fontSize: '11px', color: theme === 'dark' ? '#888' : '#777' }}>
+                                {att.originalName}
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: theme === 'dark' ? '#252540' : '#eef2ff', color: '#1a73e8', fontWeight: '600' }}>
+                                Stage {att.stage !== undefined ? att.stage + 1 : '1'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <div>{att.uploadedBy?.name || 'User'}</div>
+                              <div style={{ fontSize: '11px', color: theme === 'dark' ? '#888' : '#777' }}>{att.uploadedBy?.designation}</div>
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              {att.uploadedAt ? new Date(att.uploadedAt).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              {sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-block', padding: '4px 10px', borderRadius: '4px',
+                                  backgroundColor: '#1a73e8', color: 'white', textDecoration: 'none',
+                                  fontSize: '12px', fontWeight: '600', marginRight: '8px'
+                                }}
+                              >
+                                ⬇ View
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(att._id)}
+                                style={{
+                                  padding: '4px 8px', borderRadius: '4px', border: '1px solid #dc3545',
+                                  backgroundColor: 'transparent', color: '#dc3545', cursor: 'pointer',
+                                  fontSize: '12px'
+                                }}
+                                title="Delete Attachment"
+                              >
+                                🗑
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
             </div>
           </div>
         )}

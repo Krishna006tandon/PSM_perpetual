@@ -54,7 +54,7 @@ const getStyles = (theme) => {
 
 const SiteHeadApproval = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser?.designation === 'Site Head';
+  const hasPermission = currentUser?.designation === 'Site Head' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
 
   const [comments, setComments] = useState('');

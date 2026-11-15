@@ -292,7 +292,8 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
   const _hasQuery = Object.values(departmentStatuses).some(s => s === 'Query Sent'); // eslint-disable-line no-unused-vars
   const approvedCount = Object.values(departmentStatuses).filter(s => s === 'Approved').length;
 
-  const canUserActOnAny = departments.some(dept => currentUser?.designation === dept.role);
+  const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
+  const canUserActOnAny = isAdmin || departments.some(dept => currentUser?.designation === dept.role);
 
   return (
     <div style={styles.container}>
@@ -348,7 +349,7 @@ const ReviewGroupStage = ({ theme, ticketData, setTicketData, currentUser, onPro
           const currentStatus = departmentStatuses[dept.id];
           const isExpanded = expandedCards[dept.id];
           const questions = deptQuestions[dept.id] || [];
-          const canUserActOnThisDept = currentUser?.designation === dept.role;
+          const canUserActOnThisDept = currentUser?.designation === dept.role || isAdmin;
           const isManageMode = manageMode[dept.id];
           
           return (

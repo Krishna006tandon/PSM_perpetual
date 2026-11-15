@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const mocTicketSchema = new mongoose.Schema({
   mocId: { type: String, unique: true },
+  companyCode: { type: String, index: true, default: 'DEFAULT' },
   title: { type: String, required: true },
   description: String,
   plant: String,
@@ -31,7 +32,12 @@ const mocTicketSchema = new mongoose.Schema({
       status: { type: String, enum: ['Yes', 'No', 'NA', 'Pending'], default: 'Pending' }, 
       remarks: String 
     }],
-    stage5: mongoose.Schema.Types.Mixed
+    stage5: mongoose.Schema.Types.Mixed,
+    stage10: [{ 
+      question: String, 
+      status: { type: String, enum: ['Yes', 'No', 'NA', 'Pending'], default: 'Pending' }, 
+      remarks: String 
+    }]
   },
   secondaryApprovals: mongoose.Schema.Types.Mixed,
   costEstimation: {
@@ -55,7 +61,18 @@ const mocTicketSchema = new mongoose.Schema({
     department: String,
     assignedBy: String,
     assignedAt: Date
-  }
+  },
+  attachments: [{
+    filename: String,
+    originalName: String,
+    path: String,
+    mimetype: String,
+    size: Number,
+    stage: { type: Number, default: 0 },
+    description: String,
+    uploadedBy: { name: String, designation: String },
+    uploadedAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('MOCTicket', mocTicketSchema);

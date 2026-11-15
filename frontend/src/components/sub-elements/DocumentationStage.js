@@ -69,7 +69,7 @@ const getStyles = (theme) => {
 const DocumentationStage = ({ theme, ticketData, currentUser, onPromote, isWorkflowActive, isCompleted: isCompletedProp, onPrevious, onNext }) => {
   const styles = getStyles(theme);
   const isDark = theme === 'dark';
-  const hasPermission = currentUser.designation === 'Project Manager';
+  const hasPermission = currentUser?.designation === 'Project Manager' || currentUser?.designation === 'Process Engineer' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
   const data = ticketData || { title: "No Title", requestor: "N/A", plant: "N/A", changeType: "N/A", riskLevel: "N/A", description: "No description." };
 

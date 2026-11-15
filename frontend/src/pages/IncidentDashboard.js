@@ -14,7 +14,7 @@ import './IncidentDashboard.css';
 
 const API_URL = getApiUrl();
 
-export default function IncidentDashboard({ currentUser, onBack }) {
+export default function IncidentDashboard({ currentUser, onBack, onOpenMoc }) {
   const [incidents, setIncidents] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -605,6 +605,7 @@ export default function IncidentDashboard({ currentUser, onBack }) {
         currentUser={currentUser}
         initialWhyNodeId={capaInitialWhyNodeId}
         onCapaUpdated={fetchIncidentsAndStats}
+        onOpenMoc={onOpenMoc}
       />
 
       <BarrierEvidenceModal

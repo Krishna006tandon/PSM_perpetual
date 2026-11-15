@@ -63,7 +63,8 @@ export default function CapaWorkspaceModal({
   incident,
   currentUser,
   initialWhyNodeId = null,
-  onCapaUpdated
+  onCapaUpdated,
+  onOpenMoc
 }) {
   const [capas, setCapas] = useState([]);
   const [whyNodes, setWhyNodes] = useState([]);
@@ -678,7 +679,17 @@ export default function CapaWorkspaceModal({
                           {capa.priority}
                         </span>
                         {capa.mocReference?.requiresMoc && (
-                          <span className="rca-taxonomy-chip">
+                          <span
+                            className="rca-taxonomy-chip"
+                            style={onOpenMoc && capa.mocReference.mocNumber ? { cursor: 'pointer', background: '#dbeafe', color: '#1d4ed8', fontWeight: 'bold' } : {}}
+                            onClick={() => {
+                              if (onOpenMoc && capa.mocReference.mocNumber) {
+                                onClose();
+                                onOpenMoc();
+                              }
+                            }}
+                            title={onOpenMoc && capa.mocReference.mocNumber ? `Click to view ${capa.mocReference.mocNumber} in MOC Dashboard` : "MOC Reference"}
+                          >
                             🔗 {capa.mocReference.mocNumber || 'MOC Required'}
                           </span>
                         )}

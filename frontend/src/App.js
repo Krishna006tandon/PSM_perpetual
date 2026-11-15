@@ -544,7 +544,14 @@ function App() {
           </div>
         );
       }
-      return <MocDashboard />;
+      return (
+        <MocDashboard
+          currentUser={currentUser}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onBackToDashboard={() => setCurrentView('dashboard')}
+        />
+      );
     }
 
     if (currentView === 'incidents' || currentView === 'incident') {
@@ -569,6 +576,7 @@ function App() {
         <IncidentDashboard 
           currentUser={currentUser} 
           onBack={() => setCurrentView('dashboard')} 
+          onOpenMoc={() => setCurrentView('moc')} 
         />
       );
     }

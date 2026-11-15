@@ -21,8 +21,7 @@ module.exports = async function(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Some old tokens might only have userId, some might have companyCode.
-    // To be perfectly safe, let's fetch the user from DB to guarantee companyCode is present!
+    // Fetch the user from DB to guarantee companyCode and role are present
     const user = await User.findById(decoded.userId || decoded);
     if (!user) {
       return res.status(401).json({ error: 'User no longer exists' });
@@ -30,7 +29,10 @@ module.exports = async function(req, res, next) {
 
     req.user = {
       userId: user._id.toString(),
-      companyCode: user.companyCode
+      companyCode: user.companyCode,
+      role: user.role,
+      name: user.name,
+      email: user.email
     };
     
     next();

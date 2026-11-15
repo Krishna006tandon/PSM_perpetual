@@ -1,4 +1,26 @@
+const path = require('path');
+const fs = require('fs');
 const MOCTicket = require('../models/MOCTicket');
+
+// Helper to generate sequential MOC ID if not supplied
+const generateMocId = async (companyCode) => {
+  const year = new Date().getFullYear();
+  const prefix = `MOC-${year}-`;
+  const existingMocs = await MOCTicket.find(
+    { mocId: { $regex: `^${prefix}` } },
+    { mocId: 1 }
+  );
+
+  let maxSeq = 0;
+  existingMocs.forEach((m) => {
+    const tail = parseInt(String(m.mocId || '').replace(prefix, ''), 10);
+    if (!isNaN(tail) && tail > maxSeq) {
+      maxSeq = tail;
+    }
+  });
+
+  return `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+};
 
 exports.createMOC = async (req, res) => {
   try {
@@ -8,8 +30,28 @@ exports.createMOC = async (req, res) => {
         return res.status(400).json({ error: 'An MOC with this name already exists. Please choose a different name.' });
       }
     }
+
+    const payload = { ...req.body };
+
+    // Tenant tagging
+    payload.companyCode = req.user?.companyCode || payload.companyCode || 'DEFAULT';
+
+    // Auto-generate MOC ID if missing or generic
+    if (!payload.mocId || payload.mocId.startsWith('MOC-NaN') || payload.mocId.trim() === '') {
+      payload.mocId = await generateMocId(payload.companyCode);
+    }
+
+    // Default requestor info from authenticated user if not provided
+    if (!payload.requestor || !payload.requestor.name) {
+      payload.requestor = {
+        name: req.user?.name || payload.requestor?.name || 'Initiator',
+        designation: req.user?.role || payload.requestor?.designation || 'Process Engineer',
+        orgNumber: req.user?.companyCode || payload.requestor?.orgNumber || 'ORG-001',
+        contact: req.user?.email || payload.requestor?.contact || ''
+      };
+    }
     
-    const newMoc = new MOCTicket(req.body);
+    const newMoc = new MOCTicket(payload);
     const savedMoc = await newMoc.save();
     res.status(201).json(savedMoc);
   } catch (error) {
@@ -27,7 +69,17 @@ exports.getAllMOCs = async (req, res) => {
       delete query.orgNumber;
     }
 
-    const mocs = await MOCTicket.find(query);
+    // Tenant isolation: allow tenant's MOCs plus legacy/shared 'DEFAULT' MOCs
+    if (req.user?.companyCode && req.user.role !== 'SuperAdmin') {
+      query.$or = [
+        { companyCode: req.user.companyCode },
+        { companyCode: 'DEFAULT' },
+        { companyCode: { $exists: false } },
+        { companyCode: null }
+      ];
+    }
+
+    const mocs = await MOCTicket.find(query).sort({ updatedAt: -1 });
     res.status(200).json(mocs);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -58,11 +110,16 @@ exports.advanceStage = async (req, res) => {
 
     if (moc.currentStageIndex >= 10) return res.status(400).json({ error: 'MOC is already at the final stage' });
 
+    const safeActor = actor || {
+      name: req.user?.name || 'Authorized User',
+      designation: req.user?.role || 'Approver'
+    };
+
     moc.stageHistory.push({
       stageIndex: moc.currentStageIndex,
       action: action || 'Approved',
-      actor,
-      comments
+      actor: safeActor,
+      comments: comments || ''
     });
     
     moc.currentStageIndex += 1;
@@ -86,11 +143,16 @@ exports.rejectMOC = async (req, res) => {
       return res.status(400).json({ error: 'Rejection is not allowed after Stage 8' });
     }
 
+    const safeActor = actor || {
+      name: req.user?.name || 'Reviewer',
+      designation: req.user?.role || 'Reviewer'
+    };
+
     moc.stageHistory.push({
       stageIndex: moc.currentStageIndex,
       action: 'Rejected',
-      actor,
-      comments
+      actor: safeActor,
+      comments: comments || ''
     });
     
     moc.rejectionCount = (moc.rejectionCount || 0) + 1;
@@ -110,9 +172,10 @@ exports.rejectMOC = async (req, res) => {
 exports.addQuery = async (req, res) => {
   try {
     const { from, to, description } = req.body;
+    const safeFrom = from || req.user?.name || 'User';
     const moc = await MOCTicket.findOneAndUpdate(
-      { mocId: req.params.mocId },
-      { $push: { queries: { from, to, description } } },
+      { $or: [{ mocId: req.params.mocId }, { _id: req.params.mocId.match(/^[0-9a-fA-F]{24}$/) ? req.params.mocId : null }] },
+      { $push: { queries: { from: safeFrom, to: to || 'Team', description } } },
       { new: true }
     );
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
@@ -124,7 +187,7 @@ exports.addQuery = async (req, res) => {
 
 exports.submitChecklist = async (req, res) => {
   try {
-    const { stage, data } = req.body; // stage can be 'stage3' or 'stage5'
+    const { stage, data } = req.body; // stage can be 'stage3', 'stage5', or 'stage10'
     const updateQuery = {};
     updateQuery[`checklistResponses.${stage}`] = data;
     
@@ -196,7 +259,7 @@ exports.assignPM = async (req, res) => {
 
     moc = await MOCTicket.findOneAndUpdate(
       { _id: moc._id },
-      { $set: { assignedPM: { name, department, assignedBy, assignedAt: Date.now() } } },
+      { $set: { assignedPM: { name, department, assignedBy: assignedBy || req.user?.name || 'Engineering Head', assignedAt: Date.now() } } },
       { new: true }
     );
     res.status(200).json(moc);
@@ -213,23 +276,27 @@ exports.closeMOC = async (req, res) => {
     }
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
 
-      const { actor, comments } = req.body || {};
-      
-      moc = await MOCTicket.findOneAndUpdate(
-        { _id: moc._id },
-        { 
-          $set: { status: 'Closed', currentStageIndex: 10 },
-          $push: {
-            stageHistory: {
-              stageIndex: 10,
-              action: 'Approved',
-              actor: actor || { name: 'System', designation: 'Admin' },
-              comments: comments || 'MOC Closed and Archived'
-            }
+    const { actor, comments } = req.body || {};
+    const safeActor = actor || {
+      name: req.user?.name || 'System Admin',
+      designation: req.user?.role || 'Area Owner'
+    };
+    
+    moc = await MOCTicket.findOneAndUpdate(
+      { _id: moc._id },
+      { 
+        $set: { status: 'Closed', currentStageIndex: 10 },
+        $push: {
+          stageHistory: {
+            stageIndex: 10,
+            action: 'Approved',
+            actor: safeActor,
+            comments: comments || 'MOC Closed and Archived'
           }
-        },
-        { new: true }
-      );
+        }
+      },
+      { new: true }
+    );
     res.status(200).json(moc);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -258,12 +325,17 @@ exports.archiveMOC = async (req, res) => {
     }
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
 
+    const safeActor = req.body.actor || {
+      name: req.user?.name || 'System',
+      designation: req.user?.role || 'System'
+    };
+
     moc.status = 'Archived';
     moc.stageHistory.push({
       stageIndex: moc.currentStageIndex,
       action: 'Submitted',
-      actor: req.body.actor || { name: 'System', designation: 'System' },
-      comments: req.body.comments || 'MOC archived by creator'
+      actor: safeActor,
+      comments: req.body.comments || 'MOC archived by user'
     });
     await moc.save();
     res.status(200).json(moc);
@@ -280,11 +352,16 @@ exports.unarchiveMOC = async (req, res) => {
     }
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
 
+    const safeActor = req.body.actor || {
+      name: req.user?.name || 'System',
+      designation: req.user?.role || 'System'
+    };
+
     moc.status = 'Active';
     moc.stageHistory.push({
       stageIndex: moc.currentStageIndex,
       action: 'Submitted',
-      actor: req.body.actor || { name: 'System', designation: 'System' },
+      actor: safeActor,
       comments: req.body.comments || 'MOC restored from archive'
     });
     await moc.save();
@@ -302,11 +379,16 @@ exports.unrejectMOC = async (req, res) => {
     }
     if (!moc) return res.status(404).json({ error: 'MOC not found' });
 
+    const safeActor = req.body.actor || {
+      name: req.user?.name || 'System',
+      designation: req.user?.role || 'System'
+    };
+
     moc.status = 'Active';
     moc.stageHistory.push({
       stageIndex: moc.currentStageIndex,
       action: 'Submitted',
-      actor: req.body.actor || { name: 'System', designation: 'System' },
+      actor: safeActor,
       comments: req.body.comments || 'Reanalyzed and un-rejected'
     });
     
@@ -332,7 +414,6 @@ exports.resolveQuery = async (req, res) => {
     }
     
     if (!query && req.body.description) {
-      // Fallback matching if queryId is not provided/used
       query = moc.queries.find(q => 
         q.description === req.body.description && 
         (req.body.timestamp ? new Date(q.timestamp).getTime() === new Date(req.body.timestamp).getTime() : true)
@@ -342,10 +423,78 @@ exports.resolveQuery = async (req, res) => {
     if (!query) return res.status(404).json({ error: 'Query not found' });
 
     query.status = 'Resolved';
-    query.resolutionMessage = resolutionMessage;
+    query.resolutionMessage = resolutionMessage || 'Resolved';
     
     moc.markModified('queries');
-    
+    await moc.save();
+    res.status(200).json(moc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- FILE ATTACHMENTS FOR DRAWINGS, P&IDs, DATASHEETS ---
+exports.uploadAttachment = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    let moc = await MOCTicket.findOne({ mocId: req.params.mocId });
+    if (!moc && req.params.mocId.match(/^[0-9a-fA-F]{24}$/)) {
+      moc = await MOCTicket.findById(req.params.mocId);
+    }
+    if (!moc) return res.status(404).json({ error: 'MOC not found' });
+
+    const attachment = {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      path: `/uploads/moc/${req.file.filename}`,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      stage: Number(req.body.stage ?? moc.currentStageIndex),
+      description: req.body.description || req.file.originalname,
+      uploadedBy: {
+        name: req.body.uploadedByName || req.user?.name || 'User',
+        designation: req.body.uploadedByDesignation || req.user?.role || 'Engineer'
+      },
+      uploadedAt: new Date()
+    };
+
+    moc.attachments = moc.attachments || [];
+    moc.attachments.push(attachment);
+    await moc.save();
+    res.status(201).json(moc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteAttachment = async (req, res) => {
+  try {
+    let moc = await MOCTicket.findOne({ mocId: req.params.mocId });
+    if (!moc && req.params.mocId.match(/^[0-9a-fA-F]{24}$/)) {
+      moc = await MOCTicket.findById(req.params.mocId);
+    }
+    if (!moc) return res.status(404).json({ error: 'MOC not found' });
+
+    const attIndex = moc.attachments.findIndex(
+      a => a._id.toString() === req.params.attachmentId || a.filename === req.params.attachmentId
+    );
+    if (attIndex === -1) {
+      return res.status(404).json({ error: 'Attachment not found' });
+    }
+
+    const att = moc.attachments[attIndex];
+    try {
+      const filePath = path.join(__dirname, '..', 'uploads', 'moc', att.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fsErr) {
+      console.warn('Could not delete physical attachment file:', fsErr.message);
+    }
+
+    moc.attachments.splice(attIndex, 1);
     await moc.save();
     res.status(200).json(moc);
   } catch (error) {

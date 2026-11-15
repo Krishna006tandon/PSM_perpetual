@@ -82,8 +82,8 @@ const ChecklistModule = ({ theme, ticketData, setTicketData, currentUser, onProm
   const styles = getStyles(theme);
   const isDark = theme === 'dark';
 
-  const hasCtsPermission = currentUser.designation === 'CTS Reviewer';
-  const hasCtsHeadPermission = currentUser.designation === 'CTS Head';
+  const hasCtsPermission = currentUser?.designation === 'CTS Reviewer' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
+  const hasCtsHeadPermission = currentUser?.designation === 'CTS Head' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
 
   const isStage3Active = currentStageIndex === 2;
   const isStage4Active = currentStageIndex === 3;

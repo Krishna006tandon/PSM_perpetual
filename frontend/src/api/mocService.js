@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getApiUrl } from '../utils/apiConfig';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = `${getApiUrl()}/api`;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +9,18 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Automatically inject JWT bearer token from localStorage
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export const mocService = {
   // --- MOC Tickets ---
@@ -84,6 +97,26 @@ export const mocService = {
 
   unarchiveMOC: async (id, data) => {
     const response = await apiClient.patch(`/mocs/${id}/unarchive`, data);
+    return response.data;
+  },
+
+  deleteMOC: async (id) => {
+    const response = await apiClient.delete(`/mocs/${id}`);
+    return response.data;
+  },
+
+  // --- Attachments / Documents (P&IDs, Datasheets, HAZOP reviews) ---
+  uploadAttachment: async (id, formData) => {
+    const response = await apiClient.post(`/mocs/${id}/attachments`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteAttachment: async (id, attachmentId) => {
+    const response = await apiClient.delete(`/mocs/${id}/attachments/${attachmentId}`);
     return response.data;
   },
 

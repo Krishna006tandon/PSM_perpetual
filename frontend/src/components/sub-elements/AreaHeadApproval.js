@@ -69,7 +69,7 @@ const getStyles = (theme) => {
 
 const AreaHeadApproval = ({ theme, ticketData, setTicketData, currentUser, onPromote, onAddQuery, isWorkflowActive, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser.designation === 'Area Head';
+  const hasPermission = currentUser?.designation === 'Area Head' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
 
   const [comments, setComments] = useState('');

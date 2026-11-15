@@ -95,7 +95,7 @@ const CreateMocForm = ({ theme, ticketData, setTicketData, currentUser, onPromot
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(!!ticketData);
 
-  const hasPermission = currentUser.designation === 'Process Engineer';
+  const hasPermission = currentUser?.designation === 'Process Engineer' || currentUser?.designation === 'Initiator' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const isExisting = !!ticketData;
 
   const [formData, setFormData] = useState({

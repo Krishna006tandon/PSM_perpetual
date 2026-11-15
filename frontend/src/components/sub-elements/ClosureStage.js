@@ -54,7 +54,7 @@ const getStyles = (theme) => {
 
 const ClosureStage = ({ theme, ticketData, currentUser, onPromote, onAddQuery, isWorkflowActive, isCompleted: isCompletedProp, onPrevious, onNext }) => {
   const styles = getStyles(theme);
-  const hasPermission = currentUser?.designation === 'Area Owner';
+  const hasPermission = currentUser?.designation === 'Area Owner' || currentUser?.designation === 'Site Head' || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
   const canAct = hasPermission && isWorkflowActive;
 
   const [comments, setComments] = useState('');

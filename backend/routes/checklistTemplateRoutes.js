@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const checklistTemplateController = require('../controllers/checklistTemplateController');
+
+// Protect checklist template routes
+router.use(auth);
 
 router.get('/', checklistTemplateController.getAllTemplates);
 router.get('/:deptId', checklistTemplateController.getTemplateByDept);

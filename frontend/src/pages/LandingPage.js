@@ -2830,6 +2830,9 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 <span className="psm-pill psm-pill-green">ISO 27001 Certified Cloud</span>
                 <span className="psm-pill psm-pill-blue">SOC 2 Type II</span>
               </div>
+              <p style={{ margin: '14px 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                Strategic Partner: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Pragna Consultants</span>
+              </p>
             </div>
 
             <div className="psm-footer-col">
@@ -2876,6 +2879,23 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
 
           <div className="psm-footer-bottom">
             <span>&copy; {new Date().getFullYear()} PS-MagnaShield. All rights reserved.</span>
+            <span>
+              Developed by{' '}
+              <a 
+                href="https://nexbyte-dev.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#2563eb', 
+                  textDecoration: 'none', 
+                  fontWeight: '600'
+                }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                Nexbyte_Core | Krishna Tandon
+              </a>
+            </span>
             <span>Enterprise Process Safety Management (PSM) Operating System</span>
           </div>
         </div>

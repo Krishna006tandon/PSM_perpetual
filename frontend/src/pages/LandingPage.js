@@ -2857,7 +2857,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                 onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                 onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
               >
-                Original Website ↗
+                {/* Original Website ↗ */}
               </a>
 
               <span style={{ color: 'var(--divider)', userSelect: 'none' }}>|</span>

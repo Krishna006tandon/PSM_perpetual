@@ -233,11 +233,241 @@ const EditableSelect = ({ options, value, onChange, onBlur, className, style, pl
   );
 };
 
+const DEFAULT_COL_WIDTHS = {
+  sr: 60,
+  guideword: 180,
+  parameter: 180,
+  material: 200,
+  from: 180,
+  to: 180,
+  deviation: 450,
+  cause: 450,
+  consImm: 400,
+  consUlt: 400,
+  cat: 120,
+  riskS: 68,
+  riskL: 68,
+  riskRR: 90,
+  protection: 450,
+  safeType: 78,
+  additional: 450,
+  remarks: 300,
+  status: 150,
+  lopa: 75,
+  bowtie: 82,
+};
+
+const MIN_COL_WIDTHS = {
+  sr: 40,
+  guideword: 90,
+  parameter: 90,
+  material: 90,
+  from: 90,
+  to: 90,
+  deviation: 120,
+  cause: 120,
+  consImm: 100,
+  consUlt: 100,
+  cat: 60,
+  riskS: 45,
+  riskL: 45,
+  riskRR: 60,
+  protection: 120,
+  safeType: 50,
+  additional: 120,
+  remarks: 90,
+  status: 80,
+  lopa: 50,
+  bowtie: 50,
+};
+
+const COL_VAR_MAP = {
+  sr: '--col-w-sr',
+  guideword: '--col-w-guideword',
+  parameter: '--col-w-parameter',
+  material: '--col-w-material',
+  from: '--col-w-from',
+  to: '--col-w-to',
+  deviation: '--col-w-deviation',
+  cause: '--col-w-cause',
+  consImm: '--col-w-cons-imm',
+  consUlt: '--col-w-cons-ult',
+  cat: '--col-w-cat',
+  riskS: '--col-w-risk-s',
+  riskL: '--col-w-risk-l',
+  riskRR: '--col-w-risk-rr',
+  protection: '--col-w-protection',
+  safeType: '--col-w-safe-type',
+  additional: '--col-w-additional',
+  remarks: '--col-w-remarks',
+  status: '--col-w-status',
+  lopa: '--col-w-lopa',
+  bowtie: '--col-w-bowtie',
+};
+
 const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}) => {
   const [nodes, setNodes] = useState([]);
   const [riskCriteria, setRiskCriteria] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const pendingSavesRef = useRef(new Set());
+  const tableRef = useRef(null);
+
+  const [columnWidths, setColumnWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pha_worksheet_col_widths');
+      if (saved) {
+        return { ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) };
+      }
+    } catch (err) {
+      console.error('Failed to load saved column widths', err);
+    }
+    return DEFAULT_COL_WIDTHS;
+  });
+
+  const columnWidthsRef = useRef(columnWidths);
+  useEffect(() => {
+    columnWidthsRef.current = columnWidths;
+  }, [columnWidths]);
+
+  const handleResizeStart = (e, colKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startWidth = columnWidthsRef.current[colKey] || DEFAULT_COL_WIDTHS[colKey] || 200;
+    const minWidth = MIN_COL_WIDTHS[colKey] || 60;
+    const cssVarName = COL_VAR_MAP[colKey];
+    let latestWidth = startWidth;
+
+    document.body.classList.add('resizing-columns');
+
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(minWidth, Math.min(1800, Math.round(startWidth + delta)));
+      latestWidth = newWidth;
+      if (tableRef.current && cssVarName) {
+        tableRef.current.style.setProperty(cssVarName, `${newWidth}px`);
+      }
+    };
+
+    const onMouseUp = () => {
+      document.body.classList.remove('resizing-columns');
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      setColumnWidths(prev => {
+        const next = { ...prev, [colKey]: latestWidth };
+        try {
+          localStorage.setItem('pha_worksheet_col_widths', JSON.stringify(next));
+        } catch (err) {
+          console.error('Failed to save col widths', err);
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleResizeTouchStart = (e, colKey) => {
+    if (!e.touches || e.touches.length === 0) return;
+    e.stopPropagation();
+
+    const startX = e.touches[0].clientX;
+    const startWidth = columnWidthsRef.current[colKey] || DEFAULT_COL_WIDTHS[colKey] || 200;
+    const minWidth = MIN_COL_WIDTHS[colKey] || 60;
+    const cssVarName = COL_VAR_MAP[colKey];
+    let latestWidth = startWidth;
+
+    document.body.classList.add('resizing-columns');
+
+    const onTouchMove = (moveEvent) => {
+      if (!moveEvent.touches || moveEvent.touches.length === 0) return;
+      const delta = moveEvent.touches[0].clientX - startX;
+      const newWidth = Math.max(minWidth, Math.min(1800, Math.round(startWidth + delta)));
+      latestWidth = newWidth;
+      if (tableRef.current && cssVarName) {
+        tableRef.current.style.setProperty(cssVarName, `${newWidth}px`);
+      }
+    };
+
+    const onTouchEnd = () => {
+      document.body.classList.remove('resizing-columns');
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+
+      setColumnWidths(prev => {
+        const next = { ...prev, [colKey]: latestWidth };
+        try {
+          localStorage.setItem('pha_worksheet_col_widths', JSON.stringify(next));
+        } catch (err) {
+          console.error('Failed to save col widths', err);
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+  };
+
+  const handleResetColWidth = (colKey) => {
+    const defaultW = DEFAULT_COL_WIDTHS[colKey];
+    if (!defaultW) return;
+    const cssVarName = COL_VAR_MAP[colKey];
+    if (tableRef.current && cssVarName) {
+      tableRef.current.style.setProperty(cssVarName, `${defaultW}px`);
+    }
+    setColumnWidths(prev => {
+      const next = { ...prev, [colKey]: defaultW };
+      try {
+        localStorage.setItem('pha_worksheet_col_widths', JSON.stringify(next));
+      } catch (err) {
+        console.error(err);
+      }
+      return next;
+    });
+  };
+
+  const handleResetAllColWidths = () => {
+    Object.entries(DEFAULT_COL_WIDTHS).forEach(([colKey, defaultW]) => {
+      const cssVarName = COL_VAR_MAP[colKey];
+      if (tableRef.current && cssVarName) {
+        tableRef.current.style.setProperty(cssVarName, `${defaultW}px`);
+      }
+    });
+    setColumnWidths(DEFAULT_COL_WIDTHS);
+    try {
+      localStorage.removeItem('pha_worksheet_col_widths');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const tableColStyles = useMemo(() => {
+    const styles = {};
+    Object.entries(columnWidths).forEach(([key, val]) => {
+      const varName = COL_VAR_MAP[key];
+      if (varName && typeof val === 'number') {
+        styles[varName] = `${val}px`;
+      }
+    });
+    return styles;
+  }, [columnWidths]);
+
+  const renderColResizer = (colKey) => (
+    <div
+      className="col-resizer"
+      onMouseDown={(e) => handleResizeStart(e, colKey)}
+      onTouchStart={(e) => handleResizeTouchStart(e, colKey)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        handleResetColWidth(colKey);
+      }}
+      title={`Width: ${columnWidths[colKey] || DEFAULT_COL_WIDTHS[colKey]}px (Drag to resize, double-click to reset)`}
+    />
+  );
 
   const trackSave = (promise) => {
     if (!promise || typeof promise.then !== 'function') return promise;
@@ -3107,30 +3337,68 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
       const csvHasBowtie = rowsToExport.some(s => !!s.isBowtie || (s.safeguardType && s.safeguardType !== '') || (s.additionalProtectionType && s.additionalProtectionType !== ''));
       let csv = `${exportAll ? 'NODE,' : ''}SR.,DEVIATION (PARAM),DEVIATION (MATERIAL),DEVIATION (EQUIPMENT),DEVIATION (INSTRUMENT),DEVIATION,CAUSE,CONSEQUENCE (IMMEDIATE),CONSEQUENCE (ULTIMATE),CAT,INHERENT RISK S,INHERENT RISK L,INHERENT RISK RR,PRESENT/PLANNED PROTECTION,${csvHasBowtie ? 'SAFEGUARD TYPE (P/M),' : ''}MITIGATED RISK S,MITIGATED RISK L,MITIGATED RISK RR,ADDITIONAL PROTECTION (REC),${csvHasBowtie ? 'REC TYPE (P/M),' : ''}RESIDUAL RISK S,RESIDUAL RISK L,RESIDUAL RISK RR,REMARKS,STATUS,LOPA,BOWTIE\n`;
       let devCounter = 0;
+      let causeCounter = 0;
+      let consCounter = 0;
+      let safeCounter = 0;
       let lastDevId = null;
+      let lastCauseId = null;
+      let lastConsKey = null;
+
+      const formatWithNumber = (num, text) => {
+        if (!text || !String(text).trim()) return '';
+        const trimmed = String(text).trim();
+        const cleaned = trimmed.replace(/^\d+(\.\d+)*\s*[:.-]?\s*/, '');
+        return num ? `${num} ${cleaned}` : cleaned;
+      };
 
       rowsToExport.forEach((sc, idx) => {
         const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
-        if (!lastDevId || curDevId !== lastDevId) {
+        const curCauseId = sc.causeId?._id ? String(sc.causeId._id) : (sc.causeId ? String(sc.causeId) : null);
+        const consKey = sc.consequenceGroupId || String(sc._id);
+
+        const isSameDev = Boolean(curDevId && lastDevId && curDevId === lastDevId);
+        const isSameCause = Boolean(isSameDev && curCauseId && lastCauseId && curCauseId === lastCauseId);
+        const isSameCons = Boolean(isSameCause && lastConsKey && consKey === lastConsKey);
+
+        if (!isSameDev) {
           devCounter++;
-          lastDevId = curDevId;
+          causeCounter = 0;
+        }
+        if (!isSameCause) {
+          causeCounter++;
+          consCounter = 0;
+        }
+        if (!isSameCons) {
+          consCounter++;
+          safeCounter = 0;
+        }
+        if (sc.presentProtection && sc.presentProtection.trim()) {
+          safeCounter++;
         }
 
+        lastDevId = curDevId;
+        lastCauseId = curCauseId;
+        lastConsKey = consKey;
+
+        const causeNum = `${devCounter}.${causeCounter}`;
+        const consNum = `${devCounter}.${causeCounter}.${consCounter}`;
+        const safeNum = (sc.presentProtection && sc.presentProtection.trim()) ? `${devCounter}.${causeCounter}.${consCounter}.${safeCounter}` : '';
+
         const rowData = [
-          escape(devCounter),
-          escape(sc.deviationId?.parameter),
-          escape(sc.deviationId?.processFlowMaterial),
-          escape(sc.deviationId?.locationFrom),
-          escape(sc.deviationId?.locationTo),
-          escape(sc.deviationId?.deviationAuto),
-          escape(sc.causeId?.description),
-          escape(sc.consequencesImmediate),
-          escape(sc.consequencesUltimate),
-          escape(sc.consequenceCategory),
-          escape(sc.inherentRiskS),
-          escape(sc.inherentRiskL),
-          escape(sc.inherentRiskRR),
-          escape(sc.presentProtection),
+          escape(isSameDev ? '' : devCounter),
+          escape(isSameDev ? '' : sc.deviationId?.parameter),
+          escape(isSameDev ? '' : sc.deviationId?.processFlowMaterial),
+          escape(isSameDev ? '' : sc.deviationId?.locationFrom),
+          escape(isSameDev ? '' : sc.deviationId?.locationTo),
+          escape(isSameDev ? '' : sc.deviationId?.deviationAuto),
+          escape(isSameCause ? '' : formatWithNumber(causeNum, sc.causeId?.description)),
+          escape(isSameCons ? '' : formatWithNumber(consNum, sc.consequencesImmediate)),
+          escape(isSameCons ? '' : sc.consequencesUltimate),
+          escape(isSameCons ? '' : sc.consequenceCategory),
+          escape(isSameCons ? '' : sc.inherentRiskS),
+          escape(isSameCons ? '' : sc.inherentRiskL),
+          escape(isSameCons ? '' : sc.inherentRiskRR),
+          escape(formatWithNumber(safeNum, sc.presentProtection)),
           ...(csvHasBowtie ? [escape(sc.safeguardType || '')] : []),
           escape(sc.mitigatedRiskS),
           escape(sc.mitigatedRiskL),
@@ -3314,6 +3582,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
         const getCauseId = (s) => s.causeId?._id ? String(s.causeId._id) : (s.causeId ? String(s.causeId) : '');
 
         let devCounter = 0;
+        let causeCounter = 0;
+        let consCounter = 0;
+        let safeCounter = 0;
+
+        const formatWithNumber = (num, text) => {
+          if (!text || !String(text).trim()) return '';
+          const trimmed = String(text).trim();
+          const cleaned = trimmed.replace(/^\d+(\.\d+)*\s*[:.-]?\s*/, '');
+          return num ? `${num} ${cleaned}` : cleaned;
+        };
 
         const isNewRecList = [];
         for (let i = 0; i < sorted.length; i++) {
@@ -3344,10 +3622,24 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const isNewDev = !prevSc || getDevId(sc) !== getDevId(prevSc);
           if (isNewDev) {
             devCounter++;
+            causeCounter = 0;
           }
           const isNewCause = isNewDev || getCauseId(sc) !== getCauseId(prevSc);
+          if (isNewCause) {
+            causeCounter++;
+            consCounter = 0;
+          }
           const isNewCons = isNewCause || getConsKey(sc) !== getConsKey(prevSc);
+          if (isNewCons) {
+            consCounter++;
+            safeCounter = 0;
+          }
           const isNewSafe = isNewCons || getSafeKey(sc) !== getSafeKey(prevSc);
+          if (isNewSafe) {
+            if (sc.presentProtection && sc.presentProtection.trim()) {
+              safeCounter++;
+            }
+          }
           const isNewRec = isNewRecList[i];
 
           let devSpan = 1;
@@ -3405,9 +3697,8 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           const causeText = getCauseText(sc);
 
           rowsHtml += `<tr>`;
-          rowsHtml += `<td align="center">${devCounter}</td>`;
-
           if (isNewDev) {
+            rowsHtml += `<td align="center" rowspan="${devSpan}">${devCounter}</td>`;
             rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(devText)}</td>`;
             rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.parameter || '')}</td>`;
             rowsHtml += `<td rowspan="${devSpan}">${escapeHtml(sc.deviationId?.processFlowMaterial || '')}</td>`;
@@ -3416,12 +3707,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             rowsHtml += `<td rowspan="${devSpan}"><b>${escapeHtml(devText)}</b></td>`;
           }
 
+          const causeNum = `${devCounter}.${causeCounter}`;
+          const consNum = `${devCounter}.${causeCounter}.${consCounter}`;
+          const safeNum = (sc.presentProtection && sc.presentProtection.trim()) ? `${devCounter}.${causeCounter}.${consCounter}.${safeCounter}` : '';
+
           if (isNewCause) {
-            rowsHtml += `<td rowspan="${causeSpan}">${escapeHtml(causeText)}</td>`;
+            rowsHtml += `<td rowspan="${causeSpan}">${escapeHtml(formatWithNumber(causeNum, causeText))}</td>`;
           }
 
           if (isNewCons) {
-            rowsHtml += `<td rowspan="${consSpan}">${escapeHtml(sc.consequencesImmediate || '')}</td>`;
+            rowsHtml += `<td rowspan="${consSpan}">${escapeHtml(formatWithNumber(consNum, sc.consequencesImmediate))}</td>`;
             rowsHtml += `<td rowspan="${consSpan}">${escapeHtml(sc.consequencesUltimate || '')}</td>`;
             rowsHtml += `<td rowspan="${consSpan}" align="center">${escapeHtml(sc.consequenceCategory || '')}</td>`;
             rowsHtml += `<td rowspan="${consSpan}" align="center"><b>${escapeHtml(sc.inherentRiskS || '')}</b></td>`;
@@ -3430,7 +3725,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           }
 
           if (isNewSafe) {
-            rowsHtml += `<td rowspan="${safeSpan}">${escapeHtml(sc.presentProtection || '')}</td>`;
+            rowsHtml += `<td rowspan="${safeSpan}">${escapeHtml(formatWithNumber(safeNum, sc.presentProtection))}</td>`;
             if (excelHasBowtie) {
               rowsHtml += `<td rowspan="${safeSpan}" align="center"><b>${escapeHtml(sc.safeguardType || '')}</b></td>`;
             }
@@ -3913,6 +4208,16 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
           let lastCauseId = null;
           let lastConsKey = null;
           let devCounter = 0;
+          let causeCounter = 0;
+          let consCounter = 0;
+          let safeCounter = 0;
+
+          const formatWithNumber = (num, text) => {
+            if (!text || !String(text).trim()) return '';
+            const trimmed = String(text).trim();
+            const cleaned = trimmed.replace(/^\d+(\.\d+)*\s*[:.-]?\s*/, '');
+            return num ? `${num} ${cleaned}` : cleaned;
+          };
 
           const body = nodeScenarios.map((s, idx) => {
             const consKey = s.consequenceGroupId || String(s._id);
@@ -3927,13 +4232,37 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
 
             if (!isSameDev) {
               devCounter++;
+              causeCounter = 0;
+            }
+            if (!isSameCause) {
+              causeCounter++;
+              consCounter = 0;
+            }
+            if (!isSameCons) {
+              consCounter++;
+              safeCounter = 0;
+            }
+            if (s.presentProtection && s.presentProtection.trim()) {
+              safeCounter++;
             }
 
             lastDevId = curDevId;
             lastCauseId = curCauseId;
             lastConsKey = consKey;
 
-            const safe = s.presentProtection || '';
+            const causeNum = `${devCounter}.${causeCounter}`;
+            const consNum = `${devCounter}.${causeCounter}.${consCounter}`;
+            const safeNum = (s.presentProtection && s.presentProtection.trim()) ? `${devCounter}.${causeCounter}.${consCounter}.${safeCounter}` : '';
+
+            const causeText = isSameCause ? '' : formatWithNumber(causeNum, s.causeId?.description);
+            let consText = '';
+            if (!isSameCons) {
+              const imm = formatWithNumber(consNum, s.consequencesImmediate);
+              const ult = (s.consequencesUltimate || '').trim();
+              consText = imm ? (ult ? `${imm}\n${ult}` : imm) : (ult ? `${consNum} ${ult}` : '');
+            }
+            const safe = formatWithNumber(safeNum, s.presentProtection);
+
             const recKey = normalizeRecText(s.additionalProtection);
             const recNum = studyRecMap.get(recKey) || s.recommendationNo || '';
             const rec = s.additionalProtection ? (recNum ? `[${recNum}] ${s.additionalProtection}` : s.additionalProtection) : '';
@@ -3951,10 +4280,10 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             const rRR = (rS && rL) ? calcScore(rS, rL) : '';
 
             return [
-              String(devCounter), 
+              isSameDev ? '' : String(devCounter), 
               isSameDev ? '' : (s.deviationId?.deviationAuto || ''), 
-              isSameCause ? '' : (s.causeId?.description || ''),
-              isSameCons ? '' : (g.cons || ''),
+              causeText,
+              consText,
               isSameCons ? '' : (g.cat || ''),
               iS, iL, iRR,
               safe,
@@ -4614,6 +4943,27 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             </button>
           </div>
 
+          {/* Column Width Reset Control */}
+          <div className="pha-text-size-controls" style={{ marginLeft: '4px' }}>
+            <button
+              type="button"
+              className="pha-text-size-btn"
+              style={{
+                width: 'auto',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onClick={handleResetAllColWidths}
+              title="Reset all column widths to default (Double-click any column edge to reset individual column)"
+            >
+              <span style={{ fontSize: '13px' }}>↔</span> Reset Widths
+            </button>
+          </div>
+
           <span className="editable-indicator-badge" title="Fields with warm highlighting and borders are directly editable.">
             ✏️ Highlighted fields are editable
           </span>
@@ -4632,7 +4982,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
             '--pha-table-font-size': `${fontSize}px`
           }}
         >
-          <table className="pha-table" style={{ fontSize: `${fontSize}px` }}>
+          <table ref={tableRef} className="pha-table" style={{ fontSize: `${fontSize}px`, ...tableColStyles }}>
             <thead>
               <tr>
                 <th className="th-primary" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}}>
@@ -4643,67 +4993,147 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
-                <th className="th-primary w-sr" rowSpan={2}>SR.</th>
+                <th className="th-primary w-sr" rowSpan={2}>
+                  SR.
+                  {renderColResizer('sr')}
+                </th>
                 
                 {/* Decomposition of Deviation - Hidden in Focus Mode */}
                 {!isDecompositionHidden && <th className="th-primary" colSpan={5} style={{borderBottom: 'none'}}></th>}
                 
-                <th className="th-primary w-deviation" rowSpan={2}>DEVIATION</th>
-                <th className="th-primary w-cause" rowSpan={2}>CAUSE</th>
+                <th className="th-primary w-deviation" rowSpan={2}>
+                  DEVIATION
+                  {renderColResizer('deviation')}
+                </th>
+                <th className="th-primary w-cause" rowSpan={2}>
+                  CAUSE
+                  {renderColResizer('cause')}
+                </th>
                 
                 <th className="th-primary" colSpan={2} style={{borderBottom: 'none'}}>CONSEQUENCES</th>
-                <th className="th-primary w-cat" rowSpan={2}>CAT</th>
+                <th className="th-primary w-cat" rowSpan={2}>
+                  CAT
+                  {renderColResizer('cat')}
+                </th>
                 
                 <th className="th-primary th-risk-inherent" colSpan={3} style={{borderBottom: 'none'}}>INHERENT RISK</th>
                 
-                <th className="th-primary w-protection" rowSpan={2}>PRESENT / PLANNED PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Safeguards / IPLs)</span></th>
+                <th className="th-primary w-protection" rowSpan={2}>
+                  PRESENT / PLANNED PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Safeguards / IPLs)</span>
+                  {renderColResizer('protection')}
+                </th>
                 {hasAnyBowtie && (
-                  <th className="th-primary w-safe-type" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}} title="Define Safeguard Type for BowTie: P = Preventive, M = Mitigative">
+                  <th className="th-primary w-safe-type" rowSpan={2} style={{textAlign: 'center'}} title="Define Safeguard Type for BowTie: P = Preventive, M = Mitigative">
                     TYPE<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(P / M)</span>
+                    {renderColResizer('safeType')}
                   </th>
                 )}
                 
                 <th className="th-primary th-risk-mitigated" colSpan={3} style={{borderBottom: 'none'}}>MITIGATED RISK</th>
                 
-                <th className="th-primary w-additional" rowSpan={2}>ADDITIONAL PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Recommendations)</span></th>
+                <th className="th-primary w-additional" rowSpan={2}>
+                  ADDITIONAL PROTECTION<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Recommendations)</span>
+                  {renderColResizer('additional')}
+                </th>
                 {hasAnyBowtie && (
-                  <th className="th-primary w-safe-type" rowSpan={2} style={{width: '78px', minWidth: '78px', textAlign: 'center'}} title="Define Additional Protection Type for BowTie: P = Preventive, M = Mitigative">
+                  <th className="th-primary w-safe-type" rowSpan={2} style={{textAlign: 'center'}} title="Define Additional Protection Type for BowTie: P = Preventive, M = Mitigative">
                     TYPE<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(P / M)</span>
+                    {renderColResizer('safeType')}
                   </th>
                 )}
                 
                 <th className="th-primary th-risk-residual" colSpan={3} style={{borderBottom: 'none'}}>RESIDUAL RISK</th>
-                <th className="th-primary w-remarks" rowSpan={2}>REMARKS</th>
-                <th className="th-primary w-status" rowSpan={2}>STATUS</th>
-                <th className="th-primary w-lopa" rowSpan={2} style={{width: '75px', minWidth: '75px', textAlign: 'center'}}>LOPA</th>
-                <th className="th-primary w-bowtie" rowSpan={2} style={{width: '82px', minWidth: '82px', textAlign: 'center'}}>BOWTIE</th>
+                <th className="th-primary w-remarks" rowSpan={2}>
+                  REMARKS
+                  {renderColResizer('remarks')}
+                </th>
+                <th className="th-primary w-status" rowSpan={2}>
+                  STATUS
+                  {renderColResizer('status')}
+                </th>
+                <th className="th-primary w-lopa" rowSpan={2} style={{textAlign: 'center'}}>
+                  LOPA
+                  {renderColResizer('lopa')}
+                </th>
+                <th className="th-primary w-bowtie" rowSpan={2} style={{textAlign: 'center'}}>
+                  BOWTIE
+                  {renderColResizer('bowtie')}
+                </th>
               </tr>
               <tr>
                 {/* Sub headers - Hidden in Focus Mode */}
                 {!isDecompositionHidden && (
                   <>
-                    <th className="th-sub w-guideword">DEVIATION</th>
-                    <th className="th-sub w-parameter">PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span></th>
-                    <th className="th-sub w-material">MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span></th>
-                    <th className="th-sub w-from">EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span></th>
-                    <th className="th-sub w-to">INSTRUMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Instrument)</span></th>
+                    <th className="th-sub w-guideword">
+                      DEVIATION
+                      {renderColResizer('guideword')}
+                    </th>
+                    <th className="th-sub w-parameter">
+                      PARAMETER<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Param)</span>
+                      {renderColResizer('parameter')}
+                    </th>
+                    <th className="th-sub w-material">
+                      MATERIAL<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Material)</span>
+                      {renderColResizer('material')}
+                    </th>
+                    <th className="th-sub w-from">
+                      EQUIPMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Equipment)</span>
+                      {renderColResizer('from')}
+                    </th>
+                    <th className="th-sub w-to">
+                      INSTRUMENT<br/><span style={{fontSize:'8px', fontWeight:'normal'}}>(Instrument)</span>
+                      {renderColResizer('to')}
+                    </th>
                   </>
                 )}
                 
-                <th className="th-sub w-cons-imm">Immediate</th>
-                <th className="th-sub w-cons-ult">Ultimate</th>
+                <th className="th-sub w-cons-imm">
+                  Immediate
+                  {renderColResizer('consImm')}
+                </th>
+                <th className="th-sub w-cons-ult">
+                  Ultimate
+                  {renderColResizer('consUlt')}
+                </th>
                 
-                <th className="th-sub th-risk-inherent th-sub-risk w-risk-s">S</th>
-                <th className="th-sub th-risk-inherent th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-inherent th-sub-risk w-risk-rr">S×L=IR</th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-s">
+                  S
+                  {renderColResizer('riskS')}
+                </th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-l">
+                  L
+                  {renderColResizer('riskL')}
+                </th>
+                <th className="th-sub th-risk-inherent th-sub-risk w-risk-rr">
+                  S×L=IR
+                  {renderColResizer('riskRR')}
+                </th>
                 
-                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-s">S</th>
-                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-rr">S×L=MR</th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-s">
+                  S
+                  {renderColResizer('riskS')}
+                </th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-l">
+                  L
+                  {renderColResizer('riskL')}
+                </th>
+                <th className="th-sub th-risk-mitigated th-sub-risk w-risk-rr">
+                  S×L=MR
+                  {renderColResizer('riskRR')}
+                </th>
                 
-                <th className="th-sub th-risk-residual th-sub-risk w-risk-s">S</th>
-                <th className="th-sub th-risk-residual th-sub-risk w-risk-l">L</th>
-                <th className="th-sub th-risk-residual th-sub-risk w-risk-rr">S×L=RR</th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-s">
+                  S
+                  {renderColResizer('riskS')}
+                </th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-l">
+                  L
+                  {renderColResizer('riskL')}
+                </th>
+                <th className="th-sub th-risk-residual th-sub-risk w-risk-rr">
+                  S×L=RR
+                  {renderColResizer('riskRR')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -4843,7 +5273,6 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                       )}
                       
                       <td className="w-deviation bg-deviation" rowSpan={sc.devSpanCount}>
-                        <span className="badge-dev">{sc.badgeDev}</span>
                         <AutocompleteTextarea disabled={!canEdit} 
                           value={getCleanDeviationDisplay(sc.deviationId?.deviationAuto)} 
                           onChange={(e) => handleDeviationTextChange(sc.deviationId?._id, e.target.value)}
@@ -4851,7 +5280,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
                           suggestions={deviationSuggestions}
                           dropdownMode={true}
                           placeholder="Select or type deviation..."
-                          style={{fontStyle:'italic', display:'inline-block', width:'calc(100% - 35px)', verticalAlign:'top'}}
+                          style={{fontStyle:'italic', display:'inline-block', width:'100%', verticalAlign:'top'}}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();

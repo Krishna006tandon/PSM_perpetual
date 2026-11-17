@@ -173,31 +173,69 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
       const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
 
       let devCounter = 0;
+      let causeCounter = 0;
+      let consCounter = 0;
+      let safeCounter = 0;
       let lastDevId = null;
+      let lastCauseId = null;
+      let lastConsKey = null;
+
+      const formatWithNumber = (num, text) => {
+        if (!text || !String(text).trim()) return '';
+        const trimmed = String(text).trim();
+        const cleaned = trimmed.replace(/^\d+(\.\d+)*\s*[:.-]?\s*/, '');
+        return num ? `${num} ${cleaned}` : cleaned;
+      };
 
       (data.scenarios || []).forEach((sc, idx) => {
         const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
-        if (!lastDevId || curDevId !== lastDevId) {
+        const curCauseId = sc.causeId?._id ? String(sc.causeId._id) : (sc.causeId ? String(sc.causeId) : null);
+        const consKey = sc.consequenceGroupId || String(sc._id);
+
+        const isSameDev = Boolean(curDevId && lastDevId && curDevId === lastDevId);
+        const isSameCause = Boolean(isSameDev && curCauseId && lastCauseId && curCauseId === lastCauseId);
+        const isSameCons = Boolean(isSameCause && lastConsKey && consKey === lastConsKey);
+
+        if (!isSameDev) {
           devCounter++;
-          lastDevId = curDevId;
+          causeCounter = 0;
         }
+        if (!isSameCause) {
+          causeCounter++;
+          consCounter = 0;
+        }
+        if (!isSameCons) {
+          consCounter++;
+          safeCounter = 0;
+        }
+        if (sc.presentProtection && sc.presentProtection.trim()) {
+          safeCounter++;
+        }
+
+        lastDevId = curDevId;
+        lastCauseId = curCauseId;
+        lastConsKey = consKey;
+
+        const causeNum = `${devCounter}.${causeCounter}`;
+        const consNum = `${devCounter}.${causeCounter}.${consCounter}`;
+        const safeNum = (sc.presentProtection && sc.presentProtection.trim()) ? `${devCounter}.${causeCounter}.${consCounter}.${safeCounter}` : '';
 
         csv += [
           escape(sc.nodeId?.description || 'Node'),
-          escape(devCounter),
-          escape(sc.deviationId?.parameter),
-          escape(sc.deviationId?.processFlowMaterial),
-          escape(sc.deviationId?.locationFrom),
-          escape(sc.deviationId?.locationTo),
-          escape(sc.deviationId?.deviationAuto),
-          escape(sc.causeId?.description),
-          escape(sc.consequencesImmediate),
-          escape(sc.consequencesUltimate),
-          escape(sc.consequenceCategory),
-          escape(sc.inherentRiskS),
-          escape(sc.inherentRiskL),
-          escape(sc.inherentRiskRR),
-          escape(sc.presentProtection),
+          escape(isSameDev ? '' : devCounter),
+          escape(isSameDev ? '' : sc.deviationId?.parameter),
+          escape(isSameDev ? '' : sc.deviationId?.processFlowMaterial),
+          escape(isSameDev ? '' : sc.deviationId?.locationFrom),
+          escape(isSameDev ? '' : sc.deviationId?.locationTo),
+          escape(isSameDev ? '' : sc.deviationId?.deviationAuto),
+          escape(isSameCause ? '' : formatWithNumber(causeNum, sc.causeId?.description)),
+          escape(isSameCons ? '' : formatWithNumber(consNum, sc.consequencesImmediate)),
+          escape(isSameCons ? '' : sc.consequencesUltimate),
+          escape(isSameCons ? '' : sc.consequenceCategory),
+          escape(isSameCons ? '' : sc.inherentRiskS),
+          escape(isSameCons ? '' : sc.inherentRiskL),
+          escape(isSameCons ? '' : sc.inherentRiskRR),
+          escape(formatWithNumber(safeNum, sc.presentProtection)),
           escape(sc.mitigatedRiskS),
           escape(sc.mitigatedRiskL),
           escape(sc.mitigatedRiskRR),
@@ -336,7 +374,19 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
 
       let lastNodeId = null;
       let devCounter = 0;
+      let causeCounter = 0;
+      let consCounter = 0;
+      let safeCounter = 0;
       let lastDevId = null;
+      let lastCauseId = null;
+      let lastConsKey = null;
+
+      const formatWithNumber = (num, text) => {
+        if (!text || !String(text).trim()) return '';
+        const trimmed = String(text).trim();
+        const cleaned = trimmed.replace(/^\d+(\.\d+)*\s*[:.-]?\s*/, '');
+        return num ? `${num} ${cleaned}` : cleaned;
+      };
 
       (data.scenarios || []).forEach((sc, idx) => {
         const nodeDesc = sc.nodeId?.description || 'General Node';
@@ -350,28 +400,56 @@ const StudyOverview = ({ study, onBack, onNavigate, theme, toggleTheme, onUpdate
         }
 
         const curDevId = sc.deviationId?._id ? String(sc.deviationId._id) : (sc.deviationId ? String(sc.deviationId) : null);
-        if (!lastDevId || curDevId !== lastDevId) {
+        const curCauseId = sc.causeId?._id ? String(sc.causeId._id) : (sc.causeId ? String(sc.causeId) : null);
+        const consKey = sc.consequenceGroupId || String(sc._id);
+
+        const isSameDev = Boolean(curDevId && lastDevId && curDevId === lastDevId);
+        const isSameCause = Boolean(isSameDev && curCauseId && lastCauseId && curCauseId === lastCauseId);
+        const isSameCons = Boolean(isSameCause && lastConsKey && consKey === lastConsKey);
+
+        if (!isSameDev) {
           devCounter++;
-          lastDevId = curDevId;
+          causeCounter = 0;
         }
+        if (!isSameCause) {
+          causeCounter++;
+          consCounter = 0;
+        }
+        if (!isSameCons) {
+          consCounter++;
+          safeCounter = 0;
+        }
+        if (sc.presentProtection && sc.presentProtection.trim()) {
+          safeCounter++;
+        }
+
+        lastDevId = curDevId;
+        lastCauseId = curCauseId;
+        lastConsKey = consKey;
+
+        const causeNum = `${devCounter}.${causeCounter}`;
+        const consNum = `${devCounter}.${causeCounter}.${consCounter}`;
+        const safeNum = (sc.presentProtection && sc.presentProtection.trim()) ? `${devCounter}.${causeCounter}.${consCounter}.${safeCounter}` : '';
 
         const irColor = getRiskColor(sc.inherentRiskS, sc.inherentRiskL);
         const mrColor = getRiskColor(sc.mitigatedRiskS, sc.mitigatedRiskL);
         const rrColor = getRiskColor(sc.residualRiskS, sc.residualRiskL);
 
-        const cons = [sc.consequencesImmediate, sc.consequencesUltimate].filter(Boolean).join('<br/>');
+        const imm = formatWithNumber(consNum, sc.consequencesImmediate);
+        const ult = (sc.consequencesUltimate || '').trim();
+        const consFormatted = imm ? (ult ? `${imm}<br/>${ult}` : imm) : (ult ? `${consNum} ${ult}` : '');
 
         tableHtml += `
           <tr>
-            <td align="center">${devCounter}</td>
-            <td>${sc.deviationId?.deviationAuto || ''}</td>
-            <td>${sc.causeId?.description || ''}</td>
-            <td>${cons}</td>
-            <td align="center">${sc.consequenceCategory || ''}</td>
-            <td align="center"><b>${sc.inherentRiskS || ''}</b></td>
-            <td align="center"><b>${sc.inherentRiskL || ''}</b></td>
-            <td align="center" style="background-color: ${irColor}; font-weight: bold; color: ${irColor !== 'transparent' ? '#000' : 'inherit'}">${sc.inherentRiskRR || ''}</td>
-            <td>${sc.presentProtection || ''}</td>
+            <td align="center">${isSameDev ? '' : devCounter}</td>
+            <td>${isSameDev ? '' : (sc.deviationId?.deviationAuto || '')}</td>
+            <td>${isSameCause ? '' : formatWithNumber(causeNum, sc.causeId?.description)}</td>
+            <td>${isSameCons ? '' : consFormatted}</td>
+            <td align="center">${isSameCons ? '' : (sc.consequenceCategory || '')}</td>
+            <td align="center"><b>${isSameCons ? '' : (sc.inherentRiskS || '')}</b></td>
+            <td align="center"><b>${isSameCons ? '' : (sc.inherentRiskL || '')}</b></td>
+            <td align="center" style="background-color: ${irColor}; font-weight: bold; color: ${irColor !== 'transparent' ? '#000' : 'inherit'}">${isSameCons ? '' : (sc.inherentRiskRR || '')}</td>
+            <td>${formatWithNumber(safeNum, sc.presentProtection)}</td>
             <td align="center"><b>${sc.mitigatedRiskS || ''}</b></td>
             <td align="center"><b>${sc.mitigatedRiskL || ''}</b></td>
             <td align="center" style="background-color: ${mrColor}; font-weight: bold; color: ${mrColor !== 'transparent' ? '#000' : 'inherit'}">${sc.mitigatedRiskRR || ''}</td>

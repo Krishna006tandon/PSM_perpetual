@@ -8,12 +8,11 @@ const DEFAULT_FALLBACK_PACKAGES = [
   {
     _id: "pkg-starter-hazop",
     name: "HAZOP Standalone",
-    price: 300000,
+    price: 75000,
     annualPrice: 75000,
-    oneTimePrice: 300000,
-    billingCycle: "Both",
+    billingCycle: "Annual",
     hasAnnual: true,
-    hasOneTime: true,
+    hasOneTime: false,
     maxProjects: -1,
     maxUsers: 1,
     features: ["PHA"],
@@ -23,12 +22,11 @@ const DEFAULT_FALLBACK_PACKAGES = [
   {
     _id: "pkg-hazop-lopa",
     name: "HAZOP + LOPA Pro",
-    price: 900000,
+    price: 225000,
     annualPrice: 225000,
-    oneTimePrice: 900000,
-    billingCycle: "Both",
+    billingCycle: "Annual",
     hasAnnual: true,
-    hasOneTime: true,
+    hasOneTime: false,
     maxProjects: -1,
     maxUsers: 4,
     features: ["PHA", "LOPA"],
@@ -38,12 +36,11 @@ const DEFAULT_FALLBACK_PACKAGES = [
   {
     _id: "pkg-full-enterprise",
     name: "Full Enterprise PSM Suite",
-    price: 1500000,
+    price: 375000,
     annualPrice: 375000,
-    oneTimePrice: 1500000,
-    billingCycle: "Both",
+    billingCycle: "Annual",
     hasAnnual: true,
-    hasOneTime: true,
+    hasOneTime: false,
     maxProjects: -1,
     maxUsers: 10,
     features: ["PHA", "MOC", "LOPA", "BOWTIE", "INCIDENT"],
@@ -66,8 +63,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
   const [packages, setPackages] = useState(DEFAULT_FALLBACK_PACKAGES);
   const [loadingRazorpay, setLoadingRazorpay] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
-  const [selectedBilling, setSelectedBilling] = useState({});
-  const [billingGlobal, setBillingGlobal] = useState('Annual');
+
 
   // Free Trial Settings State (Owner controlled via backend)
   const [trialSettings, setTrialSettings] = useState({
@@ -165,14 +161,10 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
   };
 
   const getPackageBilling = (pkg) => {
-    if (selectedBilling[pkg._id]) return selectedBilling[pkg._id];
-    return billingGlobal;
+    return 'Annual';
   };
 
   const getPackagePrice = (pkg, billing) => {
-    if (billing === 'One-time') {
-      return pkg.oneTimePrice || (pkg.billingCycle === 'One-time' ? pkg.price : pkg.price * 4);
-    }
     return pkg.annualPrice || (pkg.billingCycle !== 'One-time' ? pkg.price : Math.round(pkg.price / 4));
   };
 
@@ -233,9 +225,9 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
       initialCategory: "EXTREME",
       recommendations: "Install automated emergency depressuring bypass valve (BDV-101) wired to SIL-2 logic solver with dual redundant solenoid valves to depressure reactor to 15 barg in < 15 minutes.",
       targetSil: "SIL 2",
-      residualSeverity: 2,
+      residualSeverity: 5,
       residualLikelihood: 1,
-      residualScore: 2,
+      residualScore: 5,
       residualCategory: "LOW",
       assignee: "Dr. M. Ramanathan (Lead Process Safety)",
       status: "Verified & Approved",
@@ -986,7 +978,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                           <th style={{ width: '20%' }}>Potential Causes</th>
                           <th style={{ width: '22%' }}>Consequences</th>
                           <th style={{ width: '18%' }}>Existing Safeguards</th>
-                          <th style={{ width: '8%', textAlign: 'center' }}>Initial Risk</th>
+                          <th style={{ width: '8%', textAlign: 'center' }}>Mitigated Risk</th>
                           <th style={{ width: '22%' }}>Safety Recommendations</th>
                           <th style={{ width: '8%', textAlign: 'center' }}>Residual Risk</th>
                         </tr>
@@ -1040,7 +1032,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                             <div className="psm-risk-badge psm-risk-low">
                               <span>S{currentHazop.residualSeverity} × L{currentHazop.residualLikelihood}</span>
                               <span style={{ fontSize: '1rem', fontWeight: '900' }}>{currentHazop.residualScore}</span>
-                              <span style={{ fontSize: '0.65rem' }}>LOW</span>
+                              <span style={{ fontSize: '0.65rem' }}>{currentHazop.residualCategory || 'LOW'}</span>
                             </div>
                           </td>
                         </tr>
@@ -2229,42 +2221,9 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
               </div>
             )}
 
-            {/* Universal Billing Toggle */}
-            <div style={{ display: 'inline-flex', background: 'var(--bg-paper)', border: '1px solid var(--divider)', borderRadius: '30px', padding: '4px', marginTop: '24px' }}>
-              <button
-                type="button"
-                onClick={() => setBillingGlobal('Annual')}
-                style={{
-                  padding: '8px 22px',
-                  borderRadius: '24px',
-                  border: 'none',
-                  background: billingGlobal === 'Annual' ? 'var(--primary-main)' : 'transparent',
-                  color: billingGlobal === 'Annual' ? '#ffffff' : 'var(--text-secondary)',
-                  fontWeight: '700',
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Annual Billing (Save 20%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillingGlobal('One-time')}
-                style={{
-                  padding: '8px 22px',
-                  borderRadius: '24px',
-                  border: 'none',
-                  background: billingGlobal === 'One-time' ? '#00a896' : 'transparent',
-                  color: billingGlobal === 'One-time' ? '#ffffff' : 'var(--text-secondary)',
-                  fontWeight: '700',
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                One-Time / Lifetime License
-              </button>
+            {/* Annual Billing Indicator */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(37,99,235,0.08)', color: 'var(--primary-main)', border: '1px solid rgba(37,99,235,0.2)', padding: '8px 22px', borderRadius: '30px', fontWeight: '700', fontSize: '0.88rem', marginTop: '24px' }}>
+              <span>📅</span> Annual Subscription Plan
             </div>
           </div>
 
@@ -2390,10 +2349,7 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
             )}
 
             {packages.map((pkg, idx) => {
-              const hasAnnual = pkg.hasAnnual !== undefined ? pkg.hasAnnual : (pkg.billingCycle !== 'One-time');
-              const hasOneTime = pkg.hasOneTime !== undefined ? pkg.hasOneTime : (pkg.billingCycle === 'One-time');
-              const currentBilling = getPackageBilling(pkg);
-              const currentPrice = getPackagePrice(pkg, currentBilling);
+              const currentPrice = getPackagePrice(pkg);
               const allFeatures = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
               const isPopular = pkg.name.toLowerCase().includes('enterprise') || pkg.name.toLowerCase().includes('lopa') || idx === 1;
 
@@ -2413,50 +2369,12 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
                       {pkg.description || 'Full-featured process safety management module for engineering organizations.'}
                     </p>
 
-                    {/* Per-card toggle if both options exist */}
-                    {hasAnnual && hasOneTime && (
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '14px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedBilling({ ...selectedBilling, [pkg._id]: 'Annual' })}
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '16px',
-                            border: currentBilling === 'Annual' ? '1.5px solid var(--primary-main)' : '1px solid var(--divider)',
-                            background: currentBilling === 'Annual' ? 'rgba(37,99,235,0.1)' : 'transparent',
-                            color: currentBilling === 'Annual' ? 'var(--primary-main)' : 'var(--text-secondary)',
-                            fontSize: '0.78rem',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Annual
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedBilling({ ...selectedBilling, [pkg._id]: 'One-time' })}
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '16px',
-                            border: currentBilling === 'One-time' ? '1.5px solid #00a896' : '1px solid var(--divider)',
-                            background: currentBilling === 'One-time' ? 'rgba(0,168,150,0.1)' : 'transparent',
-                            color: currentBilling === 'One-time' ? '#00a896' : 'var(--text-secondary)',
-                            fontSize: '0.78rem',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          One-time
-                        </button>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '2.6rem', fontWeight: '800', color: currentBilling === 'One-time' ? '#00a896' : 'var(--primary-main)' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px', marginTop: '10px' }}>
+                      <span style={{ fontSize: '2.6rem', fontWeight: '800', color: 'var(--primary-main)' }}>
                         ₹{currentPrice.toLocaleString('en-IN')}
                       </span>
                       <span style={{ color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.92rem' }}>
-                        /{currentBilling === 'One-time' ? 'lifetime' : 'yr'}
+                        /year
                       </span>
                     </div>
                   </div>
@@ -2869,7 +2787,8 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
             <div className="psm-footer-col">
               <h4>Platform & Support</h4>
               <ul>
-                <li><a href="#matrix">5x5 Risk Matrix Explorer</a></li>
+                <li><a href="https://perpetualsolutions.co.in/" target="_blank" rel="noopener noreferrer">Perpetual Solutions ↗</a></li>
+                <li><a href="https://skillcentre.perpetualsolutions.co.in/" target="_blank" rel="noopener noreferrer">Perpetual Skill Centre ↗</a></li>
                 <li><a href="#industries">Industry Solutions</a></li>
                 <li><a href="#pricing">Subscription Pricing</a></li>
                 <li><a href="#faq">Frequently Asked Questions</a></li>
@@ -2886,25 +2805,86 @@ const LandingPage = ({ onLogin, onCheckoutSuccess, onStartTrial }) => {
           </div>
 
           <div className="psm-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} PS-MagnaShield. All rights reserved.</span>
-            <span>
-              Developed by{' '}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
               <a 
-                href="https://nexbyte-dev.vercel.app/" 
+                href="https://perpetualsolutions.co.in/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
-                  color: '#2563eb', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '10px', 
+                  textDecoration: 'none',
+                  color: 'inherit'
+                }}
+                title="Perpetual Solutions"
+              >
+                <div style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  background: '#ffffff', 
+                  padding: '3px 8px', 
+                  borderRadius: '6px', 
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)' 
+                }}>
+                  <img 
+                    src="/perpetual-logo.png" 
+                    alt="Perpetual Solutions Logo" 
+                    style={{ height: '24px', width: 'auto', objectFit: 'contain', display: 'block' }} 
+                  />
+                </div>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                  Perpetual Solutions
+                </span>
+              </a>
+
+              <span style={{ color: 'var(--divider)', userSelect: 'none' }}>|</span>
+
+              <a 
+                href="https://perpetualsolutions.co.in/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: 'var(--primary-main)', 
                   textDecoration: 'none', 
-                  fontWeight: '600'
+                  fontSize: '0.86rem', 
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
                 onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                 onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
               >
-                Nexbyte_Core | Krishna Tandon
+                Original Website ↗
               </a>
-            </span>
-            <span>Enterprise Process Safety Management (PSM) Operating System</span>
+
+              <span style={{ color: 'var(--divider)', userSelect: 'none' }}>|</span>
+
+              <a 
+                href="https://skillcentre.perpetualsolutions.co.in/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: 'var(--primary-main)', 
+                  textDecoration: 'none', 
+                  fontSize: '0.86rem', 
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                Skill Centre ↗
+              </a>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <span>&copy; 2026 Perpetual Solutions. All rights reserved.</span>
+            </div>
           </div>
         </div>
       </footer>

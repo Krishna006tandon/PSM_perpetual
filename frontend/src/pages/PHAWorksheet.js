@@ -1073,7 +1073,7 @@ const PHAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit}
   const fetchStudyRecommendations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
+      const res = await fetch(`${API_BASE}/api/scenarios/${study._id}?hasRecommendations=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

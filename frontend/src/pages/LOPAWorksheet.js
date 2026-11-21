@@ -119,7 +119,7 @@ const LOPAWorksheet = ({ study, onBack, onNavigate, theme, toggleTheme , canEdit
         setColumns(colData.columns || []);
       }
 
-      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}?isLopa=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {

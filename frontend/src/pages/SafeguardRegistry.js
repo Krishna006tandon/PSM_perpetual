@@ -36,8 +36,8 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
         setColumns(colData.columns || []);
       }
 
-      // Fetch Scenarios
-      const scRes = await fetch(`${API_BASE}/api/scenarios/${study._id}`, {
+      // Fetch Scenarios (filtered for safeguards)
+      const scRes = await fetch(`${API_BASE}/api/scenarios/${study._id}?hasSafeguards=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {

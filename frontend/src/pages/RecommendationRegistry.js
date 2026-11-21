@@ -39,8 +39,8 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
         setColumns(colData.columns || []);
       }
 
-      // Fetch Scenarios
-      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}`, {
+      // Fetch Scenarios (filtered for recommendations for high performance & reliability)
+      const scRes = await fetch(`https://api.perpetualsolutions.co.in/api/scenarios/${study._id}?hasRecommendations=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (scRes.ok) {

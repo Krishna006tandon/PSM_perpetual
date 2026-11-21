@@ -62,20 +62,33 @@ router.get('/company/recommendations', async (req, res) => {
 // Apply checkStudyAccess middleware to routes targeting a specific study
 router.use('/:studyId', checkStudyAccess);
 
-// GET all scenarios for a specific study, optionally filtered by node
+// GET all scenarios for a specific study, optionally filtered by node, recommendations, safeguards, lopa
 router.get('/:studyId', async (req, res) => {
   try {
     const filter = { studyId: req.params.studyId };
     if (req.query.nodeId) {
       filter.nodeId = req.query.nodeId;
     }
+    if (req.query.hasRecommendations === 'true' || req.query.onlyRecommendations === 'true') {
+      filter.$or = [
+        { additionalProtection: { $exists: true, $regex: /\S/ } },
+        { recommendationNo: { $exists: true, $regex: /\S/ } }
+      ];
+    }
+    if (req.query.hasSafeguards === 'true' || req.query.onlySafeguards === 'true') {
+      filter.presentProtection = { $exists: true, $regex: /\S/ };
+    }
+    if (req.query.isLopa === 'true') {
+      filter.isLopa = true;
+    }
     
-    // Populate the referenced data
+    // Populate the referenced data efficiently with selected fields and lean()
     const scenarios = await Scenario.find(filter)
-      .populate('nodeId')
-      .populate('deviationId')
-      .populate('causeId')
-      .sort({ order: 1 });
+      .populate('nodeId', 'description intention boundary order customData nodeNumber')
+      .populate('deviationId', 'deviationAuto deviation guidewords parameter processFlowMaterial locationFrom locationTo order customData')
+      .populate('causeId', 'description categoryType equipment instrument order customData')
+      .sort({ order: 1 })
+      .lean();
       
     res.json(scenarios);
   } catch (err) {

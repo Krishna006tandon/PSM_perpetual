@@ -304,6 +304,7 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
         customerEmail: t.customerEmail,
         companyName: t.companyName,
         companyCode: t.companyCode,
+        attachments: t.attachments || [],
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
         resolvedAt: t.resolvedAt

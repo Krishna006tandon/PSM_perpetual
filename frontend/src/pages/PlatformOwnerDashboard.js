@@ -1584,6 +1584,22 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                             <p style={{ margin: 0, color: '#64748b', fontSize: '0.82rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {t.description}
                             </p>
+                            {t.attachments && t.attachments.length > 0 && (
+                              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {t.attachments.map((att, aIdx) => (
+                                  <a
+                                    key={aIdx}
+                                    href={`${API_URL}${att.url}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem', color: '#028090', textDecoration: 'none', fontWeight: '600' }}
+                                    title="Click to view full image"
+                                  >
+                                    📸 Image ${aIdx + 1}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '14px 14px', textAlign: 'center' }}>
                             <span style={{
@@ -2372,6 +2388,22 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                                     <span style={{ color: '#64748b', fontSize: '0.82rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                       {tk.description}
                                     </span>
+                                    {tk.attachments && tk.attachments.length > 0 && (
+                                      <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {tk.attachments.map((att, aIdx) => (
+                                          <a
+                                            key={aIdx}
+                                            href={`${API_URL}${att.url}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem', color: '#028090', textDecoration: 'none', fontWeight: '600' }}
+                                            title="Click to view full image"
+                                          >
+                                            📸 Image ${aIdx + 1}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                                     <span style={{

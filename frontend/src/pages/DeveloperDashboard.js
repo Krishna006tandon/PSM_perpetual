@@ -513,6 +513,45 @@ export default function DeveloperDashboard({ onLogout, currentUser }) {
                 </div>
               </div>
 
+              {/* Attached Screenshots / Images */}
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                <div className="dev-section-card">
+                  <h4 style={{ margin: '0 0 10px 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📸</span> Customer Attached Screenshots ({selectedTicket.attachments.length}):
+                  </h4>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {selectedTicket.attachments.map((att, idx) => (
+                      <a
+                        key={idx}
+                        href={`${API_URL}${att.url}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          display: 'block',
+                          maxWidth: '180px',
+                          background: '#ffffff',
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                        }}
+                        title="Click to view full screenshot in new tab"
+                      >
+                        <img
+                          src={`${API_URL}${att.url}`}
+                          alt={att.filename || `Screenshot ${idx + 1}`}
+                          style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }}
+                        />
+                        <div style={{ padding: '6px 8px', fontSize: '0.74rem', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          🔍 {att.filename || `Screenshot ${idx + 1}`}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Developer Action: Change Status & Resolution Notes */}
               <div className="dev-section-card" style={{ border: '1px solid #00a896', background: 'rgba(0, 168, 150, 0.02)' }}>
                 <h4 style={{ margin: '0 0 12px 0', color: '#028090', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>

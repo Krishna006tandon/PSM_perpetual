@@ -29,6 +29,8 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
     priority: 'Medium',
     description: ''
   });
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(null);
   const [submitError, setSubmitError] = useState('');
@@ -45,6 +47,61 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
       fetchMyTickets();
     }
   }, [isOpen, activeTab]);
+
+  const handleImageFiles = (files) => {
+    const fileList = Array.from(files || []);
+    if (!fileList.length) return;
+
+    const validImages = [];
+    for (const file of fileList) {
+      if (!file.type.startsWith('image/')) {
+        alert(`File "${file.name}" is not an image.`);
+        continue;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`Image "${file.name}" exceeds 15MB limit.`);
+        continue;
+      }
+      if (selectedImages.length + validImages.length >= 5) {
+        alert('You can attach a maximum of 5 images per ticket.');
+        break;
+      }
+      validImages.push({
+        file,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + ' KB'
+      });
+    }
+
+    if (validImages.length > 0) {
+      setSelectedImages(prev => [...prev, ...validImages]);
+    }
+  };
+
+  const removeSelectedImage = (indexToRemove) => {
+    setSelectedImages(prev => {
+      const item = prev[indexToRemove];
+      if (item?.preview && item.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(item.preview);
+      }
+      return prev.filter((_, idx) => idx !== indexToRemove);
+    });
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          handleImageFiles([file]);
+          e.preventDefault();
+        }
+      }
+    }
+  };
 
   const fetchMyTickets = async () => {
     try {
@@ -88,6 +145,38 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
     };
 
     try {
+      // Step 1: Upload images if any selected
+      let uploadedAttachments = [];
+      if (selectedImages.length > 0) {
+        setIsUploadingImages(true);
+        const uploadFormData = new FormData();
+        selectedImages.forEach(img => {
+          uploadFormData.append('images', img.file);
+        });
+
+        try {
+          const uploadRes = await fetch(`${API_URL}/api/tickets/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: uploadFormData
+          });
+
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            uploadedAttachments = uploadData.attachments || [];
+          } else {
+            console.warn('Failed to upload image attachments via multipart endpoint');
+          }
+        } catch (uploadErr) {
+          console.error('Image upload failed:', uploadErr);
+        } finally {
+          setIsUploadingImages(false);
+        }
+      }
+
+      // Step 2: Create ticket with attachments
       const res = await fetch(`${API_URL}/api/tickets`, {
         method: 'POST',
         headers: {
@@ -96,6 +185,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
         },
         body: JSON.stringify({
           ...formData,
+          attachments: uploadedAttachments,
           systemInfo
         })
       });
@@ -109,6 +199,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
           priority: 'Medium',
           description: ''
         });
+        setSelectedImages([]);
         fetchMyTickets();
       } else {
         setSubmitError(data.error || 'Failed to submit ticket');
@@ -177,8 +268,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
           <div className="ticket-header-title">
             <span style={{ fontSize: '1.4rem' }}>🎟️</span>
             <div>
-              <h3>Support & Developer Desk</h3>
-              <span className="ticket-header-badge">NexByte_Core Dispatch</span>
+              <h3>Support & Help Desk</h3>
             </div>
           </div>
           <button className="ticket-close-btn" onClick={onClose} title="Close window">
@@ -217,9 +307,9 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     <p style={{ margin: '4px 0' }}><strong>Priority:</strong> {submitSuccess.priority}</p>
                   </div>
                   <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 18px', maxWidth: '520px', margin: '16px auto', color: '#1e40af', fontSize: '0.9rem' }}>
-                    ✉️ Automated notifications sent to <strong>NexByte_Core (nexbyte.dev@gmail.com)</strong> & Platform Owner.
+                    ✉️ Support ticket assigned to engineering team.
                     <br />
-                    You will receive status emails directly at <strong>{currentUser?.email}</strong> with complete transparency!
+                    Live status and resolution updates will be emailed to <strong>{currentUser?.email}</strong>.
                   </div>
                   <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
                     <button
@@ -296,7 +386,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     </div>
                   </div>
 
-                  <div className="ticket-form-group">
+                  <div className="ticket-form-group" onPaste={handlePaste}>
                     <label>📝 Detailed Description & Error Message *</label>
                     <textarea
                       className="ticket-textarea"
@@ -310,16 +400,137 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     />
                   </div>
 
-                  <div className="ticket-footer" style={{ padding: '12px 0 0 0', background: 'transparent', borderTop: 'none' }}>
-                    <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                      🛡️ Dev Team: <strong>nexbyte.dev@gmail.com</strong> • Email alerts enabled
+                  {/* Image & Screenshot Upload Section */}
+                  <div className="ticket-form-group" style={{ marginTop: '16px' }} onPaste={handlePaste}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>📸 Attach Screenshots / Error Images (Optional)</span>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Max 5 images (up to 15MB each)</span>
+                    </label>
+
+                    <div
+                      className="ticket-dropzone"
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files);
+                      }}
+                      onClick={() => document.getElementById('ticket-image-input')?.click()}
+                      style={{
+                        border: '2px dashed #cbd5e1',
+                        borderRadius: '10px',
+                        padding: '16px 20px',
+                        textAlign: 'center',
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a896'; e.currentTarget.style.background = '#f0fdf4'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                    >
+                      <input
+                        id="ticket-image-input"
+                        type="file"
+                        multiple
+                        accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          if (e.target.files) handleImageFiles(e.target.files);
+                          e.target.value = '';
+                        }}
+                      />
+                      <div style={{ fontSize: '1.6rem' }}>🖼️</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#334155' }}>
+                        Click to upload screenshots, drag & drop, or paste with <kbd style={{ background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>Ctrl+V</kbd>
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                        Supports PNG, JPG, JPEG, WEBP, GIF
+                      </div>
                     </div>
+
+                    {/* Image Previews */}
+                    {selectedImages.length > 0 && (
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+                        {selectedImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              position: 'relative',
+                              width: '90px',
+                              height: '90px',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              border: '1px solid #cbd5e1',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                              background: '#ffffff'
+                            }}
+                          >
+                            <img
+                              src={img.preview}
+                              alt={img.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSelectedImage(idx);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: '4px',
+                                right: '4px',
+                                background: 'rgba(239, 68, 68, 0.9)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold'
+                              }}
+                              title="Remove image"
+                            >
+                              &times;
+                            </button>
+                            <div style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              background: 'rgba(0,0,0,0.65)',
+                              color: 'white',
+                              fontSize: '0.62rem',
+                              padding: '2px 4px',
+                              textAlign: 'center',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {img.size}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="ticket-footer" style={{ padding: '16px 0 0 0', background: 'transparent', borderTop: 'none', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                     <button
                       type="submit"
                       className="ticket-submit-btn"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isUploadingImages}
                     >
-                      {isSubmitting ? '⏳ Submitting...' : '🚀 Submit Ticket'}
+                      {isSubmitting || isUploadingImages ? '⏳ Submitting Ticket...' : '🚀 Submit Ticket'}
                     </button>
                   </div>
                 </form>
@@ -360,6 +571,44 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     {selectedTicket.description}
                   </p>
                 </div>
+
+                {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                  <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#1e293b' }}>
+                      📸 Attached Screenshots ({selectedTicket.attachments.length}):
+                    </h4>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {selectedTicket.attachments.map((att, idx) => (
+                        <a
+                          key={idx}
+                          href={`${API_URL}${att.url}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            display: 'block',
+                            maxWidth: '150px',
+                            background: '#ffffff',
+                            textDecoration: 'none',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                          }}
+                          title="Click to view full image in new tab"
+                        >
+                          <img
+                            src={`${API_URL}${att.url}`}
+                            alt={att.filename || `Screenshot ${idx + 1}`}
+                            style={{ width: '100%', height: '90px', objectFit: 'cover', display: 'block' }}
+                          />
+                          <div style={{ padding: '4px 6px', fontSize: '0.72rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            🔍 {att.filename || `Screenshot ${idx + 1}`}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {selectedTicket.resolutionNotes && (
                   <div style={{ marginTop: '16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', borderRadius: '8px', padding: '14px' }}>

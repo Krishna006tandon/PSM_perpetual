@@ -3,6 +3,10 @@ const router = express.Router();
 const Ticket = require('../models/Ticket');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
 const {
   DEV_EMAIL,
   OWNER_EMAIL,
@@ -10,6 +14,35 @@ const {
   sendTicketStatusUpdateEmails,
   sendTicketMessageEmail
 } = require('../services/ticketEmailService');
+
+// Setup upload directory for ticket screenshots/images
+const ticketUploadDir = path.join(__dirname, '..', 'uploads', 'tickets');
+if (!fs.existsSync(ticketUploadDir)) {
+  fs.mkdirSync(ticketUploadDir, { recursive: true });
+}
+
+const ticketStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, ticketUploadDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.png';
+    cb(null, `ticket-${uniqueSuffix}${ext}`);
+  }
+});
+
+const ticketUpload = multer({
+  storage: ticketStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per file
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
+      return cb(null, true);
+    }
+    const allowedExts = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg']);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (allowedExts.has(ext)) return cb(null, true);
+    cb(new Error('Only image files (PNG, JPG, JPEG, WEBP, GIF) are allowed for tickets.'));
+  }
+});
 
 // Middleware: Verify if requester is Developer (nexbyte.dev@gmail.com) or SuperAdmin
 const devOrAdminAuth = async (req, res, next) => {
@@ -37,10 +70,27 @@ const devOrAdminAuth = async (req, res, next) => {
 // CUSTOMER ENDPOINTS
 // -------------------------------------------------------------
 
+// POST /api/tickets/upload - Upload screenshots / images for ticket
+router.post('/upload', auth, ticketUpload.array('images', 5), (req, res) => {
+  try {
+    const files = req.files || [];
+    const attachments = files.map(f => ({
+      url: `/uploads/tickets/${f.filename}`,
+      filename: f.originalname,
+      mimetype: f.mimetype,
+      size: f.size
+    }));
+    res.json({ success: true, attachments });
+  } catch (err) {
+    console.error('Error uploading ticket images:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/tickets - Customer raises a new support ticket
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, category, priority, systemInfo } = req.body;
+    const { title, description, category, priority, systemInfo, attachments } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({ error: 'Title and description are required.' });
@@ -59,6 +109,36 @@ router.post('/', auth, async (req, res) => {
     const randomDigits = Math.floor(100000 + Math.random() * 900000);
     const ticketId = `TKT-${randomDigits}`;
 
+    // Process attachments: support uploaded URLs or base64 pasted screenshots
+    let sanitizedAttachments = [];
+    if (Array.isArray(attachments)) {
+      for (const att of attachments) {
+        if (!att) continue;
+        if (typeof att === 'string' && att.startsWith('data:image/')) {
+          const match = att.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+          if (match) {
+            const ext = match[1] === 'jpeg' ? '.jpg' : `.${match[1]}`;
+            const filename = `ticket-paste-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+            const filePath = path.join(ticketUploadDir, filename);
+            fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+            sanitizedAttachments.push({
+              url: `/uploads/tickets/${filename}`,
+              filename: 'Pasted Screenshot',
+              mimetype: `image/${match[1]}`,
+              size: Buffer.from(match[2], 'base64').length
+            });
+          }
+        } else if (att.url) {
+          sanitizedAttachments.push({
+            url: att.url,
+            filename: att.filename || 'Screenshot',
+            mimetype: att.mimetype || 'image/png',
+            size: att.size || 0
+          });
+        }
+      }
+    }
+
     const newTicket = new Ticket({
       ticketId,
       title: title.trim(),
@@ -73,6 +153,7 @@ router.post('/', auth, async (req, res) => {
       companyCode,
       contact,
       systemInfo: systemInfo || {},
+      attachments: sanitizedAttachments,
       assignedDev: DEV_EMAIL,
       timeline: [
         {

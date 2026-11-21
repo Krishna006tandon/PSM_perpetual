@@ -102,6 +102,19 @@ async function sendTicketCreatedEmails(ticket) {
 ${ticket.description}
         </div>
 
+        ${ticket.attachments && ticket.attachments.length > 0 ? `
+        <h4 style="margin: 16px 0 8px 0; color: #0f172a; font-size: 1rem;">Attached Screenshots (${ticket.attachments.length}):</h4>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+          ${ticket.attachments.map((att, i) => `
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; background: #f8fafc; font-size: 0.88rem;">
+              <a href="https://api.perpetualsolutions.co.in${att.url}" target="_blank" style="color: #028090; font-weight: bold; text-decoration: none;">
+                📎 Screenshot ${i + 1} (${att.filename || 'Image'})
+              </a>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
         <div style="text-align: center; margin-top: 24px;">
           <a href="https://perpetualsolutions.co.in/dev" style="background: linear-gradient(135deg, #028090 0%, #00a896 100%); color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; display: inline-block;">
             🛠️ Open Developer Dashboard →

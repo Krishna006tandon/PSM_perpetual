@@ -82,6 +82,14 @@ const TicketSchema = new mongoose.Schema(
       pingMs: { type: Number, default: null },
       memoryMB: { type: Number, default: null }
     },
+    attachments: [
+      {
+        url: { type: String, required: true },
+        filename: { type: String, default: '' },
+        mimetype: { type: String, default: '' },
+        size: { type: Number, default: 0 }
+      }
+    ],
     assignedDev: {
       type: String,
       default: 'nexbyte.dev@gmail.com'

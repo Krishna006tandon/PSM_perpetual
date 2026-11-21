@@ -83,13 +83,20 @@ router.get('/:studyId', async (req, res) => {
     }
     
     // Populate the referenced data efficiently with selected fields and lean()
-    const scenarios = await Scenario.find(filter)
+    let query = Scenario.find(filter)
       .populate('nodeId', 'description intention boundary order customData nodeNumber')
       .populate('deviationId', 'deviationAuto deviation guidewords parameter processFlowMaterial locationFrom locationTo order customData')
       .populate('causeId', 'description categoryType equipment instrument order customData')
       .sort({ order: 1 })
       .lean();
+
+    if (req.query.page && req.query.limit) {
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      query = query.skip((page - 1) * limit).limit(limit);
+    }
       
+    const scenarios = await query;
     res.json(scenarios);
   } catch (err) {
     res.status(500).json({ message: err.message });

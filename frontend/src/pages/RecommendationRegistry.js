@@ -19,6 +19,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
   const [undoStack, setUndoStack] = useState([]);
   const [undoToast, setUndoToast] = useState(null);
   const [riskCriteria, setRiskCriteria] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   useEffect(() => {
     fetchData();
@@ -389,10 +392,36 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
     return buildStudyRecommendationRegistry(sortedStudyScenariosList);
   }, [sortedStudyScenariosList]);
 
+  const filteredRecommendations = useMemo(() => {
+    if (!searchTerm.trim()) return uniqueRecommendations;
+    const term = searchTerm.toLowerCase();
+    return uniqueRecommendations.filter(rec => {
+      const recNo = (rec.displayRecNo || recNumberMap[rec._id] || '').toLowerCase();
+      const text = (rec.additionalProtection || '').toLowerCase();
+      const node = (rec.nodeNames?.join(', ') || rec.nodeId?.description || '').toLowerCase();
+      return recNo.includes(term) || text.includes(term) || node.includes(term);
+    });
+  }, [uniqueRecommendations, recNumberMap, searchTerm]);
+
+  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredRecommendations.length / pageSize));
+
+  const paginatedRecommendations = useMemo(() => {
+    if (pageSize === 'all') return filteredRecommendations;
+    const start = (currentPage - 1) * pageSize;
+    return filteredRecommendations.slice(start, start + pageSize);
+  }, [filteredRecommendations, currentPage, pageSize]);
+
   // Auto-scroll and highlight target recommendation if navigated from Action Tracking
   useEffect(() => {
     const targetId = localStorage.getItem('targetScenarioId');
     if (targetId && !loading && uniqueRecommendations.length > 0) {
+      const idx = uniqueRecommendations.findIndex(u => u._id === targetId || u.occurrences?.some(o => o._id === targetId));
+      if (idx !== -1 && pageSize !== 'all') {
+        const targetPage = Math.floor(idx / pageSize) + 1;
+        if (targetPage !== currentPage) {
+          setCurrentPage(targetPage);
+        }
+      }
       setTimeout(() => {
         const el = document.getElementById(`rec-row-${targetId}`);
         if (el) {
@@ -404,9 +433,9 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
             localStorage.removeItem('targetScenarioId');
           }, 2500);
         }
-      }, 300);
+      }, 350);
     }
-  }, [loading, uniqueRecommendations]);
+  }, [loading, uniqueRecommendations, pageSize]);
 
   // Delete Recommendation with warning and auto-renumber (Issue 11)
   const handleDeleteRecommendation = async (sc) => {
@@ -682,7 +711,14 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
           <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
-        <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input 
+            type="text" 
+            className="registry-search-input" 
+            placeholder="🔍 Search recommendation, node, #..." 
+            value={searchTerm} 
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+          />
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
@@ -759,8 +795,8 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
               </tr>
             </thead>
             <tbody>
-              {!loading && uniqueRecommendations.map((sc) => {
-                const isNewNode = sc.nodeId?._id !== renderLastNodeId;
+              {!loading && paginatedRecommendations.map((sc, index) => {
+                const isNewNode = index === 0 || sc.nodeId?._id !== renderLastNodeId;
                 if (isNewNode) {
                   renderLastNodeId = sc.nodeId?._id;
                 }
@@ -967,6 +1003,88 @@ const RecommendationRegistry = ({ study, onBack, onNavigate, theme, toggleTheme 
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredRecommendations.length > 0 && (
+          <div className="registry-pagination-bar">
+            <div className="registry-pagination-info">
+              <span>
+                Showing {pageSize === 'all' ? 1 : Math.min((currentPage - 1) * pageSize + 1, filteredRecommendations.length)} to {pageSize === 'all' ? filteredRecommendations.length : Math.min(currentPage * pageSize, filteredRecommendations.length)} of {filteredRecommendations.length} recommendations
+                {searchTerm && ` (filtered from ${uniqueRecommendations.length})`}
+              </span>
+              <div className="registry-pagination-pagesize">
+                <label>Rows per page:</label>
+                <select 
+                  value={pageSize} 
+                  onChange={(e) => { 
+                    const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                    setPageSize(val); 
+                    setCurrentPage(1); 
+                  }}
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={250}>250</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </div>
+
+            {pageSize !== 'all' && totalPages > 1 && (
+              <div className="registry-pagination-nav">
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(1)} 
+                  disabled={currentPage === 1}
+                  title="First Page"
+                >
+                  « First
+                </button>
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                  disabled={currentPage === 1}
+                  title="Previous Page"
+                >
+                  ‹ Prev
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .map((p, i, arr) => (
+                    <React.Fragment key={p}>
+                      {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>}
+                      <button 
+                        className={`registry-pagination-btn ${p === currentPage ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(p)}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  ))
+                }
+
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                  disabled={currentPage === totalPages}
+                  title="Next Page"
+                >
+                  Next ›
+                </button>
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(totalPages)} 
+                  disabled={currentPage === totalPages}
+                  title="Last Page"
+                >
+                  Last »
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {isManageColumnsOpen && (

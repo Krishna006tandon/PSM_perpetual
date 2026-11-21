@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StudyLayout from '../components/StudyLayout';
 import ManageColumnsModal from '../components/ManageColumnsModal';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
@@ -17,6 +17,9 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
   const [allStudies, setAllStudies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   useEffect(() => {
     fetchData();
@@ -241,6 +244,27 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
     );
   };
 
+  const filteredScenarios = useMemo(() => {
+    if (!searchTerm.trim()) return scenarios;
+    const term = searchTerm.toLowerCase();
+    return scenarios.filter(sc => {
+      const node = (sc.nodeId?.description || '').toLowerCase();
+      const dev = (sc.deviationId?.deviationAuto || '').toLowerCase();
+      const cause = (sc.causeId?.description || '').toLowerCase();
+      const cons = (sc.consequencesImmediate || '').toLowerCase();
+      const safe = (sc.presentProtection || '').toLowerCase();
+      return node.includes(term) || dev.includes(term) || cause.includes(term) || cons.includes(term) || safe.includes(term);
+    });
+  }, [scenarios, searchTerm]);
+
+  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredScenarios.length / pageSize));
+
+  const paginatedScenarios = useMemo(() => {
+    if (pageSize === 'all') return filteredScenarios;
+    const start = (currentPage - 1) * pageSize;
+    return filteredScenarios.slice(start, start + pageSize);
+  }, [filteredScenarios, currentPage, pageSize]);
+
   if (!study) return null;
 
   return (
@@ -251,7 +275,14 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
           <span className="editable-indicator-badge">✏️ Highlighted fields are editable</span>
         </div>
 
-        <div className="dynamic-toolbar">
+        <div className="dynamic-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input 
+            type="text" 
+            className="registry-search-input" 
+            placeholder="🔍 Search safeguards, nodes, causes..." 
+            value={searchTerm} 
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+          />
           {canEdit && (
             <button className="btn-manage-columns" onClick={() => setIsManageColumnsOpen(true)}>
               <span className="icon">◫</span> MANAGE COLUMNS
@@ -278,9 +309,11 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
               </tr>
             </thead>
             <tbody>
-              {!loading && scenarios.map((sc, index) => (
+              {!loading && paginatedScenarios.map((sc, index) => {
+                const globalIndex = pageSize === 'all' ? index + 1 : (currentPage - 1) * pageSize + index + 1;
+                return (
                 <tr key={sc._id}>
-                  <td style={{textAlign:'center'}}>{index + 1}</td>
+                  <td style={{textAlign:'center'}}>{globalIndex}</td>
                   <td className="col-node">{sc.nodeId?.description || ''}</td>
                   <td className="col-dev">{sc.deviationId?.deviationAuto || ''}</td>
                   <td className="col-cause">{sc.causeId?.description || ''}</td>
@@ -337,10 +370,93 @@ const SafeguardRegistry = ({ study, onBack, onNavigate, theme, toggleTheme , can
                     </td>
                   ))}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredScenarios.length > 0 && (
+          <div className="registry-pagination-bar">
+            <div className="registry-pagination-info">
+              <span>
+                Showing {pageSize === 'all' ? 1 : Math.min((currentPage - 1) * pageSize + 1, filteredScenarios.length)} to {pageSize === 'all' ? filteredScenarios.length : Math.min(currentPage * pageSize, filteredScenarios.length)} of {filteredScenarios.length} safeguards
+                {searchTerm && ` (filtered from ${scenarios.length})`}
+              </span>
+              <div className="registry-pagination-pagesize">
+                <label>Rows per page:</label>
+                <select 
+                  value={pageSize} 
+                  onChange={(e) => { 
+                    const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                    setPageSize(val); 
+                    setCurrentPage(1); 
+                  }}
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={250}>250</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </div>
+
+            {pageSize !== 'all' && totalPages > 1 && (
+              <div className="registry-pagination-nav">
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(1)} 
+                  disabled={currentPage === 1}
+                  title="First Page"
+                >
+                  « First
+                </button>
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                  disabled={currentPage === 1}
+                  title="Previous Page"
+                >
+                  ‹ Prev
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .map((p, i, arr) => (
+                    <React.Fragment key={p}>
+                      {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>}
+                      <button 
+                        className={`registry-pagination-btn ${p === currentPage ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(p)}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  ))
+                }
+
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                  disabled={currentPage === totalPages}
+                  title="Next Page"
+                >
+                  Next ›
+                </button>
+                <button 
+                  className="registry-pagination-btn" 
+                  onClick={() => setCurrentPage(totalPages)} 
+                  disabled={currentPage === totalPages}
+                  title="Last Page"
+                >
+                  Last »
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {isManageColumnsOpen && (

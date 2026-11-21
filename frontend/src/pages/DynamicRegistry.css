@@ -280,3 +280,93 @@
   padding: 2px 4px;
 }
 
+
+
+/* Pagination Controls */
+.registry-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: var(--bg-paper);
+  border-top: 1px solid var(--divider);
+  font-size: 13px;
+  color: var(--text-primary);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.registry-pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.registry-pagination-pagesize {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.registry-pagination-pagesize select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--divider);
+  background: var(--bg-default);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.registry-pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.registry-pagination-btn {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--divider);
+  background: var(--bg-default);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.registry-pagination-btn:hover:not(:disabled) {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.registry-pagination-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.registry-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Quick Search Input in Toolbar */
+.registry-search-input {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--divider);
+  background: var(--bg-default);
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 240px;
+}
+.registry-search-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}

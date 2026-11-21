@@ -29,6 +29,8 @@ export default function RecommendationsHub({
   const [phaSearch, setPhaSearch] = useState('');
   const [selectedStudyId, setSelectedStudyId] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [phaCurrentPage, setPhaCurrentPage] = useState(1);
+  const [phaPageSize, setPhaPageSize] = useState(50);
 
   // MOC Filters
   const [mocSearch, setMocSearch] = useState('');
@@ -178,6 +180,14 @@ export default function RecommendationsHub({
       return true;
     });
   }, [phaScenarios, selectedStudyId, selectedStatus, phaSearch]);
+
+  const phaTotalPages = phaPageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredPhaScenarios.length / phaPageSize));
+
+  const paginatedPhaScenarios = useMemo(() => {
+    if (phaPageSize === 'all') return filteredPhaScenarios;
+    const start = (phaCurrentPage - 1) * phaPageSize;
+    return filteredPhaScenarios.slice(start, start + phaPageSize);
+  }, [filteredPhaScenarios, phaCurrentPage, phaPageSize]);
 
   // Filtered MOC Action Items
   const filteredMocItems = useMemo(() => {
@@ -372,13 +382,13 @@ export default function RecommendationsHub({
                 className="rec-search-input"
                 placeholder="Search recommendations, rec #, deviation..."
                 value={phaSearch}
-                onChange={(e) => setPhaSearch(e.target.value)}
+                onChange={(e) => { setPhaSearch(e.target.value); setPhaCurrentPage(1); }}
               />
 
               <select 
                 className="rec-select-filter"
                 value={selectedStudyId}
-                onChange={(e) => setSelectedStudyId(e.target.value)}
+                onChange={(e) => { setSelectedStudyId(e.target.value); setPhaCurrentPage(1); }}
               >
                 <option value="All">All Studies ({uniqueStudies.length})</option>
                 {uniqueStudies.map(s => (
@@ -389,7 +399,7 @@ export default function RecommendationsHub({
               <select 
                 className="rec-select-filter"
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                onChange={(e) => { setSelectedStatus(e.target.value); setPhaCurrentPage(1); }}
               >
                 <option value="All">All Statuses</option>
                 <option value="Open">Open</option>
@@ -447,7 +457,8 @@ export default function RecommendationsHub({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPhaScenarios.map((sc, index) => {
+                  {paginatedPhaScenarios.map((sc, index) => {
+                    const globalIndex = phaPageSize === 'all' ? index + 1 : (phaCurrentPage - 1) * phaPageSize + index + 1;
                     const curStatus = sc.status || 'Open';
                     const statusClass = curStatus.toLowerCase().replace(/\s+/g, '-');
                     const studyObj = sc.studyId;
@@ -455,7 +466,7 @@ export default function RecommendationsHub({
                     return (
                       <tr key={sc._id || index}>
                         <td>
-                          <span className="badge-rec-no">{sc.recommendationNo || `REC-${index + 1}`}</span>
+                          <span className="badge-rec-no">{sc.recommendationNo || `REC-${globalIndex}`}</span>
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, color: '#0f172a' }}>
@@ -529,6 +540,88 @@ export default function RecommendationsHub({
                   })}
                 </tbody>
               </table>
+            )}
+
+            {/* PHA Pagination Controls */}
+            {filteredPhaScenarios.length > 0 && (
+              <div className="rec-pagination-bar">
+                <div className="rec-pagination-info">
+                  <span>
+                    Showing {phaPageSize === 'all' ? 1 : Math.min((phaCurrentPage - 1) * phaPageSize + 1, filteredPhaScenarios.length)} to {phaPageSize === 'all' ? filteredPhaScenarios.length : Math.min(phaCurrentPage * phaPageSize, filteredPhaScenarios.length)} of {filteredPhaScenarios.length} recommendations
+                    {phaSearch && ` (filtered from ${phaScenarios.length})`}
+                  </span>
+                  <div className="rec-pagination-pagesize">
+                    <label>Rows per page:</label>
+                    <select 
+                      value={phaPageSize} 
+                      onChange={(e) => { 
+                        const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                        setPhaPageSize(val); 
+                        setPhaCurrentPage(1); 
+                      }}
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={250}>250</option>
+                      <option value="all">All</option>
+                    </select>
+                  </div>
+                </div>
+
+                {phaPageSize !== 'all' && phaTotalPages > 1 && (
+                  <div className="rec-pagination-nav">
+                    <button 
+                      className="rec-pagination-btn" 
+                      onClick={() => setPhaCurrentPage(1)} 
+                      disabled={phaCurrentPage === 1}
+                      title="First Page"
+                    >
+                      « First
+                    </button>
+                    <button 
+                      className="rec-pagination-btn" 
+                      onClick={() => setPhaCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={phaCurrentPage === 1}
+                      title="Previous Page"
+                    >
+                      ‹ Prev
+                    </button>
+                    
+                    {Array.from({ length: phaTotalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === phaTotalPages || Math.abs(p - phaCurrentPage) <= 2)
+                      .map((p, i, arr) => (
+                        <React.Fragment key={p}>
+                          {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>}
+                          <button 
+                            className={`rec-pagination-btn ${p === phaCurrentPage ? 'active' : ''}`}
+                            onClick={() => setPhaCurrentPage(p)}
+                          >
+                            {p}
+                          </button>
+                        </React.Fragment>
+                      ))
+                    }
+
+                    <button 
+                      className="rec-pagination-btn" 
+                      onClick={() => setPhaCurrentPage(prev => Math.min(prev + 1, phaTotalPages))} 
+                      disabled={phaCurrentPage === phaTotalPages}
+                      title="Next Page"
+                    >
+                      Next ›
+                    </button>
+                    <button 
+                      className="rec-pagination-btn" 
+                      onClick={() => setPhaCurrentPage(phaTotalPages)} 
+                      disabled={phaCurrentPage === phaTotalPages}
+                      title="Last Page"
+                    >
+                      Last »
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </>

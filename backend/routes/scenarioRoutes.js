@@ -45,13 +45,22 @@ router.get('/company/recommendations', async (req, res) => {
       filter.companyCode = req.user.companyCode;
     }
 
-    const scenarios = await Scenario.find(filter)
+    let query = Scenario.find(filter)
+      .select('studyId nodeId deviationId causeId recommendationNo additionalProtection presentProtection inherentRiskRR status updatedAt order')
       .populate('studyId', 'studyName phaType facility plantUnit lastAccessed')
-      .populate('nodeId', 'description intention boundary')
-      .populate('deviationId', 'deviationAuto guidewords parameter')
+      .populate('nodeId', 'description')
+      .populate('deviationId', 'deviationAuto')
       .populate('causeId', 'description')
-      .sort({ updatedAt: -1, order: 1 });
+      .sort({ updatedAt: -1, order: 1 })
+      .lean();
 
+    if (req.query.page && req.query.limit) {
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      query = query.skip((page - 1) * limit).limit(limit);
+    }
+
+    const scenarios = await query;
     res.json(scenarios);
   } catch (err) {
     console.error('Error fetching company recommendations:', err);

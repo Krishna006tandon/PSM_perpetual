@@ -423,3 +423,97 @@
 [data-theme='dark'] .rec-empty h3 {
   color: #f8fafc;
 }
+
+
+/* Pagination Controls for RecommendationsHub */
+.rec-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--bg-paper, #ffffff);
+  border: 1px solid var(--divider, #e2e8f0);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  font-size: 13px;
+  color: var(--text-primary, #0f172a);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+[data-theme='dark'] .rec-pagination-bar {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.rec-pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.rec-pagination-pagesize {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-pagination-pagesize select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+[data-theme='dark'] .rec-pagination-pagesize select {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+.rec-pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rec-pagination-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+[data-theme='dark'] .rec-pagination-btn {
+  background: #0f172a;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+.rec-pagination-btn:hover:not(:disabled) {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.rec-pagination-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.rec-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

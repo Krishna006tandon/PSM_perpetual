@@ -5,6 +5,7 @@ const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolution
 
 const PlatformOwnerDashboard = ({ onLogout }) => {
   const [analytics, setAnalytics] = useState({ totalUsers: 0, totalAdmins: 0, totalProjects: 0, recentProjects: [] });
+  const [ticketStats, setTicketStats] = useState({ total: 0, open: 0, inProgress: 0, underReview: 0, resolved: 0, closed: 0 });
   const [packages, setPackages] = useState([]);
   const [users, setUsers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,6 +94,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     fetchUsers();
     fetchTrialSettings();
     fetchDemoRequests();
+    fetchTicketStats();
   }, []);
 
   const fetchDemoRequests = async () => {
@@ -386,6 +388,17 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     }
   };
 
+  const fetchTicketStats = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/dev/stats`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) setTicketStats(await res.json());
+    } catch (e) {
+      console.error('Error fetching ticket stats:', e);
+    }
+  };
+
   const fetchAnalytics = async () => {
     try {
       const res = await fetch(`${API_URL}/api/admin/analytics`, {
@@ -584,25 +597,6 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
               <span style={{ fontSize: '0.8rem', color: '#666' }}>Platform Owner</span>
             </div>
           </div>
-          <a 
-            href="/dev" 
-            style={{ 
-              padding: '8px 16px', 
-              background: '#0f172a', 
-              color: 'white', 
-              textDecoration: 'none', 
-              borderRadius: '8px', 
-              fontWeight: '700', 
-              fontSize: '0.88rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-            title="Inspect customer support tickets on NexByte_Core Desk"
-          >
-            🛠️ NexByte_Core (/dev)
-          </a>
           <button onClick={onLogout} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ff4d4f', color: '#ff4d4f', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Logout</button>
         </div>
       </div>
@@ -628,6 +622,24 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
           <div className="study-card" style={{ flex: 1, padding: '32px 20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(0,168,150,0.05) 0%, rgba(0,0,0,0) 100%)', borderRadius: '16px', border: '1px solid rgba(0,168,150,0.1)' }}>
             <h3>Total Admins</h3>
             <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ff9800' }}>{analytics.totalAdmins}</p>
+          </div>
+          <div className="study-card" style={{ flex: 1.2, padding: '24px 18px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(2, 128, 144, 0.08) 0%, rgba(0,0,0,0) 100%)', borderRadius: '16px', border: '1px solid rgba(2, 128, 144, 0.2)' }}>
+            <h3 style={{ color: '#028090', fontSize: '1.1rem', margin: '0 0 6px 0' }}>Support Tickets</h3>
+            <p style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#0f172a', margin: '0 0 8px 0' }}>{ticketStats.total}</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem' }}>
+              <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>
+                {ticketStats.open} Open
+              </span>
+              <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>
+                {ticketStats.inProgress} In Progress
+              </span>
+              <span style={{ background: '#f3e8ff', color: '#7e22ce', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>
+                {ticketStats.underReview} Review
+              </span>
+              <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>
+                {(ticketStats.resolved || 0) + (ticketStats.closed || 0)} Resolved
+              </span>
+            </div>
           </div>
         </div>
 

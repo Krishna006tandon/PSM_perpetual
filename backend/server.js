@@ -49,6 +49,7 @@ const scenarioRoutes = require('./routes/scenarioRoutes');
 const columnRoutes = require('./routes/columnRoutes');
 const riskCriteriaRoutes = require('./routes/riskCriteriaRoutes');
 const bowtieRoutes = require('./routes/bowtieRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
@@ -64,6 +65,7 @@ app.use('/api/scenarios', scenarioRoutes);
 app.use('/api/columns', columnRoutes);
 app.use('/api/risk-criteria', riskCriteriaRoutes);
 app.use('/api/bowtie', bowtieRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 // Database connection
 const { initBackupScheduler } = require('./services/backupService');

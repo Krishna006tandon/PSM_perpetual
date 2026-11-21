@@ -83,7 +83,7 @@ const NAV_ITEMS = [
   },
 ];
 
-function Sidebar({ activeView, onNavigate, userFeatures, onLogout }) {
+function Sidebar({ activeView, onNavigate, userFeatures, onLogout, onOpenTicketModal }) {
   const [openMenuId, setOpenMenuId] = useState(null);
 
   const getEffectiveFeatures = () => {
@@ -195,6 +195,35 @@ function Sidebar({ activeView, onNavigate, userFeatures, onLogout }) {
         </ul>
       </nav>
 
+      {onOpenTicketModal && (
+        <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+          <div 
+            className="sidebar-item" 
+            onClick={onOpenTicketModal}
+            style={{ 
+              color: '#00a896', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '13.5px',
+              background: 'rgba(0, 168, 150, 0.08)',
+              border: '1px solid rgba(0, 168, 150, 0.25)',
+              transition: 'all 0.2s ease',
+              marginBottom: '6px'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 168, 150, 0.16)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 168, 150, 0.08)'; }}
+            title="Raise support ticket or report error"
+          >
+            <span style={{ fontSize: '1.2rem' }}>🎟️</span>
+            <span className="label">Raise a Ticket</span>
+          </div>
+        </div>
+      )}
       {onLogout && (
         <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--divider, #e2e8f0)' }}>
           <div 

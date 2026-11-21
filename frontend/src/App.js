@@ -26,6 +26,8 @@ import Settings from './pages/Settings';
 import IncidentDashboard from './pages/IncidentDashboard';
 import SystemStabilizer from './components/SystemStabilizer';
 import GlobalSpellChecker from './components/GlobalSpellChecker';
+import RaiseTicketModal from './components/RaiseTicketModal';
+import DeveloperDashboard from './pages/DeveloperDashboard';
 
 import Auth from './components/Auth';
 
@@ -43,6 +45,7 @@ function App() {
   const [checkoutPackage, setCheckoutPackage] = useState(null);
   const [isTrialMode, setIsTrialMode] = useState(false);
   const [trialSettings, setTrialSettings] = useState(null);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   useEffect(() => {
     if (window.location.pathname === '/owner' && !isAuthenticated) {
@@ -507,6 +510,10 @@ function App() {
       );
     }
     
+    if (window.location.pathname === '/dev') {
+      return <DeveloperDashboard onLogout={handleLogout} currentUser={currentUser} />;
+    }
+
     if (currentUser?.role === 'SuperAdmin') {
       return <PlatformOwnerDashboard onLogout={handleLogout} />;
     }
@@ -828,8 +835,8 @@ function App() {
 
       <div style={{ display: 'flex', flex: 1, width: '100%' }}>
         {/* Formal Sidebar with new Navigation logic */}
-        {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && (
-          <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} />
+        {isAuthenticated && currentView !== 'study' && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && window.location.pathname !== '/dev' && (
+          <Sidebar activeView={currentView} onNavigate={setCurrentView} userFeatures={currentUser?.features} onLogout={handleLogout} onOpenTicketModal={() => setIsTicketModalOpen(true)} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {renderContent()}
@@ -841,6 +848,27 @@ function App() {
         <SystemStabilizer currentUser={currentUser} activeStudy={activeStudy} />
       )}
       <GlobalSpellChecker />
+
+      {/* Global Support Ticket Modal & Floating Ticket Trigger */}
+      {isAuthenticated && (
+        <RaiseTicketModal
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
+          currentUser={currentUser}
+          activeStudy={activeStudy}
+        />
+      )}
+
+      {isAuthenticated && !showAuth && window.location.pathname !== '/owner' && window.location.pathname !== '/dev' && (
+        <button
+          className="floating-ticket-btn"
+          onClick={() => setIsTicketModalOpen(true)}
+          title="Raise a support ticket / report issue to NexByte Dev"
+        >
+          <span style={{ fontSize: '1.2rem' }}>🎟️</span>
+          <span>Raise Ticket</span>
+        </button>
+      )}
     </div>
   );
 }

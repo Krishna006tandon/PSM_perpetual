@@ -584,6 +584,25 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
               <span style={{ fontSize: '0.8rem', color: '#666' }}>Platform Owner</span>
             </div>
           </div>
+          <a 
+            href="/dev" 
+            style={{ 
+              padding: '8px 16px', 
+              background: '#0f172a', 
+              color: 'white', 
+              textDecoration: 'none', 
+              borderRadius: '8px', 
+              fontWeight: '700', 
+              fontSize: '0.88rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            title="Inspect customer support tickets on NexByte Developer Desk"
+          >
+            🛠️ Dev Desk (/dev)
+          </a>
           <button onClick={onLogout} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ff4d4f', color: '#ff4d4f', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Logout</button>
         </div>
       </div>

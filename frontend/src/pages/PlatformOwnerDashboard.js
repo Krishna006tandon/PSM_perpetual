@@ -1654,7 +1654,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                         Team Members: <strong>{userActivityData.summary?.totalTeamMembers || 0}</strong>
                       </div>
                       <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
-                        Recorded Sessions: <strong>{userActivityData.summary?.totalSessions || 0}</strong>
+                        🛡️ Incidents: <strong style={{ color: '#028090' }}>{userActivityData.summary?.totalIncidents || userActivityData.incidents?.length || 0}</strong> | Sessions: <strong>{userActivityData.summary?.totalSessions || 0}</strong>
                       </div>
                     </div>
                   </div>
@@ -1675,6 +1675,21 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                       }}
                     >
                       📁 Studies & Projects ({userActivityData.studies?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setActivityTab('incidents')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'incidents' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'incidents' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      🛡️ Incident Investigations ({userActivityData.incidents?.length || 0})
                     </button>
                     <button
                       onClick={() => setActivityTab('mocs')}
@@ -1866,6 +1881,83 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                               <tr>
                                 <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
                                   No MOC tickets logged yet for this account.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab: Incident Investigations */}
+                  {activityTab === 'incidents' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>Incident # / Title</th>
+                              <th style={{ padding: '12px 14px' }}>Plant / Facility</th>
+                              <th style={{ padding: '12px 14px' }}>API 754 Classification</th>
+                              <th style={{ padding: '12px 14px' }}>Reporter</th>
+                              <th style={{ padding: '12px 14px' }}>Investigation Status</th>
+                              <th style={{ padding: '12px 16px' }}>Incident Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.incidents?.map(inc => (
+                              <tr key={inc._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <strong style={{ color: '#0f172a', display: 'block' }}>{inc.title || 'Untitled Incident'}</strong>
+                                  <span style={{ color: '#028090', fontSize: '0.8rem', fontWeight: 'bold' }}>#{inc.incidentNumber}</span>
+                                  {inc.whatHappened && (
+                                    <span style={{ display: 'block', color: '#64748b', fontSize: '0.78rem', marginTop: '2px', maxWidth: '340px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {inc.whatHappened}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>
+                                  {inc.facilityName ? `${inc.facilityName} ` : ''}{inc.plantZone ? `(${inc.plantZone})` : '-'}
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{
+                                    background: inc.tier?.includes('Tier 1') ? '#fef2f2' : inc.tier?.includes('Tier 2') ? '#fff7ed' : '#eff6ff',
+                                    color: inc.tier?.includes('Tier 1') ? '#dc2626' : inc.tier?.includes('Tier 2') ? '#ea580c' : '#2563eb',
+                                    border: inc.tier?.includes('Tier 1') ? '1px solid #fecaca' : '1px solid #bfdbfe',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {inc.tier || 'Near Miss'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>
+                                  <strong style={{ display: 'block', fontSize: '0.85rem' }}>{inc.reporterName}</strong>
+                                  {inc.reporterDepartment && <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{inc.reporterDepartment}</span>}
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{
+                                    background: inc.status === 'Closed' || inc.status === 'Administratively Closed' ? '#dcfce7' : inc.status === 'Investigation Active' ? '#e0f2fe' : '#fef3c7',
+                                    color: inc.status === 'Closed' || inc.status === 'Administratively Closed' ? '#15803d' : inc.status === 'Investigation Active' ? '#0369a1' : '#b45309',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: '600'
+                                  }}>
+                                    {inc.status || 'Submitted'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.82rem' }}>
+                                  {inc.dateTime ? new Date(inc.dateTime).toLocaleDateString('en-GB') : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                            {(!userActivityData.incidents || userActivityData.incidents.length === 0) && (
+                              <tr>
+                                <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                                  No incident investigation reports filed yet for this account.
                                 </td>
                               </tr>
                             )}

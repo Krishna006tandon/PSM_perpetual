@@ -136,6 +136,7 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
     const Session = require('../models/Session');
     const MOCTicket = require('../models/MOCTicket');
     const TeamMember = require('../models/TeamMember');
+    const Incident = require('../models/Incident');
 
     // Fetch all studies for this user's companyCode
     const studies = await Study.find({ companyCode: user.companyCode })
@@ -145,7 +146,7 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
     const studyIds = studies.map(s => s._id);
 
     // Get nodes, scenarios, recommendations, and sessions stats per study
-    const [nodeCounts, scenarioCounts, recCounts, studySessions, mocs, teamMembers] = await Promise.all([
+    const [nodeCounts, scenarioCounts, recCounts, studySessions, mocs, teamMembers, incidents] = await Promise.all([
       Node.aggregate([
         { $match: { studyId: { $in: studyIds } } },
         { $group: { _id: '$studyId', count: { $sum: 1 } } }
@@ -173,7 +174,14 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
           { companyCode: user.companyCode },
           { email: user.email }
         ] 
-      }).lean()
+      }).lean(),
+      Incident.find({
+        $or: [
+          { companyCode: user.companyCode },
+          { 'reporter.email': user.email },
+          { 'reporter.userId': user._id }
+        ]
+      }).sort({ dateTime: -1, createdAt: -1 }).lean()
     ]);
 
     const nodeMap = new Map(nodeCounts.map(n => [String(n._id), n.count]));
@@ -237,7 +245,8 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
         totalRecommendations,
         totalMocs: mocs.length,
         totalSessions: studySessions.length,
-        totalTeamMembers: teamMembers.length
+        totalTeamMembers: teamMembers.length,
+        totalIncidents: incidents.length
       },
       studies: studiesWithStats,
       mocs: mocs.map(m => ({
@@ -257,6 +266,21 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
         email: t.email,
         role: t.role,
         department: t.department
+      })),
+      incidents: incidents.map(inc => ({
+        _id: inc._id,
+        incidentNumber: inc.incidentNumber,
+        title: inc.title,
+        facilityName: inc.facilityName || '',
+        plantZone: inc.plantZone || '',
+        dateTime: inc.dateTime,
+        incidentCategory: inc.incidentCategory || 'Actual Incident',
+        tier: inc.api754Classification?.tier || inc.api754Classification?.category || 'Near Miss',
+        badgeColor: inc.api754Classification?.badgeColor || 'primary',
+        status: inc.status || 'Submitted',
+        reporterName: inc.reporter?.name || 'N/A',
+        reporterDepartment: inc.reporter?.department || '',
+        whatHappened: inc.descriptionMatrix?.whatHappened || ''
       }))
     });
   } catch (err) {

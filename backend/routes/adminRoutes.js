@@ -119,6 +119,152 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// GET detailed user working time, session logs, and associated projects (PHA, MOC, etc.)
+router.get('/users/:id/activity-and-projects', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('packageId');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const Study = require('../models/Study');
+    const Node = require('../models/Node');
+    const Scenario = require('../models/Scenario');
+    const Session = require('../models/Session');
+    const MOCTicket = require('../models/MOCTicket');
+    const TeamMember = require('../models/TeamMember');
+
+    // Fetch all studies for this user's companyCode
+    const studies = await Study.find({ companyCode: user.companyCode })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    const studyIds = studies.map(s => s._id);
+
+    // Get nodes, scenarios, recommendations, and sessions stats per study
+    const [nodeCounts, scenarioCounts, recCounts, studySessions, mocs, teamMembers] = await Promise.all([
+      Node.aggregate([
+        { $match: { studyId: { $in: studyIds } } },
+        { $group: { _id: '$studyId', count: { $sum: 1 } } }
+      ]),
+      Scenario.aggregate([
+        { $match: { studyId: { $in: studyIds } } },
+        { $group: { _id: '$studyId', count: { $sum: 1 } } }
+      ]),
+      Scenario.aggregate([
+        { 
+          $match: { 
+            studyId: { $in: studyIds },
+            $or: [
+              { additionalProtection: { $exists: true, $regex: /\S/ } },
+              { recommendationNo: { $exists: true, $regex: /\S/ } }
+            ]
+          } 
+        },
+        { $group: { _id: '$studyId', count: { $sum: 1 } } }
+      ]),
+      Session.find({ studyId: { $in: studyIds } }).sort({ date: -1 }).lean(),
+      MOCTicket.find({ companyCode: user.companyCode }).sort({ createdAt: -1 }).lean(),
+      TeamMember.find({ 
+        $or: [
+          { companyCode: user.companyCode },
+          { email: user.email }
+        ] 
+      }).lean()
+    ]);
+
+    const nodeMap = new Map(nodeCounts.map(n => [String(n._id), n.count]));
+    const scenarioMap = new Map(scenarioCounts.map(s => [String(s._id), s.count]));
+    const recMap = new Map(recCounts.map(r => [String(r._id), r.count]));
+
+    // Calculate total meeting hours from sessions
+    let totalMeetingHours = 0;
+    studySessions.forEach(sess => {
+      if (sess.duration) {
+        const match = sess.duration.match(/([\d.]+)/);
+        if (match) {
+          totalMeetingHours += parseFloat(match[1]) || 0;
+        }
+      }
+    });
+
+    const studiesWithStats = studies.map(study => ({
+      _id: study._id,
+      studyName: study.studyName,
+      projectName: study.projectName || '',
+      facility: study.facility || '',
+      plantUnit: study.plantUnit || '',
+      phaType: study.phaType || 'HAZOP',
+      studyStatus: study.studyStatus || 'Planned',
+      studyCoordinator: study.studyCoordinator || '',
+      facilitator: study.facilitator || '',
+      createdAt: study.createdAt,
+      lastAccessed: study.lastAccessed || study.updatedAt,
+      nodesCount: nodeMap.get(String(study._id)) || 0,
+      scenariosCount: scenarioMap.get(String(study._id)) || 0,
+      recommendationsCount: recMap.get(String(study._id)) || 0
+    }));
+
+    const totalNodes = Array.from(nodeMap.values()).reduce((a, b) => a + b, 0);
+    const totalScenarios = Array.from(scenarioMap.values()).reduce((a, b) => a + b, 0);
+    const totalRecommendations = Array.from(recMap.values()).reduce((a, b) => a + b, 0);
+
+    // Format active working time
+    const activeSec = user.totalActiveSeconds || 0;
+    const activeHrs = Math.floor(activeSec / 3600);
+    const activeMins = Math.floor((activeSec % 3600) / 60);
+    const formattedActiveTime = activeHrs > 0 ? `${activeHrs}h ${activeMins}m` : `${activeMins} mins`;
+
+    res.json({
+      user,
+      activity: {
+        lastActiveAt: user.lastActiveAt || user.createdAt,
+        lastLoginAt: user.lastLoginAt || user.createdAt,
+        totalActiveSeconds: activeSec,
+        formattedActiveTime,
+        totalMeetingHours: totalMeetingHours.toFixed(1) + ' hrs',
+        totalCombinedHours: (activeHrs + (activeMins / 60) + totalMeetingHours).toFixed(1) + ' hrs',
+        loginCount: user.loginCount || 1,
+        createdAt: user.createdAt
+      },
+      summary: {
+        totalStudies: studies.length,
+        totalNodes,
+        totalScenarios,
+        totalRecommendations,
+        totalMocs: mocs.length,
+        totalSessions: studySessions.length,
+        totalTeamMembers: teamMembers.length
+      },
+      studies: studiesWithStats,
+      mocs: mocs.map(m => ({
+        _id: m._id,
+        mocId: m.mocId || m._id,
+        title: m.title,
+        plant: m.plant,
+        department: m.department,
+        currentStageIndex: m.currentStageIndex,
+        status: m.status,
+        createdAt: m.createdAt
+      })),
+      sessions: studySessions,
+      teamMembers: teamMembers.map(t => ({
+        _id: t._id,
+        name: t.name,
+        email: t.email,
+        role: t.role,
+        department: t.department
+      }))
+    });
+  } catch (err) {
+    console.error('Error fetching user activity & projects:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put('/users/:id/features', async (req, res) => {
   try {
     const { features } = req.body;

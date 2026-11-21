@@ -73,6 +73,44 @@ function App() {
       fetchUser();
     }
   }, [isAuthenticated]);
+
+  // Periodic heartbeat to track active working time when browser tab is open & visible
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const sendHeartbeat = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        await fetch(`${API_URL}/api/auth/heartbeat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (err) {
+        // silent fail
+      }
+    };
+
+    const initTimer = setTimeout(sendHeartbeat, 3000);
+    const interval = setInterval(sendHeartbeat, 60000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isAuthenticated]);
   
   // Feature access check (PHA, MOC, LOPA, BOWTIE, INCIDENT)
   const hasFeature = (feat) => {

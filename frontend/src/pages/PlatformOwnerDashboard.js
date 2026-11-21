@@ -65,6 +65,14 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
   });
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
+  // Individual User Activity & Working Time Modal States
+  const [selectedUserForActivity, setSelectedUserForActivity] = useState(null);
+  const [activityModalOpen, setActivityModalOpen] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [userActivityData, setUserActivityData] = useState(null);
+  const [activityTab, setActivityTab] = useState('studies');
+  const [activitySearch, setActivitySearch] = useState('');
+
   const availableFeatures = ['PHA', 'MOC', 'LOPA', 'BOWTIE', 'INCIDENT'];
 
   const getFeatureLabel = (f) => {
@@ -309,6 +317,41 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     } catch (e) {
       console.error(e);
       alert(`Error updating trial: ${e.message}`);
+    }
+  };
+
+  const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return 'Never';
+    const diff = (Date.now() - new Date(timestamp).getTime()) / 1000;
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return new Date(timestamp).toLocaleDateString('en-GB');
+  };
+
+  const handleOpenUserActivity = async (user) => {
+    setSelectedUserForActivity(user);
+    setActivityModalOpen(true);
+    setActivityLoading(true);
+    setUserActivityData(null);
+    setActivityTab('studies');
+    setActivitySearch('');
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${user._id}/activity-and-projects`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserActivityData(data);
+      } else {
+        alert('Failed to load user activity & project details');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error fetching user activity details');
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -1158,9 +1201,37 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                     return (
                       <tr key={u._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                         <td style={{ padding: '14px 16px' }}>
-                          <strong style={{ color: '#1a1a2e', display: 'block' }}>{u.companyName || u.name || 'Company'}</strong>
-                          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{u.email}</span>
-                          {u.contact && <span style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block' }}>📞 {u.contact}</span>}
+                          <div
+                            onClick={() => handleOpenUserActivity(u)}
+                            style={{ cursor: 'pointer', display: 'inline-block' }}
+                            title="Click to view working time & project details"
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <strong style={{ color: '#028090', fontSize: '0.98rem', textDecoration: 'underline' }}>
+                                {u.companyName || u.name || 'Company'}
+                              </strong>
+                              <span style={{ fontSize: '0.8rem', color: '#028090' }}>↗</span>
+                            </div>
+                            <span style={{ color: '#64748b', fontSize: '0.85rem', display: 'block' }}>{u.email}</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
+                              {u.companyCode && (
+                                <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold' }}>
+                                  Code: {u.companyCode}
+                                </span>
+                              )}
+                              {u.totalActiveSeconds > 0 && (
+                                <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '600' }}>
+                                  ⏱️ {Math.floor(u.totalActiveSeconds / 3600) > 0 ? `${Math.floor(u.totalActiveSeconds / 3600)}h ` : ''}${Math.floor((u.totalActiveSeconds % 3600) / 60)}m active
+                                </span>
+                              )}
+                              {u.lastActiveAt && (
+                                <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
+                                  Active {formatRelativeTime(u.lastActiveAt)}
+                                </span>
+                              )}
+                            </div>
+                            {u.contact && <span style={{ color: '#94a3b8', fontSize: '0.78rem', display: 'block', marginTop: '2px' }}>📞 {u.contact}</span>}
+                          </div>
                         </td>
 
                         <td style={{ padding: '14px 16px' }}>
@@ -1218,6 +1289,27 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
 
                         <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              onClick={() => handleOpenUserActivity(u)}
+                              style={{
+                                background: 'linear-gradient(135deg, #028090 0%, #00a896 100%)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.82rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                boxShadow: '0 2px 4px rgba(2,128,144,0.2)'
+                              }}
+                              title="Click to view full working time, active sessions, and project details"
+                            >
+                              📊 Projects & Time
+                            </button>
                             <button
                               onClick={() => handleOpenTrialModal(u)}
                               style={{
@@ -1406,6 +1498,472 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
               >
                 🔒 Expire Trial Now
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Working Time & Associated Projects Modal */}
+      {activityModalOpen && selectedUserForActivity && (
+        <div 
+          className="modal-overlay" 
+          style={{ 
+            zIndex: 11500, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            background: 'rgba(15, 23, 42, 0.75)', 
+            backdropFilter: 'blur(4px)',
+            padding: '20px',
+            position: 'fixed',
+            inset: 0
+          }}
+        >
+          <div 
+            className="modal-content" 
+            style={{ 
+              maxWidth: '1200px', 
+              width: '100%', 
+              maxHeight: '92vh', 
+              borderRadius: '16px', 
+              background: '#ffffff', 
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', 
+              display: 'flex', 
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: '#ffffff' }}>
+                    🏢 {selectedUserForActivity.companyName || selectedUserForActivity.name || 'Company Profile'}
+                  </h3>
+                  {selectedUserForActivity.companyCode && (
+                    <span style={{ background: 'rgba(0, 168, 150, 0.3)', border: '1px solid #00a896', color: '#5eead4', padding: '2px 8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      Code: {selectedUserForActivity.companyCode}
+                    </span>
+                  )}
+                  <span style={{ background: 'rgba(255, 255, 255, 0.15)', color: '#e2e8f0', padding: '2px 8px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                    Role: {selectedUserForActivity.role || 'Admin'}
+                  </span>
+                </div>
+                <div style={{ marginTop: '6px', fontSize: '0.88rem', color: '#94a3b8', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <span>📧 {selectedUserForActivity.email}</span>
+                  {selectedUserForActivity.contact && <span>📞 {selectedUserForActivity.contact}</span>}
+                  <span>📦 Plan: {selectedUserForActivity.packageId?.name || (selectedUserForActivity.isTrial ? 'Free Trial' : 'Standard')}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setActivityModalOpen(false); setSelectedUserForActivity(null); setUserActivityData(null); }}
+                style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '1.4rem', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', overflowY: 'auto', flex: 1, background: '#f8fafc' }}>
+              {activityLoading ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '12px' }}>⏳</div>
+                  <strong style={{ fontSize: '1.1rem' }}>Loading user working time, session logs, and project details...</strong>
+                </div>
+              ) : userActivityData ? (
+                <>
+                  {/* KPI Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    {/* Card 1: Working Time */}
+                    <div style={{ background: 'white', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#028090', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        ⏱️ Platform Working Time
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px 0' }}>
+                        {userActivityData.activity?.formattedActiveTime || '0 mins'}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                        Meeting Sessions: <strong>{userActivityData.activity?.totalMeetingHours || '0 hrs'}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#047857', fontWeight: 'bold', marginTop: '4px' }}>
+                        Combined Total: {userActivityData.activity?.totalCombinedHours || '0 hrs'}
+                      </div>
+                    </div>
+
+                    {/* Card 2: Presence & Logins */}
+                    <div style={{ background: 'white', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#028090', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🕒 Activity & Presence
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: '8px 0 4px 0' }}>
+                        {userActivityData.activity?.lastActiveAt ? formatRelativeTime(userActivityData.activity.lastActiveAt) : 'Never'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        Last Active: {userActivityData.activity?.lastActiveAt ? new Date(userActivityData.activity.lastActiveAt).toLocaleString('en-GB') : 'N/A'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                        Total Logins: <strong>{userActivityData.activity?.loginCount || 1}</strong>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Projects & Studies */}
+                    <div style={{ background: 'white', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#028090', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        📁 Studies & Scenarios
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px 0' }}>
+                        {userActivityData.summary?.totalStudies || 0} Studies
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                        Nodes: <strong>{userActivityData.summary?.totalNodes || 0}</strong> | Scenarios: <strong>{userActivityData.summary?.totalScenarios || 0}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
+                        Recommendations: <strong>{userActivityData.summary?.totalRecommendations || 0}</strong>
+                      </div>
+                    </div>
+
+                    {/* Card 4: Compliance & Team */}
+                    <div style={{ background: 'white', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#028090', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🔄 Management & Team
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px 0' }}>
+                        {userActivityData.summary?.totalMocs || 0} MOCs
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                        Team Members: <strong>{userActivityData.summary?.totalTeamMembers || 0}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
+                        Recorded Sessions: <strong>{userActivityData.summary?.totalSessions || 0}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabs Navigation */}
+                  <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0', marginBottom: '18px', overflowX: 'auto' }}>
+                    <button
+                      onClick={() => setActivityTab('studies')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'studies' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'studies' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      📁 Studies & Projects ({userActivityData.studies?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setActivityTab('mocs')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'mocs' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'mocs' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      🔄 MOC Tickets ({userActivityData.mocs?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setActivityTab('team')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'team' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'team' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      👥 Team Members ({userActivityData.teamMembers?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setActivityTab('sessions')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'sessions' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'sessions' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      ⏱️ Meeting Sessions ({userActivityData.sessions?.length || 0})
+                    </button>
+                  </div>
+
+                  {/* Tab 1: Studies & Projects */}
+                  {activityTab === 'studies' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>
+                          Studies Under Company Code: {selectedUserForActivity.companyCode || 'N/A'}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="🔍 Filter studies by name, facility, or PHA type..."
+                          value={activitySearch}
+                          onChange={(e) => setActivitySearch(e.target.value)}
+                          style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', minWidth: '300px' }}
+                        />
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>Study / Project Name</th>
+                              <th style={{ padding: '12px 14px' }}>PHA Type</th>
+                              <th style={{ padding: '12px 14px' }}>Facility / Unit</th>
+                              <th style={{ padding: '12px 12px', textAlign: 'center' }}>Nodes</th>
+                              <th style={{ padding: '12px 12px', textAlign: 'center' }}>Scenarios</th>
+                              <th style={{ padding: '12px 12px', textAlign: 'center' }}>Recs</th>
+                              <th style={{ padding: '12px 14px' }}>Status</th>
+                              <th style={{ padding: '12px 16px' }}>Last Accessed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.studies
+                              ?.filter(s => {
+                                if (!activitySearch) return true;
+                                const q = activitySearch.toLowerCase();
+                                return (s.studyName?.toLowerCase().includes(q) ||
+                                  s.projectName?.toLowerCase().includes(q) ||
+                                  s.facility?.toLowerCase().includes(q) ||
+                                  s.phaType?.toLowerCase().includes(q));
+                              })
+                              .map(s => (
+                                <tr key={s._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <strong style={{ color: '#0f172a', display: 'block' }}>{s.studyName}</strong>
+                                    {s.projectName && <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Proj: {s.projectName}</span>}
+                                    {(s.studyCoordinator || s.facilitator) && (
+                                      <span style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem' }}>
+                                        {s.facilitator ? `Facilitator: ${s.facilitator}` : `Coordinator: ${s.studyCoordinator}`}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                      {s.phaType || 'HAZOP'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', color: '#334155' }}>
+                                    {s.facility || '-'}{s.plantUnit ? ` / ${s.plantUnit}` : ''}
+                                  </td>
+                                  <td style={{ padding: '12px 12px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>
+                                    {s.nodesCount}
+                                  </td>
+                                  <td style={{ padding: '12px 12px', textAlign: 'center', fontWeight: 'bold', color: '#028090' }}>
+                                    {s.scenariosCount}
+                                  </td>
+                                  <td style={{ padding: '12px 12px', textAlign: 'center', fontWeight: 'bold', color: '#d97706' }}>
+                                    {s.recommendationsCount}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{
+                                      background: s.studyStatus === 'Completed' ? '#dcfce7' : s.studyStatus === 'In Progress' ? '#fef9c3' : '#f1f5f9',
+                                      color: s.studyStatus === 'Completed' ? '#15803d' : s.studyStatus === 'In Progress' ? '#854d0e' : '#475569',
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.78rem',
+                                      fontWeight: '600'
+                                    }}>
+                                      {s.studyStatus || 'Planned'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.82rem' }}>
+                                    {s.lastAccessed ? new Date(s.lastAccessed).toLocaleDateString('en-GB') : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            {userActivityData.studies?.length === 0 && (
+                              <tr>
+                                <td colSpan="8" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                                  No studies or PHA projects created yet under this account.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 2: MOC Tickets */}
+                  {activityTab === 'mocs' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>MOC ID / Title</th>
+                              <th style={{ padding: '12px 14px' }}>Plant</th>
+                              <th style={{ padding: '12px 14px' }}>Department</th>
+                              <th style={{ padding: '12px 14px' }}>Current Stage</th>
+                              <th style={{ padding: '12px 14px' }}>Status</th>
+                              <th style={{ padding: '12px 16px' }}>Created</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.mocs?.map(m => (
+                              <tr key={m._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <strong style={{ color: '#0f172a', display: 'block' }}>{m.title || 'Untitled MOC'}</strong>
+                                  <span style={{ color: '#028090', fontSize: '0.78rem', fontWeight: 'bold' }}>#{m.mocId || m._id}</span>
+                                </td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>{m.plant || '-'}</td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>{m.department || '-'}</td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>Stage {m.currentStageIndex ?? 1}</td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{
+                                    background: m.status === 'Completed' || m.status === 'Approved' ? '#dcfce7' : '#fef9c3',
+                                    color: m.status === 'Completed' || m.status === 'Approved' ? '#15803d' : '#854d0e',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: '600'
+                                  }}>
+                                    {m.status || 'Active'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.82rem' }}>
+                                  {m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-GB') : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                            {userActivityData.mocs?.length === 0 && (
+                              <tr>
+                                <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                                  No MOC tickets logged yet for this account.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 3: Team Members */}
+                  {activityTab === 'team' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>Member Name</th>
+                              <th style={{ padding: '12px 16px' }}>Email Address</th>
+                              <th style={{ padding: '12px 14px' }}>Role</th>
+                              <th style={{ padding: '12px 14px' }}>Department</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.teamMembers?.map(t => (
+                              <tr key={t._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#0f172a' }}>{t.name}</td>
+                                <td style={{ padding: '12px 16px', color: '#64748b' }}>{t.email}</td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{ background: '#f1f5f9', color: '#334155', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '600' }}>
+                                    {t.role || 'Member'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>{t.department || '-'}</td>
+                              </tr>
+                            ))}
+                            {userActivityData.teamMembers?.length === 0 && (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                                  No team members registered yet.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 4: Meeting Sessions */}
+                  {activityTab === 'sessions' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>Date</th>
+                              <th style={{ padding: '12px 14px' }}>Duration</th>
+                              <th style={{ padding: '12px 16px' }}>Study / Objective</th>
+                              <th style={{ padding: '12px 16px' }}>Comments / Scribe Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.sessions?.map(sess => (
+                              <tr key={sess._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#0f172a' }}>
+                                  {sess.date ? new Date(sess.date).toLocaleDateString('en-GB') : '-'}
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                    ⏱️ {sess.duration || 'N/A'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: '#334155' }}>
+                                  {sess.objective || sess.studyId || 'HAZOP Session'}
+                                </td>
+                                <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.84rem' }}>
+                                  {sess.comments || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                            {userActivityData.sessions?.length === 0 && (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                                  No HAZOP meeting sessions recorded yet.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '16px 24px', background: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                Active working time is tracked in real-time as users engage with PS-MagnaShield worksheets and tools.
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenUserActivity(selectedUserForActivity)}
+                  style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.88rem' }}
+                >
+                  🔄 Refresh Data
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActivityModalOpen(false); setSelectedUserForActivity(null); setUserActivityData(null); }}
+                  style={{ padding: '8px 20px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.88rem' }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

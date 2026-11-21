@@ -101,6 +101,12 @@ router.post('/login', async (req, res) => {
       await user.save();
     }
 
+    // Record login timestamp, lastActive, and increment login counter
+    user.lastLoginAt = new Date();
+    user.lastActiveAt = new Date();
+    user.loginCount = (user.loginCount || 0) + 1;
+    await user.save().catch(() => {});
+
     // Create JWT
     const payload = { userId: user._id, companyCode: user.companyCode };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
@@ -109,6 +115,40 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Periodic heartbeat to track active working time
+router.post('/heartbeat', async (req, res) => {
+  try {
+    const authHeader = req.header('Authorization');
+    if (!authHeader) return res.json({ ok: true });
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') return res.json({ ok: true });
+    const decoded = jwt.verify(parts[1], JWT_SECRET);
+    if (!decoded || !decoded.userId) return res.json({ ok: true });
+
+    const now = new Date();
+    const user = await User.findById(decoded.userId).select('lastActiveAt totalActiveSeconds');
+    if (user) {
+      let incSeconds = 60;
+      if (user.lastActiveAt) {
+        const diff = (now - new Date(user.lastActiveAt)) / 1000;
+        if (diff > 0 && diff <= 300) {
+          incSeconds = Math.round(diff);
+        }
+      }
+      await User.updateOne(
+        { _id: user._id },
+        { 
+          $set: { lastActiveAt: now },
+          $inc: { totalActiveSeconds: incSeconds }
+        }
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.json({ ok: true }); // Heartbeat fails silently
   }
 });
 

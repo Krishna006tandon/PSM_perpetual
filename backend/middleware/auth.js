@@ -35,6 +35,21 @@ module.exports = async function(req, res, next) {
       email: user.email
     };
     
+    // Auto-track user working time & activity (throttled to once per minute)
+    const now = new Date();
+    const lastActive = user.lastActiveAt ? new Date(user.lastActiveAt) : null;
+    const diffSec = lastActive ? (now - lastActive) / 1000 : 999;
+    if (diffSec >= 45) {
+      const incSec = (diffSec <= 900) ? Math.min(Math.round(diffSec), 300) : 60;
+      User.updateOne(
+        { _id: user._id },
+        { 
+          $set: { lastActiveAt: now },
+          $inc: { totalActiveSeconds: incSec }
+        }
+      ).exec().catch(() => {});
+    }
+
     next();
   } catch (err) {
     res.status(401).json({ error: 'Token is not valid' });

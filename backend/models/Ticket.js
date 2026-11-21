@@ -98,7 +98,7 @@ const TicketSchema = new mongoose.Schema(
       {
         action: { type: String, required: true }, // e.g., 'Ticket Created', 'Status Updated', 'Resolution Note Added'
         status: { type: String },
-        actor: { type: String, default: 'System' }, // 'Customer', 'NexByte Dev', 'Owner'
+        actor: { type: String, default: 'System' }, // 'Customer', 'NexByte_Core', 'Owner'
         actorEmail: { type: String, default: '' },
         note: { type: String, default: '' },
         timestamp: { type: Date, default: Date.now }

@@ -177,7 +177,7 @@ export default function DeveloperDashboard({ onLogout, currentUser }) {
       setDevAccessKey(keyInput.trim());
       setIsAuthorized(true);
     } else {
-      alert('Invalid Developer Passcode. Please contact NexByte Dev (nexbyte.dev@gmail.com).');
+      alert('Invalid Developer Passcode. Please contact NexByte_Core (nexbyte.dev@gmail.com).');
     }
   };
 
@@ -219,7 +219,7 @@ export default function DeveloperDashboard({ onLogout, currentUser }) {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', padding: '20px' }}>
         <div style={{ background: '#ffffff', borderRadius: '16px', padding: '36px', maxWidth: '440px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🛠️</div>
-          <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>NexByte Developer Desk</h2>
+          <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>NexByte_Core Desk</h2>
           <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '0.9rem' }}>
             Authorized Developer & Engineering Console (<strong>{DEV_EMAIL}</strong>)
           </p>
@@ -261,7 +261,7 @@ export default function DeveloperDashboard({ onLogout, currentUser }) {
         <div className="dev-nav-brand">
           <span style={{ fontSize: '1.6rem' }}>🛠️</span>
           <div>
-            <h2>NexByte Developer Hub</h2>
+            <h2>NexByte_Core Hub</h2>
             <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
               Dispatch Email: <strong>{DEV_EMAIL}</strong> • PS-MagnaShield Support
             </div>

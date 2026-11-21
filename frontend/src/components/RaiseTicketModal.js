@@ -178,7 +178,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
             <span style={{ fontSize: '1.4rem' }}>🎟️</span>
             <div>
               <h3>Support & Developer Desk</h3>
-              <span className="ticket-header-badge">NexByte Engineering Dispatch</span>
+              <span className="ticket-header-badge">NexByte_Core Dispatch</span>
             </div>
           </div>
           <button className="ticket-close-btn" onClick={onClose} title="Close window">
@@ -217,7 +217,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     <p style={{ margin: '4px 0' }}><strong>Priority:</strong> {submitSuccess.priority}</p>
                   </div>
                   <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 18px', maxWidth: '520px', margin: '16px auto', color: '#1e40af', fontSize: '0.9rem' }}>
-                    ✉️ Automated notifications sent to <strong>NexByte Dev (nexbyte.dev@gmail.com)</strong> & Platform Owner.
+                    ✉️ Automated notifications sent to <strong>NexByte_Core (nexbyte.dev@gmail.com)</strong> & Platform Owner.
                     <br />
                     You will receive status emails directly at <strong>{currentUser?.email}</strong> with complete transparency!
                   </div>
@@ -424,7 +424,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                     })
                   ) : (
                     <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', padding: '16px' }}>
-                      No follow-up messages yet. You can post a message below to talk directly with NexByte Dev.
+                      No follow-up messages yet. You can post a message below to talk directly with NexByte_Core.
                     </div>
                   )}
                 </div>
@@ -433,7 +433,7 @@ export default function RaiseTicketModal({ isOpen, onClose, currentUser, activeS
                   <input
                     type="text"
                     className="ticket-input"
-                    placeholder="Type a message or response to NexByte engineering..."
+                    placeholder="Type a message or response to NexByte_Core engineering..."
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSendReply(selectedTicket._id); }}

@@ -57,7 +57,7 @@ async function sendTicketCreatedEmails(ticket) {
           </span>
         </div>
         <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 0.9rem;">
-          NexByte Developer Dispatch & Platform Engineering
+          NexByte_Core Dispatch & Platform Engineering
         </p>
       </div>
 
@@ -110,7 +110,7 @@ ${ticket.description}
       </div>
 
       <div style="background: #f1f5f9; padding: 14px 24px; font-size: 0.8rem; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
-        NexByte Development Team (nexbyte.dev@gmail.com) • Perpetual Solutions MagnaShield
+        NexByte_Core Team (nexbyte.dev@gmail.com) • Perpetual Solutions MagnaShield
       </div>
     </div>
   `;
@@ -128,7 +128,7 @@ ${ticket.description}
 
       <div style="padding: 24px; color: #334155; line-height: 1.6;">
         <p style="margin-top: 0;">Dear <strong>${ticket.customerName}</strong>,</p>
-        <p>Thank you for reaching out to us. We have received your ticket and our dedicated engineering team at <strong>NexByte Dev</strong> has been notified.</p>
+        <p>Thank you for reaching out to us. We have received your ticket and our dedicated engineering team at <strong>NexByte_Core</strong> has been notified.</p>
 
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0;">
           <p style="margin: 4px 0;"><strong>Ticket Reference:</strong> <span style="color: #028090; font-weight: bold;">#${ticket.ticketId}</span></p>
@@ -155,7 +155,7 @@ ${ticket.description}
       </div>
 
       <div style="background: #f8fafc; padding: 14px 24px; font-size: 0.8rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-        PS-MagnaShield Engineering & NexByte Developer Desk • All Rights Reserved
+        PS-MagnaShield Engineering & NexByte_Core Desk • All Rights Reserved
       </div>
     </div>
   `;
@@ -216,7 +216,7 @@ async function sendTicketStatusUpdateEmails(ticket, previousStatus, note) {
 
       <div style="padding: 24px; color: #334155; line-height: 1.6;">
         <p style="margin-top: 0;">Dear <strong>${ticket.customerName}</strong>,</p>
-        <p>The status of your support ticket has been updated by the NexByte engineering team:</p>
+        <p>The status of your support ticket has been updated by the NexByte_Core engineering team:</p>
 
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -256,7 +256,7 @@ ${note}
       </div>
 
       <div style="background: #f8fafc; padding: 14px 24px; font-size: 0.8rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-        NexByte Developer Support (nexbyte.dev@gmail.com) • PS-MagnaShield Engineering
+        NexByte_Coreeloper Support (nexbyte.dev@gmail.com) • PS-MagnaShield Engineering
       </div>
     </div>
   `;
@@ -317,7 +317,7 @@ ${message.message}
         </p>
       </div>
       <div style="background: #f8fafc; padding: 12px 24px; font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-        NexByte Developer Support (nexbyte.dev@gmail.com) • PS-MagnaShield
+        NexByte_Coreeloper Support (nexbyte.dev@gmail.com) • PS-MagnaShield
       </div>
     </div>
   `;

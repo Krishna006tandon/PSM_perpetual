@@ -863,7 +863,7 @@ function App() {
         <button
           className="floating-ticket-btn"
           onClick={() => setIsTicketModalOpen(true)}
-          title="Raise a support ticket / report issue to NexByte Dev"
+          title="Raise a support ticket / report issue to NexByte_Core"
         >
           <span style={{ fontSize: '1.2rem' }}>🎟️</span>
           <span>Raise Ticket</span>

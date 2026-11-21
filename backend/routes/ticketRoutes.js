@@ -179,7 +179,7 @@ router.post('/:id/message', auth, async (req, res) => {
       req.user.email?.toLowerCase() === DEV_EMAIL.toLowerCase();
 
     const sender = isDev ? 'Developer' : 'Customer';
-    const senderName = isDev ? 'NexByte Developer' : req.user.name || 'Customer';
+    const senderName = isDev ? 'NexByte_Core' : req.user.name || 'Customer';
     const senderEmail = req.user.email;
 
     const newMsg = {
@@ -305,7 +305,7 @@ router.put('/dev/:id/status', auth, devOrAdminAuth, async (req, res) => {
       ticket.resolvedAt = new Date();
     }
 
-    const actor = req.user?.email?.toLowerCase() === DEV_EMAIL.toLowerCase() ? 'NexByte Dev' : 'Platform Owner';
+    const actor = req.user?.email?.toLowerCase() === DEV_EMAIL.toLowerCase() ? 'NexByte_Core' : 'Platform Owner';
     const actorEmail = req.user?.email || DEV_EMAIL;
 
     ticket.timeline.push({

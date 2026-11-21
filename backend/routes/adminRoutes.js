@@ -137,6 +137,7 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
     const MOCTicket = require('../models/MOCTicket');
     const TeamMember = require('../models/TeamMember');
     const Incident = require('../models/Incident');
+    const Ticket = require('../models/Ticket');
 
     // Fetch all studies for this user's companyCode
     const studies = await Study.find({ companyCode: user.companyCode })
@@ -146,7 +147,7 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
     const studyIds = studies.map(s => s._id);
 
     // Get nodes, scenarios, recommendations, and sessions stats per study
-    const [nodeCounts, scenarioCounts, recCounts, studySessions, mocs, teamMembers, incidents] = await Promise.all([
+    const [nodeCounts, scenarioCounts, recCounts, studySessions, mocs, teamMembers, incidents, tickets] = await Promise.all([
       Node.aggregate([
         { $match: { studyId: { $in: studyIds } } },
         { $group: { _id: '$studyId', count: { $sum: 1 } } }
@@ -181,7 +182,14 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
           { 'reporter.email': user.email },
           { 'reporter.userId': user._id }
         ]
-      }).sort({ dateTime: -1, createdAt: -1 }).lean()
+      }).sort({ dateTime: -1, createdAt: -1 }).lean(),
+      Ticket.find({
+        $or: [
+          { companyCode: user.companyCode },
+          { customerEmail: user.email },
+          { user: user._id }
+        ]
+      }).sort({ createdAt: -1 }).lean()
     ]);
 
     const nodeMap = new Map(nodeCounts.map(n => [String(n._id), n.count]));
@@ -246,7 +254,8 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
         totalMocs: mocs.length,
         totalSessions: studySessions.length,
         totalTeamMembers: teamMembers.length,
-        totalIncidents: incidents.length
+        totalIncidents: incidents.length,
+        totalTickets: tickets.length
       },
       studies: studiesWithStats,
       mocs: mocs.map(m => ({
@@ -281,6 +290,23 @@ router.get('/users/:id/activity-and-projects', async (req, res) => {
         reporterName: inc.reporter?.name || 'N/A',
         reporterDepartment: inc.reporter?.department || '',
         whatHappened: inc.descriptionMatrix?.whatHappened || ''
+      })),
+      tickets: tickets.map(t => ({
+        _id: t._id,
+        ticketId: t.ticketId,
+        title: t.title,
+        description: t.description,
+        category: t.category,
+        priority: t.priority,
+        status: t.status,
+        resolutionNotes: t.resolutionNotes,
+        customerName: t.customerName,
+        customerEmail: t.customerEmail,
+        companyName: t.companyName,
+        companyCode: t.companyCode,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        resolvedAt: t.resolvedAt
       }))
     });
   } catch (err) {

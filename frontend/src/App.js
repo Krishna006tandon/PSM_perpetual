@@ -849,8 +849,8 @@ function App() {
       )}
       <GlobalSpellChecker />
 
-      {/* Global Support Ticket Modal & Floating Ticket Trigger */}
-      {isAuthenticated && (
+      {/* Global Support Ticket Modal & Floating Ticket Trigger (Visible for clients/users, hidden for SuperAdmin/Owner) */}
+      {isAuthenticated && currentUser?.role !== 'SuperAdmin' && (
         <RaiseTicketModal
           isOpen={isTicketModalOpen}
           onClose={() => setIsTicketModalOpen(false)}
@@ -859,7 +859,7 @@ function App() {
         />
       )}
 
-      {isAuthenticated && !showAuth && window.location.pathname !== '/owner' && window.location.pathname !== '/dev' && (
+      {isAuthenticated && !showAuth && currentUser?.role !== 'SuperAdmin' && window.location.pathname !== '/owner' && window.location.pathname !== '/dev' && (
         <button
           className="floating-ticket-btn"
           onClick={() => setIsTicketModalOpen(true)}

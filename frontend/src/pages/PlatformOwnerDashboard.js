@@ -6,6 +6,10 @@ const API_URL = (process.env.REACT_APP_API_URL || 'https://api.perpetualsolution
 const PlatformOwnerDashboard = ({ onLogout }) => {
   const [analytics, setAnalytics] = useState({ totalUsers: 0, totalAdmins: 0, totalProjects: 0, recentProjects: [] });
   const [ticketStats, setTicketStats] = useState({ total: 0, open: 0, inProgress: 0, underReview: 0, resolved: 0, closed: 0 });
+  const [tickets, setTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketFilter, setTicketFilter] = useState('ALL');
+  const [ticketSearch, setTicketSearch] = useState('');
   const [packages, setPackages] = useState([]);
   const [users, setUsers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,6 +99,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
     fetchTrialSettings();
     fetchDemoRequests();
     fetchTicketStats();
+    fetchTickets();
   }, []);
 
   const fetchDemoRequests = async () => {
@@ -396,6 +401,23 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
       if (res.ok) setTicketStats(await res.json());
     } catch (e) {
       console.error('Error fetching ticket stats:', e);
+    }
+  };
+
+  const fetchTickets = async () => {
+    try {
+      setTicketsLoading(true);
+      const res = await fetch(`${API_URL}/api/tickets/dev/all`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTickets(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('Error fetching tickets for owner dashboard:', e);
+    } finally {
+      setTicketsLoading(false);
     }
   };
 
@@ -1385,6 +1407,219 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
             </table>
           </div>
         </div>
+
+        {/* Customer Support Tickets & Live Status Overview Section (Read-Only Oversight for Owner) */}
+        <div style={{ background: 'white', borderRadius: '16px', padding: '30px', border: '1px solid #e1e4e8', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1a1a2e', fontWeight: '800' }}>
+                  🎫 Customer Support Tickets & Real-Time Status
+                </h3>
+                <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '4px 12px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: '800' }}>
+                  {tickets.length} Total
+                </span>
+                {ticketStats.open > 0 && (
+                  <span style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '4px 10px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: '800' }}>
+                    {ticketStats.open} Open
+                  </span>
+                )}
+                {ticketStats.inProgress > 0 && (
+                  <span style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '4px 10px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: '800' }}>
+                    {ticketStats.inProgress} In Progress
+                  </span>
+                )}
+                {ticketStats.underReview > 0 && (
+                  <span style={{ background: '#f3e8ff', color: '#7e22ce', border: '1px solid #e9d5ff', padding: '4px 10px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: '800' }}>
+                    {ticketStats.underReview} Review
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                Full visibility into customer issues and bug reports. Handled and resolved by <strong>NexByte_Core</strong> (nexbyte.dev@gmail.com).
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search Ticket ID, customer, company, issue..."
+                value={ticketSearch}
+                onChange={(e) => setTicketSearch(e.target.value)}
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', minWidth: '280px' }}
+              />
+              <button
+                type="button"
+                onClick={() => { fetchTickets(); fetchTicketStats(); }}
+                disabled={ticketsLoading}
+                style={{
+                  padding: '8px 16px',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Refresh customer tickets list"
+              >
+                🔄 {ticketsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Badges */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {['ALL', 'Open', 'In Progress', 'Under Review', 'Resolved', 'Closed'].map(st => {
+              const isActive = ticketFilter === st;
+              return (
+                <button
+                  key={st}
+                  onClick={() => setTicketFilter(st)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    border: '1px solid',
+                    borderColor: isActive ? '#00a896' : '#cbd5e1',
+                    background: isActive ? '#00a896' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {st === 'ALL' ? `All Tickets (${tickets.length})` : st}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tickets Table */}
+          {ticketsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+              Loading customer support tickets...
+            </div>
+          ) : tickets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🎟️</div>
+              <div style={{ fontWeight: '700', fontSize: '1.05rem', color: '#334155' }}>No Support Tickets Raised Yet</div>
+              <div style={{ fontSize: '0.88rem', marginTop: '4px' }}>Tickets raised by customers in their portals will automatically show up here with live status.</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e1e4e8', background: '#f8f9fa', color: '#475569' }}>
+                    <th style={{ padding: '14px 16px' }}>Ticket ID</th>
+                    <th style={{ padding: '14px 16px' }}>Customer & Company</th>
+                    <th style={{ padding: '14px 14px' }}>Category & Priority</th>
+                    <th style={{ padding: '14px 16px' }}>Issue Description</th>
+                    <th style={{ padding: '14px 14px', textAlign: 'center' }}>Live Status</th>
+                    <th style={{ padding: '14px 16px' }}>NexByte_Core Resolution Note</th>
+                    <th style={{ padding: '14px 16px' }}>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickets
+                    .filter(t => {
+                      if (ticketFilter !== 'ALL' && t.status !== ticketFilter) return false;
+                      if (!ticketSearch) return true;
+                      const q = ticketSearch.toLowerCase();
+                      return (
+                        (t.ticketId && t.ticketId.toLowerCase().includes(q)) ||
+                        (t.customerName && t.customerName.toLowerCase().includes(q)) ||
+                        (t.customerEmail && t.customerEmail.toLowerCase().includes(q)) ||
+                        (t.companyName && t.companyName.toLowerCase().includes(q)) ||
+                        (t.companyCode && t.companyCode.toLowerCase().includes(q)) ||
+                        (t.title && t.title.toLowerCase().includes(q)) ||
+                        (t.description && t.description.toLowerCase().includes(q))
+                      );
+                    })
+                    .map(t => {
+                      const getStatusBadge = (st) => {
+                        switch (st) {
+                          case 'Open': return { bg: '#fef3c7', col: '#b45309', label: '🟡 Open' };
+                          case 'In Progress': return { bg: '#e0f2fe', col: '#0369a1', label: '🔵 In Progress' };
+                          case 'Under Review': return { bg: '#f3e8ff', col: '#7e22ce', label: '🟣 Under Review' };
+                          case 'Resolved': return { bg: '#dcfce7', col: '#15803d', label: '🟢 Resolved' };
+                          case 'Closed': return { bg: '#f1f5f9', col: '#475569', label: '⚪ Closed' };
+                          default: return { bg: '#f1f5f9', col: '#475569', label: st };
+                        }
+                      };
+                      const badge = getStatusBadge(t.status);
+                      return (
+                        <tr key={t._id || t.ticketId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ fontWeight: '800', color: '#028090', fontFamily: 'monospace', fontSize: '0.95rem' }}>
+                              {t.ticketId}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <strong style={{ display: 'block', color: '#1e293b' }}>{t.customerName || 'Customer'}</strong>
+                            <span style={{ color: '#00a896', fontSize: '0.82rem', display: 'block' }}>{t.customerEmail}</span>
+                            <span style={{ color: '#64748b', fontSize: '0.78rem' }}>{t.companyName} ({t.companyCode || 'N/A'})</span>
+                          </td>
+                          <td style={{ padding: '14px 14px' }}>
+                            <div style={{ fontWeight: '600', color: '#334155' }}>{t.category}</div>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontWeight: 'bold',
+                              display: 'inline-block',
+                              marginTop: '4px',
+                              background: t.priority === 'Critical' ? '#fee2e2' : t.priority === 'High' ? '#ffedd5' : '#f1f5f9',
+                              color: t.priority === 'Critical' ? '#dc2626' : t.priority === 'High' ? '#c2410c' : '#475569'
+                            }}>
+                              {t.priority}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', maxWidth: '300px' }}>
+                            <strong style={{ display: 'block', color: '#0f172a', marginBottom: '4px' }}>{t.title}</strong>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '0.82rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {t.description}
+                            </p>
+                          </td>
+                          <td style={{ padding: '14px 14px', textAlign: 'center' }}>
+                            <span style={{
+                              background: badge.bg,
+                              color: badge.col,
+                              padding: '4px 12px',
+                              borderRadius: '12px',
+                              fontWeight: '700',
+                              fontSize: '0.82rem',
+                              display: 'inline-block'
+                            }}>
+                              {badge.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '0.85rem' }}>
+                            {t.resolutionNotes ? (
+                              <div style={{ background: '#f0fdf4', color: '#166534', padding: '6px 12px', borderRadius: '6px', borderLeft: '3px solid #16a34a', fontSize: '0.84rem' }}>
+                                💬 {t.resolutionNotes}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.82rem' }}>
+                                Awaiting NexByte_Core update
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                            {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Individual User Trial Management Modal (Owner decide karega kitne din ka dena hai) */}
@@ -1666,7 +1901,7 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                         Team Members: <strong>{userActivityData.summary?.totalTeamMembers || 0}</strong>
                       </div>
                       <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
-                        🛡️ Incidents: <strong style={{ color: '#028090' }}>{userActivityData.summary?.totalIncidents || userActivityData.incidents?.length || 0}</strong> | Sessions: <strong>{userActivityData.summary?.totalSessions || 0}</strong>
+                        🛡️ Incidents: <strong style={{ color: '#028090' }}>{userActivityData.summary?.totalIncidents || userActivityData.incidents?.length || 0}</strong> | 🎫 Tickets: <strong style={{ color: '#028090' }}>{userActivityData.summary?.totalTickets || userActivityData.tickets?.length || 0}</strong>
                       </div>
                     </div>
                   </div>
@@ -1747,6 +1982,21 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                       }}
                     >
                       ⏱️ Meeting Sessions ({userActivityData.sessions?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setActivityTab('tickets')}
+                      style={{
+                        padding: '10px 18px',
+                        fontWeight: '700',
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        borderBottom: activityTab === 'tickets' ? '3px solid #00a896' : '3px solid transparent',
+                        background: 'transparent',
+                        color: activityTab === 'tickets' ? '#00a896' : '#64748b'
+                      }}
+                    >
+                      🎫 Support Tickets ({userActivityData.tickets?.length || 0})
                     </button>
                   </div>
 
@@ -2054,6 +2304,108 @@ const PlatformOwnerDashboard = ({ onLogout }) => {
                               <tr>
                                 <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
                                   No HAZOP meeting sessions recorded yet.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 5: Customer Support Tickets */}
+                  {activityTab === 'tickets' && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', background: '#fafbfc' }}>
+                        <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>
+                          Support Tickets Raised by {selectedUserForActivity.companyName || selectedUserForActivity.name || selectedUserForActivity.email}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                          Triaged by NexByte_Core (nexbyte.dev@gmail.com). Status updates are notified to customer via email.
+                        </div>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                              <th style={{ padding: '12px 16px' }}>Ticket ID</th>
+                              <th style={{ padding: '12px 14px' }}>Category & Priority</th>
+                              <th style={{ padding: '12px 16px' }}>Problem / Issue</th>
+                              <th style={{ padding: '12px 14px', textAlign: 'center' }}>Live Status</th>
+                              <th style={{ padding: '12px 16px' }}>NexByte_Core Resolution Note</th>
+                              <th style={{ padding: '12px 14px' }}>Date Raised</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userActivityData.tickets?.map(tk => {
+                              const getStatusBadge = (st) => {
+                                switch (st) {
+                                  case 'Open': return { bg: '#fef3c7', col: '#b45309', label: '🟡 Open' };
+                                  case 'In Progress': return { bg: '#e0f2fe', col: '#0369a1', label: '🔵 In Progress' };
+                                  case 'Under Review': return { bg: '#f3e8ff', col: '#7e22ce', label: '🟣 Under Review' };
+                                  case 'Resolved': return { bg: '#dcfce7', col: '#15803d', label: '🟢 Resolved' };
+                                  case 'Closed': return { bg: '#f1f5f9', col: '#475569', label: '⚪ Closed' };
+                                  default: return { bg: '#f1f5f9', col: '#475569', label: st };
+                                }
+                              };
+                              const badge = getStatusBadge(tk.status);
+                              return (
+                                <tr key={tk._id || tk.ticketId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                  <td style={{ padding: '12px 16px', fontWeight: '800', color: '#028090', fontFamily: 'monospace' }}>
+                                    {tk.ticketId}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <div style={{ fontWeight: '600', color: '#1e293b' }}>{tk.category}</div>
+                                    <span style={{
+                                      fontSize: '0.74rem',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      background: tk.priority === 'Critical' ? '#fee2e2' : tk.priority === 'High' ? '#ffedd5' : '#f1f5f9',
+                                      color: tk.priority === 'Critical' ? '#dc2626' : tk.priority === 'High' ? '#c2410c' : '#475569'
+                                    }}>
+                                      {tk.priority}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <strong style={{ display: 'block', color: '#0f172a', marginBottom: '4px' }}>{tk.title}</strong>
+                                    <span style={{ color: '#64748b', fontSize: '0.82rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                      {tk.description}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                    <span style={{
+                                      background: badge.bg,
+                                      color: badge.col,
+                                      padding: '4px 10px',
+                                      borderRadius: '12px',
+                                      fontWeight: '700',
+                                      fontSize: '0.8rem',
+                                      display: 'inline-block'
+                                    }}>
+                                      {badge.label}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', color: '#334155', fontSize: '0.84rem' }}>
+                                    {tk.resolutionNotes ? (
+                                      <div style={{ background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #00a896' }}>
+                                        💬 {tk.resolutionNotes}
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending dev triage</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '12px 14px', color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                    {tk.createdAt ? new Date(tk.createdAt).toLocaleDateString('en-GB') : '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {(!userActivityData.tickets || userActivityData.tickets.length === 0) && (
+                              <tr>
+                                <td colSpan="6" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                                  <div style={{ fontSize: '1.8rem', marginBottom: '6px' }}>🎉</div>
+                                  <div>No support tickets raised by this customer.</div>
                                 </td>
                               </tr>
                             )}
